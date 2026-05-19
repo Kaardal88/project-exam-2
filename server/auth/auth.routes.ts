@@ -4,9 +4,10 @@ import { createToken } from "./jwt";
 import { verifyPassword } from "./password";
 import { loginSchema, registerSchema } from "./auth.schemas";
 import { hashPassword } from "./password";
+import { requireAuth } from "./auth.middleware";
 
-import { db } from "@/app/server/db";
-import { users } from "@/app/server/db/schema";
+import { db } from "@/server/db";
+import { users } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 
 export const authRoutes = new Hono();
@@ -70,4 +71,23 @@ authRoutes.post("/login", zValidator("json", loginSchema), async (c) => {
   }
 
   return c.json({ token });
+});
+
+authRoutes.get("/me", requireAuth, async (c) => {
+  const userId = c.get("userId") as string | undefined;
+
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, Number(userId)),
+    columns: { id: true, username: true, email: true },
+  });
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 404);
+  }
+
+  return c.json({ user });
 });
