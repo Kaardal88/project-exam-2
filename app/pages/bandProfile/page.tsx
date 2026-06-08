@@ -14,6 +14,7 @@ import { EventForm } from "@/components/calendar/EventForm";
 import { EditBandProfileModal } from "@/components/bandProfile/editBandProfileModal";
 import { EventCard } from "@/components/calendar/EventCard";
 import { UserPlus, UserX, LucidePanelBottomOpen } from "lucide-react";
+import { Suspense } from "react";
 
 type Band = {
   id: string | number;
@@ -62,7 +63,7 @@ type BandEvent = {
   };
 };
 
-export default function BandProfilePage() {
+function BandProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const bandId = searchParams.get("id");
@@ -719,5 +720,13 @@ export default function BandProfilePage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function BandProfilePage() {
+  return (
+    <Suspense fallback={<p>Loading...</p>}>
+      <BandProfileContent />
+    </Suspense>
   );
 }

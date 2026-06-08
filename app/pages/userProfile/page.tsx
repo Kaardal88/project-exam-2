@@ -7,6 +7,7 @@ import { NavBar } from "@/components/NavBar";
 import { EventCard } from "@/components/calendar/EventCard";
 import { EditUserProfileModal } from "@/components/userProfile/EditUserProfileModal";
 import { ExternalLink } from "lucide-react";
+import { Suspense } from "react";
 
 type User = {
   id: string;
@@ -38,7 +39,7 @@ type BandEvent = {
   band_id: string | number;
 };
 
-export default function UserProfilePage() {
+function UserProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -373,5 +374,13 @@ export default function UserProfilePage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function UserProfilePage() {
+  return (
+    <Suspense fallback={<p>Loading...</p>}>
+      <UserProfileContent />
+    </Suspense>
   );
 }
