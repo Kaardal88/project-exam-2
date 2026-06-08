@@ -7,10 +7,16 @@ import { hashPassword } from "./password";
 import { requireAuth } from "./auth.middleware";
 
 import { db } from "@/server/db";
-import { users } from "@/server/db/schema";
+import { users, bands, band_members } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 
-export const authRoutes = new Hono();
+type AuthVariables = {
+  userId: string;
+};
+
+export const authRoutes = new Hono<{
+  Variables: AuthVariables;
+}>();
 
 authRoutes.post("/register", zValidator("json", registerSchema), async (c) => {
   const data = c.req.valid("json");
@@ -81,13 +87,72 @@ authRoutes.get("/me", requireAuth, async (c) => {
   }
 
   const user = await db.query.users.findFirst({
-    where: eq(users.id, Number(userId)),
-    columns: { id: true, username: true, email: true },
+    where: eq(users.id, userId),
+    columns: {
+      id: true,
+      username: true,
+      email: true,
+      image_url: true,
+      header_image_url: true,
+    },
   });
 
   if (!user) {
     return c.json({ error: "User not found" }, 404);
   }
 
-  return c.json({ user });
+  const bandMembers = await db.query.band_members.findMany({
+    where: eq(band_members.user_id, userId),
+    columns: { band_id: true, role: true, joined_at: true },
+    with: {
+      band: {
+        columns: {
+          id: true,
+          band_name: true,
+          image_url: true,
+        },
+      },
+    },
+  });
+
+  return c.json({ user, bandMembers }, 200);
+});
+
+authRoutes.get("/users/:userId", async (c) => {
+  const { userId } = c.req.param();
+
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+    columns: {
+      id: true,
+      username: true,
+      email: true,
+      image_url: true,
+      header_image_url: true,
+    },
+  });
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 404);
+  }
+
+  const bandMembers = await db.query.band_members.findMany({
+    where: eq(band_members.user_id, userId),
+    columns: { band_id: true, role: true, joined_at: true },
+    with: {
+      band: {
+        columns: {
+          id: true,
+          band_name: true,
+          image_url: true,
+        },
+      },
+    },
+  });
+
+  return c.json({ user, bandMembers }, 200);
+});
+
+authRoutes.get("/logout", requireAuth, async (c) => {
+  return c.json({ message: "Logout successful" });
 });

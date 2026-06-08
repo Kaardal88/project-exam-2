@@ -31,14 +31,13 @@ export default function LoginPage() {
     }
 
     localStorage.setItem("token", data.token);
-    router.push("/pages/userProfile");
+    router.push(`/pages/userProfile`);
   }
 
   return (
     <main className="auth-page">
-      <section className="auth-card">
-        <h1>Log in</h1>
-        <p>Welcome back. Log in to continue.</p>
+      <section className="mx-auto my-auto w-96 sm:w-80 md:w-96 lg:w-100 overflow-hidden border border-neutral-700 bg-neutral-900/80 shadow-2xl p-6 ">
+        <h1 className="text-2xl font-bold mb-4">Log in</h1>
 
         <form onSubmit={handleSubmit} className="auth-form">
           <label>

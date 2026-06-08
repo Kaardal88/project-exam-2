@@ -1,0 +1,31 @@
+.secondaryBtn {
+  background-color: var(--chakra-colors-secondary-500);
+  color: #d8cfa4;
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+
+  transition: background-color 0.2s ease;
+
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  justify-content: center;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "icon title"
+    "icon subtitle";
+  font-size: 0.9rem;
+}
+
+.secondaryBtn:hover {
+  background-color: #d8cfa4;
+  color: #111;
+}
+
+.secondaryBtn:active {
+  background-color: var(--chakra-colors-secondary-700);
+}

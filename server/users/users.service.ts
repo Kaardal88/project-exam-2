@@ -19,16 +19,30 @@ export async function getUserByEmail(email: string) {
 }
 
 export async function updateUser(
-  id: number | string,
-  username: string,
-  email: string,
-  passwordHash: string,
+  id: string,
+  data: {
+    username?: string;
+    image_url?: string;
+    header_image_url?: string;
+  },
 ) {
-  return db
+  const [updatedUser] = await db
     .update(users)
-    .set({ username, email, password_hash: passwordHash })
-    .where(eq(users.id, Number(id)))
-    .returning();
+    .set({
+      username: data.username,
+      image_url: data.image_url,
+      header_image_url: data.header_image_url,
+    })
+    .where(eq(users.id, id))
+    .returning({
+      id: users.id,
+      username: users.username,
+      email: users.email,
+      image_url: users.image_url,
+      header_image_url: users.header_image_url,
+    });
+
+  return updatedUser;
 }
 
 export async function deleteUser(id: number | string) {
