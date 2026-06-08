@@ -6,9 +6,9 @@ export async function getUsers() {
   return db.query.users.findMany();
 }
 
-export async function getUserById(id: number | string) {
+export async function getUserById(id: string) {
   return db.query.users.findFirst({
-    where: eq(users.id, Number(id)),
+    where: eq(users.id, id),
   });
 }
 
@@ -45,6 +45,6 @@ export async function updateUser(
   return updatedUser;
 }
 
-export async function deleteUser(id: number | string) {
-  return db.delete(users).where(eq(users.id, Number(id)));
+export async function deleteUser(id: string) {
+  return db.delete(users).where(eq(users.id, id));
 }
