@@ -11,6 +11,7 @@ type BandsVariables = {
   bandname: string | null;
   bio: string | null;
   image_url: string | null;
+  header_image_url: string | null;
 };
 
 export const bandsRoutes = new Hono<{ Variables: BandsVariables }>();
@@ -61,6 +62,7 @@ bandsRoutes.post("/", requireAuth, async (c) => {
       created_by: userId,
       bio: body.bio,
       image_url: body.image_url,
+      header_image_url: body.header_image_url,
     })
     .returning();
 
@@ -194,6 +196,7 @@ bandsRoutes.put("/:id", requireAuth, async (c) => {
     band_name: body.band_name,
     bio: body.bio,
     image_url: body.image_url,
+    header_image_url: body.header_image_url,
   });
 
   if (!updatedBand) {

@@ -9,7 +9,7 @@ export default function RegisterPage() {
   const [bandname, setBandName] = useState("");
   const [bio, setBio] = useState("");
   const [imageUrl, setImageUrl] = useState("");
-
+  const [headerImageUrl, setHeaderImageUrl] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -36,6 +36,7 @@ export default function RegisterPage() {
         bandname,
         bio,
         image_url: imageUrl,
+        header_image_url: headerImageUrl,
       }),
     });
 
@@ -91,6 +92,16 @@ export default function RegisterPage() {
               value={imageUrl}
               onChange={(event) => setImageUrl(event.target.value)}
               placeholder="Image URL"
+            />
+          </label>
+
+          <label>
+            Header Image
+            <input
+              type="url"
+              value={headerImageUrl}
+              onChange={(event) => setHeaderImageUrl(event.target.value)}
+              placeholder="Header Image URL"
             />
           </label>
 

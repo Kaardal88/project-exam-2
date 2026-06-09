@@ -37,6 +37,7 @@ authRoutes.post("/register", zValidator("json", registerSchema), async (c) => {
       username: data.username,
       email: data.email,
       password_hash,
+      tags: data.tags ?? [],
     })
     .returning();
 
@@ -46,6 +47,7 @@ authRoutes.post("/register", zValidator("json", registerSchema), async (c) => {
       id: newUser.id,
       username: newUser.username,
       email: newUser.email,
+      tags: newUser.tags,
     },
   });
 });
@@ -94,6 +96,7 @@ authRoutes.get("/me", requireAuth, async (c) => {
       email: true,
       image_url: true,
       header_image_url: true,
+      tags: true,
     },
   });
 
@@ -129,6 +132,7 @@ authRoutes.get("/users/:userId", async (c) => {
       email: true,
       image_url: true,
       header_image_url: true,
+      tags: true,
     },
   });
 

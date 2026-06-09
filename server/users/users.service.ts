@@ -24,6 +24,7 @@ export async function updateUser(
     username?: string;
     image_url?: string;
     header_image_url?: string;
+    tags?: string[];
   },
 ) {
   const [updatedUser] = await db
@@ -32,6 +33,7 @@ export async function updateUser(
       username: data.username,
       image_url: data.image_url,
       header_image_url: data.header_image_url,
+      tags: data.tags,
     })
     .where(eq(users.id, id))
     .returning({
@@ -40,6 +42,7 @@ export async function updateUser(
       email: users.email,
       image_url: users.image_url,
       header_image_url: users.header_image_url,
+      tags: users.tags,
     });
 
   return updatedUser;

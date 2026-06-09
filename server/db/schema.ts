@@ -6,7 +6,7 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -28,6 +28,10 @@ export const users = pgTable("users", {
   image_url: text("image_url"),
 
   header_image_url: text("header_image_url"),
+
+  tags: text("tags")
+    .array()
+    .default(sql`'{}'::text[]`),
 });
 
 export const bands = pgTable("bands", {
@@ -40,6 +44,8 @@ export const bands = pgTable("bands", {
   bio: text("bio"),
 
   image_url: text("image_url"),
+
+  header_image_url: text("header_image_url"),
 
   slug: varchar("slug", {
     length: 255,

@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
-import { Permanent_Marker, Caveat_Brush } from "next/font/google";
+import { Permanent_Marker, Caveat_Brush, Geist } from "next/font/google";
 import "./globals.css";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const permanentMarker = Permanent_Marker({
   weight: "400",
@@ -27,7 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${permanentMarker.variable} ${caveatBrush.variable} h-full antialiased`}
+      className={cn("h-full", "antialiased", permanentMarker.variable, caveatBrush.variable, "font-sans", geist.variable)}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

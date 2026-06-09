@@ -120,6 +120,7 @@ function BandProfileContent() {
         setBandName(data.band?.band_name ?? "");
         setBio(data.band?.bio ?? "");
         setImageUrl(data.band?.image_url ?? "");
+        setHeaderImageUrl(data.band?.header_image_url ?? "");
 
         const membership = data.membership;
         if (membership) {
@@ -375,9 +376,9 @@ function BandProfileContent() {
       <section className="mx-auto mt-1 flex flex-col w-full max-w-7xl rounded-md sm:48 md:w-3/4 overflow-hidden border border-neutral-700 bg-neutral-900/80 shadow-2xl">
         {/* Header image */}
         <div className="relative h-32 sm:h-48 md:h-72 lg:h-110 w-full overflow-hidden bg-gradient-to-r from-neutral-950 via-neutral-800 to-slate-900 shadow">
-          {band?.image_url ? (
+          {band?.header_image_url ? (
             <img
-              src={band.image_url}
+              src={band.header_image_url}
               alt="Header"
               className="h-full w-full object-cover opacity-80"
             />

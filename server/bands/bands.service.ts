@@ -1,5 +1,5 @@
 import { db } from "@/server/db";
-import { bands, users } from "@/server/db/schema";
+import { bands } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 
 export async function getBands() {
@@ -34,7 +34,7 @@ export async function updateBand(
       band_name: data.band_name,
       bio: data.bio,
       image_url: data.image_url,
-
+      header_image_url: data.header_image_url,
       slug: data.slug,
     })
     .where(eq(bands.id, id))

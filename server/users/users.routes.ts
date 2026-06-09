@@ -19,6 +19,7 @@ usersRoutes.get("/", requireAuth, async (c) => {
       email: true,
       image_url: true,
       header_image_url: true,
+      tags: true,
     },
   });
   return c.json(users);
@@ -34,6 +35,7 @@ usersRoutes.get("/:id", requireAuth, async (c) => {
       email: true,
       image_url: true,
       header_image_url: true,
+      tags: true,
     },
   });
   const bandMembers = await db.query.band_members.findMany({

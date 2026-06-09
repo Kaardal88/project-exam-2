@@ -16,6 +16,7 @@ type User = {
   password_hash: string;
   image_url: string;
   header_image_url: string | null;
+  tags: string[];
 };
 
 type BandMember = {
@@ -39,6 +40,16 @@ type BandEvent = {
   band_id: string | number;
 };
 
+const defaultTags = [
+  { value: "drummer", label: "Drummer", icon: "🥁" },
+  { value: "singer", label: "Singer", icon: "🎤" },
+  { value: "guitarist", label: "Guitarist", icon: "🎸" },
+  { value: "producer", label: "Producer", icon: "🎛️" },
+  { value: "mixing-engineer", label: "Mixing Engineer", icon: "🎚️" },
+  { value: "mastering-engineer", label: "Mastering Engineer", icon: "💿" },
+  { value: "manager", label: "Manager", icon: "📋" },
+];
+
 function UserProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -58,6 +69,7 @@ function UserProfileContent() {
   const [headerImageUrl, setHeaderImageUrl] = useState("");
   const [username, setUsername] = useState("");
   const [events, setEvents] = useState<BandEvent[]>([]);
+  const tagMap = Object.fromEntries(defaultTags.map((tag) => [tag.value, tag]));
 
   useEffect(() => {
     async function loadUser() {
@@ -248,6 +260,27 @@ function UserProfileContent() {
           <h1 className="text-2xl font-bold text-yellow-100">
             {user?.username}
           </h1>
+
+          {user?.tags && user.tags.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {user.tags.map((tag) => {
+                const tagInfo = tagMap[tag];
+
+                return (
+                  <span
+                    key={tag}
+                    className="flex items-center gap-2 rounded-full border border-yellow-200/20 bg-black/40 px-3 py-1 text-sm text-yellow-100"
+                  >
+                    <span>{tagInfo?.icon}</span>
+
+                    <span>{tagInfo?.label ?? tag}</span>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          <p className="mt-1 text-sm text-neutral-400">{user?.email}</p>
 
           <p className="mt-1 text-sm text-neutral-400">@{user?.username}</p>
         </div>
