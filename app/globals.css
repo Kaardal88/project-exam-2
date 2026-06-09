@@ -234,7 +234,22 @@ input {
   margin: 0 auto;
 }
 
+.navbar-mobile {
+  display: none;
+}
+
 @media screen and (min-width: 640px) {
+  .navbar-mobile {
+    visibility: hidden;
+
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0.8rem;
+    background: #f1ead5;
+    font-size: 0.8rem;
+  }
+
   .vardo-calendar .rdp-root {
     padding: 2rem;
   }
