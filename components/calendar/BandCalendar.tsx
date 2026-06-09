@@ -46,7 +46,7 @@ export function BandCalendar({
   });
 
   return (
-    <section className="vardo-calendar mx-auto flex w-full max-w-7xl flex-col items-center">
+    <section className="vardo-calendar mx-auto flex w-full max-w-full flex-col items-center overflow-hidden sm:max-w-7xl">
       <DayPicker
         mode="single"
         selected={selectedDate}
@@ -63,18 +63,23 @@ export function BandCalendar({
           month_caption:
             "mb-12 flex justify-center  text-xl font-bold text-yellow-100 lg:text-2xl",
 
-          nav: "absolute left-1/2 top-12  flex -translate-x-1/2 gap-24",
+          nav: "absolute left-1/2 top-12 flex -translate-x-1/2 gap-16 sm:gap-24",
 
           button_previous:
             "rounded-full p-2 text-yellow-100 hover:bg-neutral-700 [&_svg]:stroke-yellow-100",
           button_next:
             "rounded-full p-2 text-yellow-100 hover:bg-neutral-700 [&_svg]:stroke-yellow-100",
 
-          month_grid: "mx-auto  border-separate border-spacing-3",
-          weekday: "h-8 w-10 text-sm text-neutral-400",
-          day: "relative h-10 w-10 text-center",
+          month_grid:
+            "mx-auto border-separate border-spacing-1 sm:border-spacing-3 lg:border-spacing-4",
+
+          weekday:
+            "h-7 w-8 text-xs text-neutral-400 sm:h-8 sm:w-10 sm:text-sm lg:h-10 lg:w-14 lg:text-base",
+
+          day: "relative h-8 w-8 text-center sm:h-10 sm:w-10 lg:h-14 lg:w-14",
+
           day_button:
-            "relative h-10 w-10 rounded-full text-yellow-100 hover:bg-neutral-700 lg:text-lg",
+            "relative h-8 w-8 rounded-full text-sm text-yellow-100 hover:bg-neutral-700 sm:h-10 sm:w-10 sm:text-base lg:h-14 lg:w-14 lg:text-lg",
 
           selected:
             "rounded-full bg-yellow-200 !text-black [&>button]:!text-black",
