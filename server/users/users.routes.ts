@@ -58,7 +58,7 @@ usersRoutes.put("/:id", requireAuth, async (c) => {
   const id = c.req.param("id");
   const userId = c.get("userId");
 
-  const { username, image_url, header_image_url } = await c.req.json();
+  const { username, image_url, header_image_url, tags } = await c.req.json();
 
   if (userId !== id) {
     return c.json({ error: "Users can only update their own account" }, 403);
@@ -68,6 +68,7 @@ usersRoutes.put("/:id", requireAuth, async (c) => {
     username,
     image_url,
     header_image_url,
+    tags,
   });
 
   return c.json({ user: updatedUser });

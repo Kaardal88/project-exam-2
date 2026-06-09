@@ -59,14 +59,14 @@ export function TagCombobox({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium leading-none">Who are you?</p>
+      <p className="text-sm font-medium leading-none">What do you do?</p>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             role="combobox"
             className="w-full px-3 py-6 justify-between border border-neutral-700 text-yellow-100"
           >
-            Choose musician / work roles
+            Choose from list or create role
             <ChevronsUpDown className="ml-2 h-4 w-4 opacity-60" />
           </Button>
         </PopoverTrigger>

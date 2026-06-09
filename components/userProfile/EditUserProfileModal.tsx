@@ -13,6 +13,9 @@ type EditUserProfileModalProps = {
 
   headerImageUrl: string;
   setHeaderImageUrl: (value: string) => void;
+
+  tags: string[];
+  setTags: (value: string[]) => void;
 };
 
 export function EditUserProfileModal({
@@ -25,6 +28,8 @@ export function EditUserProfileModal({
   setImageUrl,
   headerImageUrl,
   setHeaderImageUrl,
+  tags,
+  setTags,
 }: EditUserProfileModalProps) {
   if (!isOpen) return null;
 
@@ -80,6 +85,19 @@ export function EditUserProfileModal({
               type="text"
               value={headerImageUrl}
               onChange={(e) => setHeaderImageUrl(e.target.value)}
+              className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-yellow-100">
+              Tags
+            </label>
+
+            <input
+              type="text"
+              value={tags}
+              onChange={(e) => setTags(e.target.value.split(","))}
               className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
             />
           </div>

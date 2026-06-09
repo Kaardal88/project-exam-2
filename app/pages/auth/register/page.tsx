@@ -46,8 +46,10 @@ export default function RegisterPage() {
             </span>
           </Link>
         </div>
-        <h1>Create account</h1>
-        <p>Start organizing your music projects.</p>
+        <h1 className="text-3xl pb-2 md:text-3xl text-center font-[family-name:var(--font-caveat)]">
+          Create account
+        </h1>
+        <p className="text-center">Start organizing your music projects.</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
           <label>

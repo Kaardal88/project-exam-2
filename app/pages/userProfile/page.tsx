@@ -69,6 +69,7 @@ function UserProfileContent() {
   const [headerImageUrl, setHeaderImageUrl] = useState("");
   const [username, setUsername] = useState("");
   const [events, setEvents] = useState<BandEvent[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const tagMap = Object.fromEntries(defaultTags.map((tag) => [tag.value, tag]));
 
   useEffect(() => {
@@ -103,7 +104,7 @@ function UserProfileContent() {
       setHeaderImageUrl(data.user.header_image_url ?? "");
       setUser(data.user);
       setMembers(data.bandMembers ?? []);
-
+      setTags(data.user.tags ?? []);
       setLoading(false);
     }
 
@@ -176,6 +177,7 @@ function UserProfileContent() {
 
         image_url: imageUrl,
         header_image_url: headerImageUrl,
+        tags: tags,
       }),
     });
 
@@ -190,6 +192,7 @@ function UserProfileContent() {
     setUsername(data.user.username ?? "");
     setImageUrl(data.user.image_url ?? "");
     setHeaderImageUrl(data.user.header_image_url ?? "");
+    setTags(data.user.tags ?? []);
 
     closeEditModal();
   }
@@ -318,6 +321,8 @@ function UserProfileContent() {
                 setImageUrl={setImageUrl}
                 headerImageUrl={headerImageUrl}
                 setHeaderImageUrl={setHeaderImageUrl}
+                tags={tags}
+                setTags={setTags}
               />
             </>
           )}
