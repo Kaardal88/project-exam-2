@@ -326,20 +326,20 @@ function UserProfileContent() {
         </div>
       </section>
       <section className="mx-auto mt-6  mb-10 w-full max-w-7xl md:w-3/4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-1 lg:grid-cols-3">
           <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl lg:col-span-4">
-            <div className="mt-4">
+            <div className="mt-4 ">
               <p className="mb-4 text-lg font-bold text-yellow-100">
                 <strong>{user?.username}&apos;s artistpages</strong>
               </p>
 
               {members.length > 0 ? (
-                <div className="flex flex-wrap  gap-4">
+                <div className="flex flex-wrap justify-center gap-4 md:justify-start">
                   {members.map((member) => (
                     <Link
                       key={member.band_id}
                       href={`/pages/bandProfile?id=${member.band_id}`}
-                      className="flex w-44 flex-col items-center rounded-md border border-neutral-700  p-4 text-center transition hover:bg-neutral-800"
+                      className="flex justify-center w-44 flex-col items-center rounded-md border border-neutral-700  p-4 text-center transition hover:bg-neutral-800"
                     >
                       {member.band.image_url ? (
                         <img
