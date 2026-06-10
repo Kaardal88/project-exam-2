@@ -263,6 +263,7 @@ function UserProfileContent() {
           <h1 className="text-2xl font-bold text-yellow-100">
             {user?.username}
           </h1>
+          <p className="mt-2 text-sm text-neutral-400">@{user?.username}</p>
 
           {user?.tags && user.tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
@@ -282,10 +283,6 @@ function UserProfileContent() {
               })}
             </div>
           )}
-
-          <p className="mt-1 text-sm text-neutral-400">{user?.email}</p>
-
-          <p className="mt-1 text-sm text-neutral-400">@{user?.username}</p>
         </div>
         <div className=" flex flex-row justify-end mb-2 mr-4 gap-2">
           {isOwnProfile && (
@@ -337,7 +334,7 @@ function UserProfileContent() {
               </p>
 
               {members.length > 0 ? (
-                <div className="flex flex-wrap justify-center gap-4">
+                <div className="flex flex-wrap  gap-4">
                   {members.map((member) => (
                     <Link
                       key={member.band_id}

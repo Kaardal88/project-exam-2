@@ -16,6 +16,9 @@ import { EventCard } from "@/components/calendar/EventCard";
 import { UserPlus, UserX, LucidePanelBottomOpen } from "lucide-react";
 import { Suspense } from "react";
 
+import countries from "world-countries";
+import ReactCountryFlag from "react-country-flag";
+
 type Band = {
   id: string | number;
   band_name: string;
@@ -25,6 +28,7 @@ type Band = {
   slug: string;
   created_by: string;
   created_at: string | null;
+  country: string | null;
 };
 
 type User = {
@@ -86,6 +90,14 @@ function BandProfileContent() {
   const [events, setEvents] = useState<BandEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [membersOpen, setMembersOpen] = useState(false);
+  const countryOptions = countries.map((country) => ({
+    value: country.cca2,
+    label: country.name.common,
+  }));
+
+  const countryInfo = countryOptions.find(
+    (option) => option.value === band?.country,
+  );
 
   const filteredUsers = users.filter((user) =>
     user.username.toLowerCase().includes(search.toLowerCase()),
@@ -404,6 +416,12 @@ function BandProfileContent() {
           <h1 className="text-2xl font-bold text-yellow-100">
             {band?.band_name}
           </h1>
+          {countryInfo && (
+            <div className="mt-2 flex items-center gap-2 text-sm text-neutral-300">
+              <ReactCountryFlag countryCode={countryInfo.value} svg />
+              <span>{countryInfo.label}</span>
+            </div>
+          )}
 
           <p className="mt-1 text-sm text-neutral-400">@{band?.band_name}</p>
           {role === "band_leader" && (

@@ -26,6 +26,7 @@ export async function updateBand(
     image_url?: string;
     header_image_url?: string;
     slug?: string;
+    country?: string;
   },
 ) {
   const [updatedBand] = await db
@@ -36,6 +37,7 @@ export async function updateBand(
       image_url: data.image_url,
       header_image_url: data.header_image_url,
       slug: data.slug,
+      country: data.country,
     })
     .where(eq(bands.id, id))
     .returning();

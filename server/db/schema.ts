@@ -56,6 +56,7 @@ export const bands = pgTable("bands", {
   created_by: uuid("created_by").references(() => users.id),
 
   created_at: timestamp("created_at").defaultNow(),
+  country: text("country"),
 });
 
 export const band_members = pgTable(
