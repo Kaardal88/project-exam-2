@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Modal } from "@/components/Modal";
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Plus } from "lucide-react";
 
 import { NavBar } from "@/components/NavBar";
 import { BandCalendar } from "@/components/calendar/BandCalendar";
@@ -523,13 +523,22 @@ function BandProfileContent() {
 
           <p className="mt-1 text-sm text-neutral-400">@{band?.band_name}</p>
           {role === "band_leader" && (
-            <button
-              className="absolute top-4 right-4 rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
-              onClick={() => setEditBandModalOpen(true)}
-            >
-              <p className="text-xs md:text-sm lg:text-base">Edit profile</p>
-            </button>
+            <div className="mt-2 justify-end flex items-center  gap-2 text-sm text-neutral-300">
+              <button
+                className=" rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
+                onClick={() => setEditBandModalOpen(true)}
+              >
+                <p className="text-xs md:text-sm lg:text-base">Edit profile</p>
+              </button>
+              <Link
+                href={`/pages/songDashboard?bandId=${bandId}`}
+                className="rounded-full border border-yellow-100 p-2 text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-200 hover:text-black md:text-sm lg:text-base justify-between flex items-center gap-2 hover:cursor-pointer"
+              >
+                <Plus className="h-4 w-4" /> New project
+              </Link>
+            </div>
           )}
+
           {editBandModalOpen && (
             <EditBandProfileModal
               isOpen={editBandModalOpen}
