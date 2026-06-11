@@ -27,6 +27,14 @@ export async function updateBand(
     header_image_url?: string;
     slug?: string;
     country?: string;
+    spotify_url?: string;
+    bandcamp_url?: string;
+    youtube_url?: string;
+    tidal_url?: string;
+    instagram_url?: string;
+    facebook_url?: string;
+    tiktok_url?: string;
+    website_url?: string;
   },
 ) {
   const [updatedBand] = await db
@@ -38,6 +46,14 @@ export async function updateBand(
       header_image_url: data.header_image_url,
       slug: data.slug,
       country: data.country,
+      spotify_url: data.spotify_url,
+      bandcamp_url: data.bandcamp_url,
+      youtube_url: data.youtube_url,
+      tidal_url: data.tidal_url,
+      instagram_url: data.instagram_url,
+      facebook_url: data.facebook_url,
+      tiktok_url: data.tiktok_url,
+      website_url: data.website_url,
     })
     .where(eq(bands.id, id))
     .returning();

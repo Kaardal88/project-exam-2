@@ -56,15 +56,9 @@ export function NavBar() {
 
         {/* Desktop right side */}
         <div className="hidden md:flex items-center gap-8">
-          <ul className="flex items-center gap-6 text-yellow-200 font-[family-name:var(--font-caveat)] text-xl">
+          <ul className="flex items-center gap-6 text-yellow-200 font-sans text-xl">
             <li>
               <Link href="/pages/usersPage">Connect</Link>
-            </li>
-            <li>
-              <Link href="#">About</Link>
-            </li>
-            <li>
-              <Link href="#">Contact</Link>
             </li>
           </ul>
 
@@ -121,12 +115,6 @@ export function NavBar() {
             </li>
             <li className="text-center">
               <Link href="/pages/usersPage">Connect</Link>
-            </li>
-            <li className="text-center">
-              <Link href="#">About</Link>
-            </li>
-            <li className="text-center">
-              <Link href="#">Contact</Link>
             </li>
           </ul>
         </div>

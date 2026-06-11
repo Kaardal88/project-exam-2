@@ -16,6 +16,30 @@ type EditBandProfileModalProps = {
 
   headerImageUrl: string;
   setHeaderImageUrl: (value: string) => void;
+
+  spotifyUrl: string;
+  setSpotifyUrl: (value: string) => void;
+
+  bandcampUrl: string;
+  setBandcampUrl: (value: string) => void;
+
+  youtubeUrl: string;
+  setYoutubeUrl: (value: string) => void;
+
+  tidalUrl: string;
+  setTidalUrl: (value: string) => void;
+
+  instagramUrl: string;
+  setInstagramUrl: (value: string) => void;
+
+  facebookUrl: string;
+  setFacebookUrl: (value: string) => void;
+
+  tiktokUrl: string;
+  setTiktokUrl: (value: string) => void;
+
+  websiteUrl: string;
+  setWebsiteUrl: (value: string) => void;
 };
 
 export function EditBandProfileModal({
@@ -30,6 +54,22 @@ export function EditBandProfileModal({
   setImageUrl,
   headerImageUrl,
   setHeaderImageUrl,
+  spotifyUrl,
+  setSpotifyUrl,
+  bandcampUrl,
+  setBandcampUrl,
+  youtubeUrl,
+  setYoutubeUrl,
+  tidalUrl,
+  setTidalUrl,
+  instagramUrl,
+  setInstagramUrl,
+  facebookUrl,
+  setFacebookUrl,
+  tiktokUrl,
+  setTiktokUrl,
+  websiteUrl,
+  setWebsiteUrl,
 }: EditBandProfileModalProps) {
   if (!isOpen) return null;
 
@@ -97,6 +137,110 @@ export function EditBandProfileModal({
               type="text"
               value={headerImageUrl}
               onChange={(e) => setHeaderImageUrl(e.target.value)}
+              className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-yellow-100">
+              Spotify URL
+            </label>
+
+            <input
+              type="text"
+              value={spotifyUrl}
+              onChange={(e) => setSpotifyUrl(e.target.value)}
+              className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-yellow-100">
+              Bandcamp URL
+            </label>
+
+            <input
+              type="text"
+              value={bandcampUrl}
+              onChange={(e) => setBandcampUrl(e.target.value)}
+              className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-yellow-100">
+              YouTube URL
+            </label>
+
+            <input
+              type="text"
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value)}
+              className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-yellow-100">
+              Tidal URL
+            </label>
+
+            <input
+              type="text"
+              value={tidalUrl}
+              onChange={(e) => setTidalUrl(e.target.value)}
+              className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-yellow-100">
+              Instagram URL
+            </label>
+
+            <input
+              type="text"
+              value={instagramUrl}
+              onChange={(e) => setInstagramUrl(e.target.value)}
+              className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-yellow-100">
+              Facebook URL
+            </label>
+
+            <input
+              type="text"
+              value={facebookUrl}
+              onChange={(e) => setFacebookUrl(e.target.value)}
+              className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-yellow-100">
+              TikTok URL
+            </label>
+
+            <input
+              type="text"
+              value={tiktokUrl}
+              onChange={(e) => setTiktokUrl(e.target.value)}
+              className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-yellow-100">
+              Website URL
+            </label>
+
+            <input
+              type="text"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
               className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
             />
           </div>

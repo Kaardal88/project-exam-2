@@ -13,6 +13,14 @@ type BandsVariables = {
   image_url: string | null;
   header_image_url: string | null;
   country: string | null;
+  spotify_url: string | null;
+  bandcamp_url: string | null;
+  youtube_url: string | null;
+  tidal_url: string | null;
+  instagram_url: string | null;
+  facebook_url: string | null;
+  tiktok_url: string | null;
+  website_url: string | null;
 };
 
 export const bandsRoutes = new Hono<{ Variables: BandsVariables }>();
@@ -25,6 +33,14 @@ bandsRoutes.get("/public", async (c) => {
       band_name: true,
       bio: true,
       image_url: true,
+      spotify_url: true,
+      bandcamp_url: true,
+      youtube_url: true,
+      tidal_url: true,
+      instagram_url: true,
+      facebook_url: true,
+      tiktok_url: true,
+      website_url: true,
     },
   });
 
@@ -40,6 +56,16 @@ bandsRoutes.get("/public/:id", async (c) => {
       band_name: true,
       bio: true,
       image_url: true,
+      header_image_url: true,
+      country: true,
+      spotify_url: true,
+      bandcamp_url: true,
+      youtube_url: true,
+      tidal_url: true,
+      instagram_url: true,
+      facebook_url: true,
+      tiktok_url: true,
+      website_url: true,
     },
     where: (bands, { eq }) => eq(bands.id, bandId),
   });
@@ -65,6 +91,14 @@ bandsRoutes.post("/", requireAuth, async (c) => {
       image_url: body.image_url,
       header_image_url: body.header_image_url,
       country: body.country,
+      spotify_url: body.spotify_url,
+      bandcamp_url: body.bandcamp_url,
+      youtube_url: body.youtube_url,
+      tidal_url: body.tidal_url,
+      instagram_url: body.instagram_url,
+      facebook_url: body.facebook_url,
+      tiktok_url: body.tiktok_url,
+      website_url: body.website_url,
     })
     .returning();
 
@@ -200,6 +234,14 @@ bandsRoutes.put("/:id", requireAuth, async (c) => {
     image_url: body.image_url,
     header_image_url: body.header_image_url,
     country: body.country,
+    spotify_url: body.spotify_url,
+    bandcamp_url: body.bandcamp_url,
+    youtube_url: body.youtube_url,
+    tidal_url: body.tidal_url,
+    instagram_url: body.instagram_url,
+    facebook_url: body.facebook_url,
+    tiktok_url: body.tiktok_url,
+    website_url: body.website_url,
   });
 
   if (!updatedBand) {

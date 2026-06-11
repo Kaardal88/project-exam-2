@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { NavBar } from "@/components/NavBar";
+import { Search } from "lucide-react";
 
 type User = {
   id: string;
@@ -16,6 +17,12 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [search, setSearch] = useState("");
+
+  const filteredUsers = users.filter((user) =>
+    user.username.toLowerCase().includes(search.toLowerCase()),
+  );
 
   useEffect(() => {
     async function loadUsers() {
@@ -56,19 +63,22 @@ export default function UsersPage() {
           Connect with people in the industry
         </h1>
         <div className="flex justify-center mb-12">
+          <Search className="w-6 h-6 md:w-8 md:h-8 lg:w-8 lg:h-8  mr-4 text-yellow-100 rotate-90  " />
           <input
             type="text"
-            placeholder="Search users..."
-            className="px-4 py-2 rounded-md border border-neutral-700 bg-neutral-800/50 text-yellow-100 placeholder:text-yellow-100/50 focus:outline-none focus:ring-2 focus:ring-yellow-100"
+            placeholder="Search by username"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="p-4 border h-6 md:h-8 lg:h-10 border-neutral-700 rounded-md bg-neutral-900/80 text-yellow-100"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 w-full max-w-6xl mx-auto justify-center bg-neutral-900/80 rounded-md p-6 border border-neutral-700">
-          {users.map((user) => (
+          {filteredUsers.map((user) => (
             <Link
               className="flex flex-col items-center gap-2 rounded-md border border-neutral-700 bg-neutral-800/50 p-4 transition hover:bg-neutral-800/80"
               key={user.id}
-              href={`/pages/userProfile/${user.id}`}
+              href={`/pages/userProfile?id=${user.id}`}
             >
               <img
                 src={user.image_url || "/default-avatar.png"}

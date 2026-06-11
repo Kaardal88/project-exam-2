@@ -290,7 +290,7 @@ function UserProfileContent() {
               onClick={() => setEditOpen(true)}
               className="  rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
             >
-              Edit profile
+              <p className="text-xs md:text-sm lg:text-base">Edit profile</p>
             </button>
           )}
           {isOwnProfile && (
@@ -299,14 +299,16 @@ function UserProfileContent() {
                 className="  rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
                 onClick={() => router.push("/pages/auth/createBand")}
               >
-                Create band/artist
+                <p className="text-xs md:text-sm lg:text-base">
+                  Create artist{" "}
+                </p>
               </button>
 
               <button
                 className=" rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
                 onClick={handleLogout}
               >
-                Log out
+                <p className="text-xs md:text-sm lg:text-base">Logout</p>
               </button>
               <EditUserProfileModal
                 isOpen={editOpen}
