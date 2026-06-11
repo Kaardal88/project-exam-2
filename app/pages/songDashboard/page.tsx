@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
+import { Suspense } from "react";
 
-export default function SongDashboardPage() {
+function SongDashboardPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -89,5 +90,13 @@ export default function SongDashboardPage() {
         </div>
       </section>
     </>
+  );
+}
+
+export default function SongDashboard() {
+  return (
+    <Suspense fallback={<p>Loading...</p>}>
+      <SongDashboardPageContent />
+    </Suspense>
   );
 }
