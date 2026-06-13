@@ -29,6 +29,7 @@ type Band = {
   facebook_url?: string | null;
   tiktok_url?: string | null;
   website_url?: string | null;
+  discography?: string | null;
 };
 
 type Member = {
@@ -51,15 +52,6 @@ export default function BandPublicDetailsPage() {
   const [band, setBand] = useState<Band | null>(null);
   const [showMembers, setShowMembers] = useState<Member[]>([]);
 
-  const [spotifyUrl, setSpotifyUrl] = useState("");
-  const [bandcampUrl, setBandcampUrl] = useState("");
-  const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [tidalUrl, setTidalUrl] = useState("");
-  const [instagramUrl, setInstagramUrl] = useState("");
-  const [facebookUrl, setFacebookUrl] = useState("");
-  const [tiktokUrl, setTiktokUrl] = useState("");
-  const [websiteUrl, setWebsiteUrl] = useState("");
-
   useEffect(() => {
     if (!id) return;
 
@@ -74,14 +66,6 @@ export default function BandPublicDetailsPage() {
 
         setBand(data);
         setShowMembers(data.members ?? []);
-        setSpotifyUrl(data.band?.spotify_url ?? "");
-        setBandcampUrl(data.band?.bandcamp_url ?? "");
-        setYoutubeUrl(data.band?.youtube_url ?? "");
-        setTidalUrl(data.band?.tidal_url ?? "");
-        setInstagramUrl(data.band?.instagram_url ?? "");
-        setFacebookUrl(data.band?.facebook_url ?? "");
-        setTiktokUrl(data.band?.tiktok_url ?? "");
-        setWebsiteUrl(data.band?.website_url ?? "");
       } catch {
         setError("Could not load band details");
       } finally {
@@ -362,22 +346,5 @@ function InfoCard({
       <h3 className="mb-5 text-center font-black">{title}</h3>
       {children}
     </section>
-  );
-}
-
-function PublicLink({ label }: { label: string }) {
-  return (
-    <div className="mb-2 border border-yellow-100/30 px-4 py-2 text-sm">
-      {label}
-    </div>
-  );
-}
-
-function DiscographyItem({ title, year }: { title: string; year: string }) {
-  return (
-    <div className="mb-3 flex items-center justify-between gap-4 text-sm">
-      <span>{title}</span>
-      <span>{year}</span>
-    </div>
   );
 }
