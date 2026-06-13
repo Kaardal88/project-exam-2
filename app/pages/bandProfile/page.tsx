@@ -86,7 +86,7 @@ type BandEvent = {
   };
 };
 
-function ProfileSection({
+export function ProfileSection({
   title,
   children,
   className = "",
@@ -532,7 +532,7 @@ function BandProfileContent() {
               </button>
               <Link
                 href={`/pages/songDashboard?bandId=${bandId}`}
-                className="rounded-full border border-yellow-100 p-2 text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-200 hover:text-black md:text-sm lg:text-base justify-between flex items-center gap-2 hover:cursor-pointer"
+                className="rounded-full border border-yellow-100 p-2 text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-50 hover:text-black! md:text-sm lg:text-base justify-between flex items-center gap-2 hover:cursor-pointer"
               >
                 <Plus className="h-4 w-4" /> New project
               </Link>

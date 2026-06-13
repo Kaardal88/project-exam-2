@@ -74,7 +74,20 @@ bandsRoutes.get("/public/:id", async (c) => {
     return c.json({ error: "Band not found" }, 404);
   }
 
-  return c.json(band, 200);
+  const members = await db.query.band_members.findMany({
+    where: (band_members, { eq }) => eq(band_members.band_id, bandId),
+    with: {
+      user: {
+        columns: {
+          id: true,
+          username: true,
+          image_url: true,
+        },
+      },
+    },
+  });
+
+  return c.json({ ...band, members }, 200);
 });
 
 bandsRoutes.post("/", requireAuth, async (c) => {

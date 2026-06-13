@@ -87,7 +87,11 @@ export default function RegisterPage() {
             />
           </label>
 
-          <button className="btn btn-accent" type="submit" disabled={loading}>
+          <button
+            className="border border-neutral-700 bg-neutral-800 py-2 px-4 rounded-md hover:bg-yellow-50 hover:cursor-pointer hover:text-black hover:font-bold! transition"
+            type="submit"
+            disabled={loading}
+          >
             {loading ? "Creating account..." : "Create account"}
           </button>
         </form>

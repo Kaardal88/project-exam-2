@@ -47,8 +47,8 @@ export function PreviewMixer() {
   }
 
   return (
-    <section className="px-4 py-24 text-yellow-100">
-      <div className="mx-auto max-w-7xl">
+    <section className="px-4 pt-4 mt-46 pb-12 bg-amber-400/25 text-yellow-100 md:pt-16 md:pb-24">
+      <div className="mx-auto  max-w-7xl">
         <h2 className="mb-8 text-center font-[family-name:var(--font-marker)] text-3xl tracking-wide text-yellow-100 md:text-5xl">
           {activeSlide.label}
         </h2>

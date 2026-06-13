@@ -33,51 +33,59 @@ function SongDashboardPageContent() {
           </Link>
         </div>
         <h1 className="text-center  md:text-4xl font-bold tracking-tight text-yellow-100  px-4 py-2 rounded-full">
-          What&apos;s to come
+          What&apos;s to come?
         </h1>
         <div className="mb-2 mt-12 flex flex-wrap w-full items-center justify-center gap-3">
-          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-full">
+          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-md">
             Song Dashboard
           </h3>
-          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-full">
+          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-md">
             Upload track
           </h3>
-          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-full">
+          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-md">
             Create tasks
           </h3>
-          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-full">
+          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-md">
             Comment
           </h3>
-          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-full">
+          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-md">
             Files
           </h3>
-          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-full">
+          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-md">
             Notes
           </h3>
-          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-full">
+          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-md">
             Collaborators
           </h3>
-          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-full">
+          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-md">
             Song info
           </h3>
-          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-full">
+          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-md">
             Lyrics
           </h3>
-          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-full">
+          <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-md">
             Version control
           </h3>
+        </div>
+        <div className="mb-2 mt-12 flex flex-wrap px-6 items-center justify-center gap-3">
+          <p className="text-center text-sm md:text-base lg:text-lg ">
+            The song dashboard is where you can upload your song, create tasks,
+            comment on the song, pause the song and place a comment and more.
+          </p>
         </div>
         <div className="mt-8 flex justify-center">
           <Link
             href={backHref}
-            className="
+            className="mt-12
       inline-flex items-center gap-2
       rounded-full
       border border-yellow-100
       px-6 py-3
       text-sm md:text-base lg:text-lg
       font-bold tracking-tight
-      text-yellow-100
+      text-black!
+      bg-yellow-50
+
       transition
       hover:border-yellow-200
       hover:bg-yellow-200
