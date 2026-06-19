@@ -45,7 +45,7 @@ export default function BandsPage() {
     <main className="w-full min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
       <NavBar />
       <div className="w-full max-w-6xl mx-auto px-4 py-8">
-        <h1>Bands</h1>
+        <Link href="/">Back</Link>
 
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 w-full max-w-6xl mx-auto mt-6 bg-neutral-900/80 rounded-md p-6 border border-neutral-700">
           <div className="flex flex-col items-center rounded-md  p-6 text-center shadow-xl border border-neutral-700" />

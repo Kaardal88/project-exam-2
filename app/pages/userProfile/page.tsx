@@ -8,6 +8,8 @@ import { EventCard } from "@/components/calendar/EventCard";
 import { EditUserProfileModal } from "@/components/userProfile/EditUserProfileModal";
 import { ExternalLink } from "lucide-react";
 import { Suspense } from "react";
+import { PersonStanding } from "lucide-react";
+import AmpLoader from "@/components/AmpLoader";
 
 type User = {
   id: string;
@@ -204,10 +206,8 @@ function UserProfileContent() {
 
   if (loading) {
     return (
-      <main className="auth-page">
-        <section className="auth-card">
-          <p>Loading profile...</p>
-        </section>
+      <main className="w-full h-screen flex items-center justify-center">
+        <AmpLoader />
       </main>
     );
   }
@@ -275,8 +275,12 @@ function UserProfileContent() {
                     key={tag}
                     className="flex items-center gap-2 rounded-full border border-yellow-200/20 bg-black/40 px-3 py-1 text-sm text-yellow-100"
                   >
-                    <span>{tagInfo?.icon}</span>
-
+                    {tagInfo?.icon && <span>{tagInfo?.icon}</span>}
+                    {!tagInfo?.icon && (
+                      <span>
+                        <PersonStanding />
+                      </span>
+                    )}
                     <span>{tagInfo?.label ?? tag}</span>
                   </span>
                 );

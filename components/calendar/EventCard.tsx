@@ -7,7 +7,7 @@ type EventCardProps = {
 export function EventCard({ event }: EventCardProps) {
   if (!event) return null;
   return (
-    <div className="rounded border border-neutral-700 bg-neutral-950 p-4">
+    <div className="rounded border  border-neutral-700 bg-neutral-950 p-4 ">
       <h3 className="font-bold text-yellow-100">{event.title}</h3>
 
       {event.description && (

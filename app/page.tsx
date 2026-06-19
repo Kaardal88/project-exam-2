@@ -35,10 +35,11 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(255,229,150,0.10),transparent_28%),linear-gradient(to_bottom,#0a0a0a,#171717)] text-yellow-100">
-      <div className="mx-auto flex  max-w-5xl flex-col items-center justify-start px-6 pt-20 text-center mt-2">
+      {/*Hero section*/}
+      <div className="mx-auto flex max-w-5xl flex-col items-center justify-center px-6 py-10 text-center sm:py-14 md:min-h-screen md:py-16">
         <div
           className="
-        flex w-36 h-18 md:w-max md:h-max items-center justify-center
+        flex  items-center justify-center
         bg-[#f3e7b6] text-neutral-950
         px-24 py-8
         font-[family-name:var(--font-marker)]
@@ -52,7 +53,7 @@ export default function HomePage() {
           VARDO
         </div>
 
-        <section className="mt-16 pt-12 flex flex-col items-center gap-6">
+        <section className="pt-12 flex flex-col items-center gap-4 sm:mt-12 sm:gap-6">
           <h1 className="max-w-[12ch] text-2xl md:text-4xl lg:text-5xl font-[family-name:var(--font-marker)]  uppercase tracking-wide">
             Make music. Not mess.
           </h1>
@@ -61,7 +62,7 @@ export default function HomePage() {
             Plan, share and track progress with your band — or by yourself.
           </p>
 
-          <div className="mt-12 flex w-full max-w-xs items-center justify-center gap-3 sm:max-w-none sm:gap-6">
+          <div className="mt-6 flex w-full max-w-xs items-center justify-center gap-3 sm:max-w-none sm:mt-8 sm:gap-6">
             <Link
               href="/pages/auth/login"
               className="inline-flex min-h-10 items-center justify-center rounded-md border border-[#4b432d] bg-neutral-900 px-4 py-2 text-sm font-semibold text-[#f5f0d8] transition hover:bg-neutral-800 sm:min-h-12 sm:px-5 sm:py-3 sm:text-base"

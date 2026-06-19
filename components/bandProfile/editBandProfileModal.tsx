@@ -75,7 +75,7 @@ export function EditBandProfileModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg border border-neutral-700 bg-neutral-900 shadow-2xl">
+      <div className="w-full max-w-lg h-[calc(90vh-4rem)] overflow-y-auto rounded-[1rem] border border-neutral-700 bg-neutral-900 shadow-2xl  scrollbar-auto scrollbar-thumb-neutral-800 p-2">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-neutral-800 px-6 py-4">
           <h2 className="text-xl font-bold text-yellow-100">Edit profile</h2>

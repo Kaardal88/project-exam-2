@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Modal } from "@/components/Modal";
 import Link from "next/link";
-import { ExternalLink, Plus } from "lucide-react";
-
+import { ExternalLink, Home, Plus } from "lucide-react";
+import AmpLoader from "@/components/AmpLoader";
 import { NavBar } from "@/components/NavBar";
 import { BandCalendar } from "@/components/calendar/BandCalendar";
 
@@ -16,21 +16,21 @@ import { EditBandProfileModal } from "@/components/bandProfile/editBandProfileMo
 import { EventCard } from "@/components/calendar/EventCard";
 import { UserPlus, UserX, LucidePanelBottomOpen } from "lucide-react";
 import { Suspense } from "react";
+import { BandProfileNav } from "@/components/bandProfile/BandProfileNav";
 
 import countries from "world-countries";
 import ReactCountryFlag from "react-country-flag";
-import {
-  FaSpotify,
-  FaYoutube,
-  FaBandcamp,
-  FaInstagram,
-  FaFacebook,
-  FaTiktok,
-  FaMusic,
-  FaGlobe,
-} from "react-icons/fa";
-
-type Band = {
+import { SocialLinks } from "@/components/bandProfile/SocialLinks";
+import { ProfileSection } from "@/components/bandProfile/ProfileSection";
+import { Albums } from "@/components/bandProfile/Albums";
+import { Singles } from "@/components/bandProfile/Singles";
+import { WIP } from "@/components/bandProfile/WIP";
+import { Finished } from "@/components/bandProfile/Finished";
+import { HomeNav } from "@/components/bandProfile/Home";
+import { Bio } from "@/components/bandProfile/Bio";
+import { Tickets } from "@/components/bandProfile/Tickets";
+import { ChevronRight } from "lucide-react";
+export type Band = {
   id: string | number;
   band_name: string;
   bio: string | null;
@@ -86,51 +86,6 @@ type BandEvent = {
   };
 };
 
-export function ProfileSection({
-  title,
-  children,
-  className = "",
-  defaultOpen = false,
-}: {
-  title: string;
-  children: React.ReactNode;
-  className?: string;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  return (
-    <section
-      className={`rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl ${className}`}
-    >
-      <div className="mb-4 flex items-center justify-center gap-3">
-        <h2 className="text-center text-yellow-100">{title}</h2>
-
-        <button
-          type="button"
-          onClick={() => setOpen((prev) => !prev)}
-          className="rounded-full border border-dotted border-yellow-100 p-2 text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-200 hover:text-black"
-          aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
-        >
-          <LucidePanelBottomOpen
-            className={`h-4 w-4 transition-transform duration-300 ${
-              open ? "rotate-180" : ""
-            }`}
-          />
-        </button>
-      </div>
-
-      <div
-        className={`overflow-hidden transition-all duration-300 ${
-          open ? "max-h-[900px]" : "max-h-40"
-        }`}
-      >
-        <div className={open ? "" : "line-clamp-5"}>{children}</div>
-      </div>
-    </section>
-  );
-}
-
 function BandProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -162,6 +117,16 @@ function BandProfileContent() {
   const [facebookUrl, setFacebookUrl] = useState("");
   const [tiktokUrl, setTiktokUrl] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const [activeSection, setActiveSection] = useState<
+    | "Home"
+    | "Albums"
+    | "Wip"
+    | "Finished"
+    | "Bio"
+    | "Socials"
+    | "Singles"
+    | "Tickets"
+  >("Home");
   const countryOptions = countries.map((country) => ({
     value: country.cca2,
     label: country.name.common,
@@ -452,10 +417,8 @@ function BandProfileContent() {
 
   if (loading) {
     return (
-      <main className="auth-page">
-        <section className="auth-card">
-          <p>Loading band...</p>
-        </section>
+      <main className="w-full h-screen flex items-center justify-center">
+        <AmpLoader />
       </main>
     );
   }
@@ -483,423 +446,386 @@ function BandProfileContent() {
       >
         Back
       </Link>
-      <section className="mx-auto mt-1 flex flex-col w-full max-w-7xl rounded-md sm:48 md:w-3/4 overflow-hidden  bg-neutral-900/80 shadow-2xl">
-        {/* Header image */}
-        <div className="relative h-32 sm:h-48 md:h-72 lg:h-110 w-full overflow-hidden bg-gradient-to-r from-neutral-950 via-neutral-800 to-slate-900 shadow">
-          {band?.header_image_url ? (
-            <img
-              src={band.header_image_url}
-              alt="Header"
-              className="h-full w-full object-cover opacity-80"
-            />
-          ) : null}
+
+      <div className="relative mx-auto mt-4 w-full max-w-7xl px-4">
+        {/* Mobile nav */}
+        <div className="relative mb-4 md:hidden">
+          <BandProfileNav
+            activeSection={activeSection}
+            setActiveSection={setActiveSection}
+          />
+          <div
+            className="
+      pointer-events-none
+      absolute right-0 top-0 h-full w-8
+      bg-gradient-to-l from-neutral-950/80 to-transparent
+    "
+          ></div>
         </div>
 
-        {/* Profile info */}
-        <div className="relative px-8 pb-8 pt-16">
-          <div className="absolute -top-16 left-8 h-32 w-32 overflow-hidden rounded-full border-4 border-neutral-900 bg-slate-700 shadow-xl object-fill">
-            {band?.image_url ? (
-              <img
-                src={band.image_url}
-                alt={band.band_name}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-yellow-100">
-                {band?.band_name?.charAt(0).toUpperCase()}
-              </div>
-            )}
-          </div>
+        {/* Desktop sidebar */}
+        <aside className="hidden md:block md:absolute md:left-[-240px] md:top-0 md:w-[220px]">
+          <BandProfileNav
+            activeSection={activeSection}
+            setActiveSection={setActiveSection}
+          />
+        </aside>
 
-          <h1 className="text-2xl font-bold text-yellow-100">
-            {band?.band_name}
-          </h1>
-          {countryInfo && (
-            <div className="mt-2 flex items-center gap-2 text-sm text-neutral-300">
-              <ReactCountryFlag countryCode={countryInfo.value} svg />
-              <span>{countryInfo.label}</span>
+        <div className="w-full">
+          {/* Profile card */}
+          <section className="w-full overflow-hidden rounded-md bg-neutral-900/80 shadow-2xl">
+            {/* Header image */}
+            <div className="relative h-32 sm:h-48 md:h-72 lg:h-110 w-full overflow-hidden bg-gradient-to-r from-neutral-950 via-neutral-800 to-slate-900 shadow">
+              {band?.header_image_url ? (
+                <img
+                  src={band.header_image_url}
+                  alt="Header"
+                  className="h-full w-full object-cover opacity-80"
+                />
+              ) : null}
             </div>
-          )}
 
-          <p className="mt-1 text-sm text-neutral-400">@{band?.band_name}</p>
-          {role === "band_leader" && (
-            <div className="mt-2 justify-end flex items-center  gap-2 text-sm text-neutral-300">
-              <button
-                className=" rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
-                onClick={() => setEditBandModalOpen(true)}
-              >
-                <p className="text-xs md:text-sm lg:text-base">Edit profile</p>
-              </button>
-              <Link
-                href={`/pages/songDashboard?bandId=${bandId}`}
-                className="rounded-full border border-yellow-100 p-2 text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-50 hover:text-black! md:text-sm lg:text-base justify-between flex items-center gap-2 hover:cursor-pointer"
-              >
-                <Plus className="h-4 w-4" /> New project
-              </Link>
-            </div>
-          )}
-
-          {editBandModalOpen && (
-            <EditBandProfileModal
-              isOpen={editBandModalOpen}
-              onClose={() => setEditBandModalOpen(false)}
-              onSave={handleSave}
-              bandName={band_name}
-              setBandName={setBandName}
-              bio={bio}
-              setBio={setBio}
-              imageUrl={imageUrl}
-              setImageUrl={setImageUrl}
-              headerImageUrl={headerImageUrl}
-              setHeaderImageUrl={setHeaderImageUrl}
-              spotifyUrl={spotifyUrl}
-              setSpotifyUrl={setSpotifyUrl}
-              bandcampUrl={bandcampUrl}
-              setBandcampUrl={setBandcampUrl}
-              youtubeUrl={youtubeUrl}
-              setYoutubeUrl={setYoutubeUrl}
-              tidalUrl={tidalUrl}
-              setTidalUrl={setTidalUrl}
-              instagramUrl={instagramUrl}
-              setInstagramUrl={setInstagramUrl}
-              facebookUrl={facebookUrl}
-              setFacebookUrl={setFacebookUrl}
-              tiktokUrl={tiktokUrl}
-              setTiktokUrl={setTiktokUrl}
-              websiteUrl={websiteUrl}
-              setWebsiteUrl={setWebsiteUrl}
-            />
-          )}
-        </div>
-
-        {showModal && (
-          <Modal isOpen={showModal} onClose={() => setShowModal(false)}>
-            <div className="w-[90vw] max-w-3xl max-h-[85vh] overflow-y-auto">
-              <h2 className="mb-4 text-xl font-bold text-yellow-100">
-                Invite new member
-              </h2>
-
-              <input
-                type="text"
-                placeholder="Search users..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setVisibleCount(20);
-                }}
-                className="mb-6 w-full rounded-md border border-neutral-700 bg-neutral-950 px-4 py-2 text-sm text-yellow-100 outline-none placeholder:text-neutral-500 focus:border-yellow-200"
-              />
-
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                {visibleUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex flex-col items-center rounded-md  p-4 text-center shadow-xl"
-                  >
-                    <Link href={`/pages/userProfile?id=${user.id}`}>
-                      {user.image_url ? (
-                        <img
-                          src={user.image_url}
-                          alt={user.username}
-                          className="mb-3 h-20 w-20 rounded-full object-cover border border-neutral-600"
-                        />
-                      ) : (
-                        <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-full border border-neutral-600 bg-neutral-950 text-lg font-bold text-yellow-100">
-                          {user.username.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-
-                      <div className="mb-3 max-w-full truncate text-sm font-semibold text-yellow-100">
-                        {user.username}
-                      </div>
-                    </Link>
-
-                    <button
-                      className="rounded-md border border-yellow-100 px-3 py-1 text-xs text-yellow-100 transition hover:bg-yellow-100 hover:text-black hover:cursor-pointer"
-                      onClick={() => handleAddMember(user.id)}
-                    >
-                      Invite
-                    </button>
-                  </div>
-                ))}
-
-                {visibleCount < filteredUsers.length && (
-                  <button
-                    onClick={() => setVisibleCount((prev) => prev + 20)}
-                    className="mx-auto mt-6 block rounded-md border border-neutral-600 px-4 py-2 text-sm text-yellow-100 transition hover:border-yellow-100 hover:bg-neutral-800 hover:cursor-pointer"
-                  >
-                    See all
-                  </button>
-                )}
-              </div>
-            </div>
-          </Modal>
-        )}
-      </section>
-      {/*Top content*/}
-      <section className="rounded-md mt-6 shadow-2xl w-full max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <ProfileSection title="Members">
-            {role === "band_leader" && (
-              <button
-                type="button"
-                onClick={() => setShowModal(true)}
-                className="mx-auto rounded-full border  border-yellow-100 px-4 py-2 text-xs text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-200 hover:text-black hover:cursor-pointer  mb-4 flex items-center    gap-2"
-              >
-                <UserPlus className="w-4 h-4" />
-              </button>
-            )}
-            <div className="flex flex-col gap-4">
-              {members.length > 0 ? (
-                <div className="flex flex-wrap justify-center gap-4">
-                  {members.map((member) => (
-                    <div
-                      key={member.user_id}
-                      className="flex flex-col items-center gap-2"
-                    >
-                      <Link href={`/pages/userProfile?id=${member.user_id}`}>
-                        {member.user.image_url ? (
-                          <img
-                            src={member.user.image_url}
-                            alt={member.user.username}
-                            className="h-12 w-12 rounded-full border border-neutral-600 object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-neutral-600 bg-neutral-950 text-lg font-bold text-yellow-100">
-                            {member.user.username.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                      </Link>
-
-                      <Link
-                        href={`/pages/userProfile?id=${member.user_id}`}
-                        className="max-w-20 truncate text-sm text-yellow-100"
-                      >
-                        {member.user.username}
-                      </Link>
-
-                      {role === "band_leader" && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveMember(member.user_id)}
-                          className="text-xs text-neutral-400 hover:text-red-300 hover:cursor-pointer"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center text-sm text-neutral-400">
-                  No members yet.
-                </p>
-              )}
-            </div>
-          </ProfileSection>
-
-          <ProfileSection title="Bio">
-            <p className="text-sm text-neutral-300">
-              {band?.bio || "No bio yet."}
-            </p>
-          </ProfileSection>
-
-          <ProfileSection title="Tickets">
-            <p className="text-sm text-neutral-400">Coming soon...</p>
-          </ProfileSection>
-        </div>
-      </section>
-
-      {/* Main content */}
-      <section className="mx-auto mt-6 mb-10 w-full max-w-7xl space-y-6">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Left column */}
-          <div className="flex flex-col gap-6">
-            <ProfileSection title="Social links">
-              <div className="space-y-3">
-                {band?.spotify_url && (
-                  <a
-                    href={band.spotify_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-950/60 px-4 py-3 transition hover:border-yellow-200 hover:bg-neutral-800"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FaSpotify className="h-5 w-5 text-green-500" />
-                      <span>Spotify</span>
-                    </div>
-
-                    <ExternalLink className="h-4 w-4 text-neutral-500 transition group-hover:text-yellow-100" />
-                  </a>
-                )}
-
-                {band?.bandcamp_url && (
-                  <a
-                    href={band.bandcamp_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-950/60 px-4 py-3 transition hover:border-yellow-200 hover:bg-neutral-800"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FaBandcamp className="h-5 w-5 text-green-500" />
-                      <span>Bandcamp</span>
-                    </div>
-
-                    <ExternalLink className="h-4 w-4 text-neutral-500 transition group-hover:text-yellow-100" />
-                  </a>
-                )}
-
-                {band?.youtube_url && (
-                  <a
-                    href={band.youtube_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-950/60 px-4 py-3 transition hover:border-yellow-200 hover:bg-neutral-800"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FaYoutube className="h-5 w-5 text-red-500" />
-                      <span>Youtube</span>
-                    </div>
-
-                    <ExternalLink className="h-4 w-4 text-neutral-500 transition group-hover:text-yellow-100" />
-                  </a>
-                )}
-
-                {band?.facebook_url && (
-                  <a
-                    href={band.facebook_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-950/60 px-4 py-3 transition hover:border-yellow-200 hover:bg-neutral-800"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FaFacebook className="h-5 w-5 text-blue-500" />
-                      <span>Facebook</span>
-                    </div>
-
-                    <ExternalLink className="h-4 w-4 text-neutral-500 transition group-hover:text-yellow-100" />
-                  </a>
-                )}
-
-                {band?.instagram_url && (
-                  <a
-                    href={band.instagram_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-950/60 px-4 py-3 transition hover:border-yellow-200 hover:bg-neutral-800"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FaInstagram className="h-5 w-5 text-pink-500" />
-                      <span>Instagram</span>
-                    </div>
-
-                    <ExternalLink className="h-4 w-4 text-neutral-500 transition group-hover:text-yellow-100" />
-                  </a>
-                )}
-
-                {band?.tiktok_url && (
-                  <a
-                    href={band.tiktok_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-950/60 px-4 py-3 transition hover:border-yellow-200 hover:bg-neutral-800"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FaTiktok className="h-5 w-5 text-black" />
-                      <span>TikTok</span>
-                    </div>
-
-                    <ExternalLink className="h-4 w-4 text-neutral-500 transition group-hover:text-yellow-100" />
-                  </a>
-                )}
-
-                {band?.tidal_url && (
-                  <a
-                    href={band.tidal_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-950/60 px-4 py-3 transition hover:border-yellow-200 hover:bg-neutral-800"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FaMusic className="h-5 w-5 text-black" />
-                      <span>Tidal</span>
-                    </div>
-
-                    <ExternalLink className="h-4 w-4 text-neutral-500 transition group-hover:text-yellow-100" />
-                  </a>
-                )}
-
-                {band?.website_url && (
-                  <a
-                    href={band.website_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-950/60 px-4 py-3 transition hover:border-yellow-200 hover:bg-neutral-800"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FaGlobe className="h-5 w-5 text-blue-500" />
-                      <span>Website</span>
-                    </div>
-
-                    <ExternalLink className="h-4 w-4 text-neutral-500 transition group-hover:text-yellow-100" />
-                  </a>
-                )}
-              </div>
-            </ProfileSection>
-
-            <ProfileSection title="Albums">
-              <p className="text-neutral-400">Albums here...</p>
-            </ProfileSection>
-
-            <ProfileSection title="Singles">
-              <p className="text-neutral-400">Singles here...</p>
-            </ProfileSection>
-
-            <ProfileSection title="Upcoming events">
-              <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-2">
-                {upComingEvents.length > 0 ? (
-                  upComingEvents.map((event) => (
-                    <EventCard key={event.id} event={event} />
-                  ))
+            {/* Profile info */}
+            <div className="relative px-8 pb-8 pt-16">
+              <div className="absolute -top-16 left-8 h-32 w-32 overflow-hidden rounded-full border-4 border-neutral-900 bg-slate-700 shadow-xl object-fill">
+                {band?.image_url ? (
+                  <img
+                    src={band.image_url}
+                    alt={band.band_name}
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
-                  <p className="text-sm text-neutral-400">No upcoming events</p>
+                  <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-yellow-100">
+                    {band?.band_name?.charAt(0).toUpperCase()}
+                  </div>
                 )}
               </div>
-            </ProfileSection>
-          </div>
 
-          {/* Right column */}
-          <div className="flex flex-col gap-6">
-            <ProfileSection title="Work in progress">
-              <p className="text-neutral-400">Projects here...</p>
-            </ProfileSection>
+              <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold text-yellow-100">
+                    {band?.band_name}
+                  </h1>
 
-            <ProfileSection title="Finished">
-              <p className="text-neutral-400">Finished projects here...</p>
-            </ProfileSection>
+                  {countryInfo && (
+                    <div className="mt-2 flex items-center gap-2 text-sm text-neutral-300">
+                      <ReactCountryFlag countryCode={countryInfo.value} svg />
+                      <span>{countryInfo.label}</span>
+                    </div>
+                  )}
 
-            <ProfileSection title="Calendar">
-              <div className="flex justify-center">
-                <BandCalendar
-                  events={events}
-                  selectedDate={selectedDate}
-                  onSelect={setSelectedDate}
+                  <p className="mt-1 text-sm text-neutral-400">
+                    @{band?.band_name}
+                  </p>
+                </div>
+
+                {role === "band_leader" && (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                    <button
+                      onClick={() => setEditBandModalOpen(true)}
+                      className="rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800"
+                    >
+                      Edit profile
+                    </button>
+
+                    <Link
+                      href={`/pages/songDashboard?bandId=${bandId}`}
+                      className="flex items-center justify-center gap-2 rounded-full border border-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-50 hover:text-black!"
+                    >
+                      <Plus className="h-4 w-4" />
+                      New project
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/*Members section*/}
+            <h3 className="text-sm md:text-xl lg:text-2xl font-bold text-yellow-100 mb-2 justify-center flex font-[family-name:var(--font-caveat)]  ">
+              Members
+            </h3>
+            <div
+              style={{
+                backgroundImage: "url('/bg-components.jpg')",
+              }}
+              className="
+    relative
+
+    mx-auto
+    flex
+    max-w-2xl
+    flex-wrap
+    items-center
+    justify-center
+    gap-4
+    rounded-md
+    border
+    border-neutral-600/70
+    before:absolute before:inset-0 before:rounded-md before:border before:border-white/5
+    p-4
+mb-4
+
+    bg-cover
+    bg-center
+
+    shadow-[inset_0_6px_6px_rgba(255,255,255,0.01),_0_10px_20px_rgba(0,0,0,0.3  )]
+  "
+            >
+              <div className="absolute inset-0 bg-black/20" />
+              <div className=" absolute left-3 top-3 h-6 w-6 opacity-90 z-10">
+                <img
+                  src="/svg/hardware/panel-screw.png"
+                  alt="Panel Screw"
+                  className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
                 />
               </div>
 
-              {role === "band_leader" && (
-                <button
-                  onClick={() => setShowEventForm(true)}
-                  className="mt-6 flex w-full justify-center rounded bg-yellow-200 px-4 py-2 text-black hover:cursor-pointer hover:bg-yellow-300"
+              <div className="absolute right-3 top-3 z-10 h-6 w-6">
+                <img
+                  src="/svg/hardware/panel-screw.png"
+                  alt="Panel Screw"
+                  className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+                />
+              </div>
+              <div className="absolute bottom-3 left-3 h-6 w-6 z-10">
+                <img
+                  src="/svg/hardware/panel-screw.png"
+                  alt="Panel Screw"
+                  className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+                />
+              </div>
+
+              <div className="absolute bottom-3 right-3 h-6 w-6 z-10 opacity-90">
+                <img
+                  src="/svg/hardware/panel-screw.png"
+                  alt="Panel Screw"
+                  className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+                />
+              </div>
+
+              <div className="flex gap-4 overflow-x-auto z-10 pb-2">
+                {members.slice(0, 5).map((member) => (
+                  <Link
+                    key={member.user_id}
+                    href={`/pages/userProfile?id=${member.user_id}`}
+                    className="min-w-14 flex flex-col items-center gap-1"
+                  >
+                    {member.user.image_url ? (
+                      <img
+                        src={member.user.image_url}
+                        alt={member.user.username}
+                        className="h-11 w-11 rounded-full border border-neutral-600 object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full border border-neutral-600 bg-neutral-950 text-sm font-bold text-yellow-100">
+                        {member.user.username.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+
+                    <span className="max-w-16 truncate text-xs text-yellow-100">
+                      {member.user.username}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+
+              <div className="mt-6 rounded-md   p-4">
+                <div className="mb-3 flex items-center justify-between gap-3 ">
+                  <div className="flex gap-2 z-10">
+                    {members.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setMembersOpen(true)}
+                        className="flex items-center gap-1 rounded-full border border-neutral-600 px-3 py-1.5 text-xs text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800"
+                      >
+                        See all
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+
+                    {role === "band_leader" && (
+                      <button
+                        type="button"
+                        onClick={() => setShowModal(true)}
+                        className="rounded-full border border-yellow-100 px-3 py-1.5 text-xs text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-200 hover:text-black"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="absolute inset-0 bg-black/50" />
+                </div>
+              </div>
+
+              {membersOpen && (
+                <Modal
+                  isOpen={membersOpen}
+                  onClose={() => setMembersOpen(false)}
                 >
-                  <span className="mr-2 text-2xl">+</span>
-                  Add Event
-                </button>
+                  <div className="w-[90vw] max-w-2xl max-h-[85vh] overflow-y-auto">
+                    <h2 className="mb-6 text-xl font-bold text-yellow-100">
+                      Members
+                    </h2>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {members.map((member) => (
+                        <div
+                          key={member.user_id}
+                          className="flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-950/60 p-4"
+                        >
+                          <Link
+                            href={`/pages/userProfile?id=${member.user_id}`}
+                            className="flex items-center gap-3"
+                          >
+                            {member.user.image_url ? (
+                              <img
+                                src={member.user.image_url}
+                                alt={member.user.username}
+                                className="h-12 w-12 rounded-full border border-neutral-600 object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-neutral-600 bg-neutral-950 text-lg font-bold text-yellow-100">
+                                {member.user.username.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+
+                            <span className="text-sm font-semibold text-yellow-100">
+                              {member.user.username}
+                            </span>
+                          </Link>
+
+                          {role === "band_leader" && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveMember(member.user_id)}
+                              className="text-xs text-neutral-400 hover:text-red-300"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Modal>
               )}
-            </ProfileSection>
-          </div>
+
+              {editBandModalOpen && (
+                <EditBandProfileModal
+                  isOpen={editBandModalOpen}
+                  onClose={() => setEditBandModalOpen(false)}
+                  onSave={handleSave}
+                  bandName={band_name}
+                  setBandName={setBandName}
+                  bio={bio}
+                  setBio={setBio}
+                  imageUrl={imageUrl}
+                  setImageUrl={setImageUrl}
+                  headerImageUrl={headerImageUrl}
+                  setHeaderImageUrl={setHeaderImageUrl}
+                  spotifyUrl={spotifyUrl}
+                  setSpotifyUrl={setSpotifyUrl}
+                  bandcampUrl={bandcampUrl}
+                  setBandcampUrl={setBandcampUrl}
+                  youtubeUrl={youtubeUrl}
+                  setYoutubeUrl={setYoutubeUrl}
+                  tidalUrl={tidalUrl}
+                  setTidalUrl={setTidalUrl}
+                  instagramUrl={instagramUrl}
+                  setInstagramUrl={setInstagramUrl}
+                  facebookUrl={facebookUrl}
+                  setFacebookUrl={setFacebookUrl}
+                  tiktokUrl={tiktokUrl}
+                  setTiktokUrl={setTiktokUrl}
+                  websiteUrl={websiteUrl}
+                  setWebsiteUrl={setWebsiteUrl}
+                />
+              )}
+            </div>
+
+            {showModal && (
+              <Modal isOpen={showModal} onClose={() => setShowModal(false)}>
+                <div className="w-[90vw] max-w-3xl max-h-[85vh] overflow-y-auto">
+                  <h2 className="mb-4 text-xl font-bold text-yellow-100">
+                    Invite new member
+                  </h2>
+
+                  <input
+                    type="text"
+                    placeholder="Search users..."
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setVisibleCount(20);
+                    }}
+                    className="mb-6 w-full rounded-md border border-neutral-700 bg-neutral-950 px-4 py-2 text-sm text-yellow-100 outline-none placeholder:text-neutral-500 focus:border-yellow-200"
+                  />
+
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                    {visibleUsers.map((user) => (
+                      <div
+                        key={user.id}
+                        className="flex flex-col items-center rounded-md  p-4 text-center shadow-xl"
+                      >
+                        <Link href={`/pages/userProfile?id=${user.id}`}>
+                          {user.image_url ? (
+                            <img
+                              src={user.image_url}
+                              alt={user.username}
+                              className="mb-3 h-20 w-20 rounded-full object-cover border border-neutral-600"
+                            />
+                          ) : (
+                            <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-full border border-neutral-600 bg-neutral-950 text-lg font-bold text-yellow-100">
+                              {user.username.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+
+                          <div className="mb-3 max-w-full truncate text-sm font-semibold text-yellow-100">
+                            {user.username}
+                          </div>
+                        </Link>
+
+                        <button
+                          className="rounded-md border border-yellow-100 px-3 py-1 text-xs text-yellow-100 transition hover:bg-yellow-100 hover:text-black hover:cursor-pointer"
+                          onClick={() => handleAddMember(user.id)}
+                        >
+                          Invite
+                        </button>
+                      </div>
+                    ))}
+
+                    {visibleCount < filteredUsers.length && (
+                      <button
+                        onClick={() => setVisibleCount((prev) => prev + 20)}
+                        className="mx-auto mt-6 block rounded-md border border-neutral-600 px-4 py-2 text-sm text-yellow-100 transition hover:border-yellow-100 hover:bg-neutral-800 hover:cursor-pointer"
+                      >
+                        See all
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </Modal>
+            )}
+          </section>
+
+          <section className="mt-6 mb-24 w-full">
+            <div className="rounded-lg  shadow-2xl ">
+              {activeSection === "Home" && (
+                <HomeNav events={upComingEvents} bandId={bandId} role={role} />
+              )}
+              {activeSection === "Albums" && <Albums />}
+              {activeSection === "Singles" && <Singles />}
+              {activeSection === "Wip" && <WIP />}
+              {activeSection === "Finished" && <Finished band={band} />}
+              {activeSection === "Bio" && <Bio band={band} />}
+              {activeSection === "Socials" && <SocialLinks band={band} />}
+              {activeSection === "Tickets" && <Tickets />}
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
+
+      {/* Main content */}
     </main>
   );
 }

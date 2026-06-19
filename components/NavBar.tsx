@@ -39,7 +39,7 @@ export function NavBar() {
       <img
         src="/bg-components.jpg"
         alt="Navbar background"
-        className="absolute inset-0 h-full w-full object-cover"
+        className="absolute inset-0 h-full w-full object-fit"
       />
 
       <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]" />
