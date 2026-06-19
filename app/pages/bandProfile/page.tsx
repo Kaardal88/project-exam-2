@@ -816,7 +816,7 @@ mb-4
               {activeSection === "Albums" && <Albums />}
               {activeSection === "Singles" && <Singles />}
               {activeSection === "Wip" && <WIP />}
-              {activeSection === "Finished" && <Finished band={band} />}
+              {activeSection === "Finished" && <Finished />}
               {activeSection === "Bio" && <Bio band={band} />}
               {activeSection === "Socials" && <SocialLinks band={band} />}
               {activeSection === "Tickets" && <Tickets />}
