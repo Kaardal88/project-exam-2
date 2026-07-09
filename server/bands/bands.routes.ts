@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { and, eq, asc } from "drizzle-orm";
 import { requireAuth } from "@/server/auth/auth.middleware";
 import { db } from "@/server/db";
-import { bands, band_members, band_events } from "@/server/db/schema";
+import { bands, band_members, band_events, projects, songs } from "@/server/db/schema";
 import { updateBand } from "@/server/bands/bands.service";
 
 type BandsVariables = {
@@ -241,6 +241,10 @@ bandsRoutes.put("/:id", requireAuth, async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
+  if (membership.role !== "band_leader") {
+    return c.json({ error: "Only band leaders can edit the band profile" }, 403);
+  }
+
   const updatedBand = await updateBand(bandId, {
     band_name: body.band_name,
     bio: body.bio,
@@ -294,4 +298,75 @@ bandsRoutes.post("/:id/events", requireAuth, async (c) => {
     .returning();
 
   return c.json(createdEvent, 201);
+});
+
+bandsRoutes.get("/:id/projects", requireAuth, async (c) => {
+  const bandId = c.req.param("id");
+  const userId = c.get("userId");
+
+  const membership = await db.query.band_members.findFirst({
+    where: (band_members, { eq, and }) =>
+      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
+  });
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const bandProjects = await db.query.projects.findMany({
+    where: (projects, { eq }) => eq(projects.band_id, bandId),
+    orderBy: asc(projects.created_at),
+  });
+
+  return c.json(bandProjects, 200);
+});
+
+bandsRoutes.post("/:id/projects", requireAuth, async (c) => {
+  const bandId = c.req.param("id");
+  const userId = c.get("userId");
+  const body = await c.req.json();
+
+  const membership = await db.query.band_members.findFirst({
+    where: (band_members, { eq, and }) =>
+      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
+  });
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (membership.role !== "band_leader") {
+    return c.json({ error: "Only band leaders can create projects" }, 403);
+  }
+
+  if (body.type !== "album" && body.type !== "single") {
+    return c.json({ error: "type must be 'album' or 'single'" }, 400);
+  }
+
+  if (!body.title) {
+    return c.json({ error: "title is required" }, 400);
+  }
+
+  const [project] = await db
+    .insert(projects)
+    .values({
+      band_id: bandId,
+      type: body.type,
+      title: body.title,
+      description: body.description ?? null,
+      cover_image_url: body.cover_image_url ?? null,
+      created_by: userId,
+    })
+    .returning();
+
+  if (body.type === "single") {
+    await db.insert(songs).values({
+      project_id: project.id,
+      title: body.title,
+      status: "wip",
+      created_by: userId,
+    });
+  }
+
+  return c.json(project, 201);
 });
