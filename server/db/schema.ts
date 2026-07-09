@@ -5,6 +5,7 @@ import {
   text,
   timestamp,
   unique,
+  integer,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -103,6 +104,7 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 export const bandsRelations = relations(bands, ({ many }) => ({
   members: many(band_members),
+  projects: many(projects),
 }));
 
 export const band_membersRelations = relations(band_members, ({ one }) => ({
@@ -138,3 +140,66 @@ export const band_events = pgTable("band_events", {
 
   created_at: timestamp("created_at").defaultNow(),
 });
+
+export const projects = pgTable("projects", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  band_id: uuid("band_id")
+    .notNull()
+    .references(() => bands.id),
+
+  type: varchar("type", {
+    length: 20,
+  }).notNull(),
+
+  title: varchar("title", {
+    length: 255,
+  }).notNull(),
+
+  description: text("description"),
+
+  cover_image_url: text("cover_image_url"),
+
+  created_by: uuid("created_by").references(() => users.id),
+
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const songs = pgTable("songs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  project_id: uuid("project_id")
+    .notNull()
+    .references(() => projects.id),
+
+  title: varchar("title", {
+    length: 255,
+  }).notNull(),
+
+  status: varchar("status", {
+    length: 20,
+  })
+    .notNull()
+    .default("wip"),
+
+  track_number: integer("track_number"),
+
+  created_by: uuid("created_by").references(() => users.id),
+
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const projectsRelations = relations(projects, ({ one, many }) => ({
+  band: one(bands, {
+    fields: [projects.band_id],
+    references: [bands.id],
+  }),
+  songs: many(songs),
+}));
+
+export const songsRelations = relations(songs, ({ one }) => ({
+  project: one(projects, {
+    fields: [songs.project_id],
+    references: [projects.id],
+  }),
+}));

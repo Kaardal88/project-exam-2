@@ -13,6 +13,7 @@ import "@daypicker/react/style.css";
 import { EventForm } from "@/components/calendar/EventForm";
 
 import { EditBandProfileModal } from "@/components/bandProfile/editBandProfileModal";
+import { NewProjectModal } from "@/components/bandProfile/NewProjectModal";
 import { EventCard } from "@/components/calendar/EventCard";
 import { UserPlus, UserX, LucidePanelBottomOpen } from "lucide-react";
 import { Suspense } from "react";
@@ -86,6 +87,16 @@ type BandEvent = {
   };
 };
 
+type Project = {
+  id: string;
+  band_id: string;
+  type: "album" | "single";
+  title: string;
+  description: string | null;
+  cover_image_url: string | null;
+  created_at: string | null;
+};
+
 function BandProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -108,7 +119,9 @@ function BandProfileContent() {
   const [showEventForm, setShowEventForm] = useState(false);
   const [events, setEvents] = useState<BandEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [projects, setProjects] = useState<Project[]>([]);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [newProjectModalOpen, setNewProjectModalOpen] = useState(false);
   const [spotifyUrl, setSpotifyUrl] = useState("");
   const [bandcampUrl, setBandcampUrl] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
@@ -405,6 +418,44 @@ function BandProfileContent() {
     void loadEvents();
   }, [fetchEvents]);
 
+  const fetchProjects = useCallback(async () => {
+    if (!bandId) return;
+
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      setError("Unauthorized");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/bands/${bandId}/projects`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        setError("Failed to fetch projects");
+        return;
+      }
+
+      const data = await response.json();
+      setProjects(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setError("Failed to fetch projects");
+    }
+  }, [bandId]);
+
+  useEffect(() => {
+    void fetchProjects();
+  }, [fetchProjects]);
+
+  const albumProjects = projects.filter((project) => project.type === "album");
+  const singleProjects = projects.filter(
+    (project) => project.type === "single",
+  );
+
   if (error) {
     return (
       <main className="auth-page">
@@ -528,13 +579,13 @@ function BandProfileContent() {
                       Edit profile
                     </button>
 
-                    <Link
-                      href={`/pages/songDashboard?bandId=${bandId}`}
+                    <button
+                      onClick={() => setNewProjectModalOpen(true)}
                       className="flex items-center justify-center gap-2 rounded-full border border-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-50 hover:text-black!"
                     >
                       <Plus className="h-4 w-4" />
                       New project
-                    </Link>
+                    </button>
                   </div>
                 )}
               </div>
@@ -813,8 +864,10 @@ mb-4
               {activeSection === "Home" && (
                 <HomeNav events={upComingEvents} bandId={bandId} role={role} />
               )}
-              {activeSection === "Albums" && <Albums />}
-              {activeSection === "Singles" && <Singles />}
+              {activeSection === "Albums" && <Albums projects={albumProjects} />}
+              {activeSection === "Singles" && (
+                <Singles projects={singleProjects} />
+              )}
               {activeSection === "Wip" && <WIP />}
               {activeSection === "Finished" && <Finished />}
               {activeSection === "Bio" && <Bio band={band} />}
@@ -826,6 +879,14 @@ mb-4
       </div>
 
       {/* Main content */}
+
+      {newProjectModalOpen && (
+        <NewProjectModal
+          isOpen={newProjectModalOpen}
+          onClose={() => setNewProjectModalOpen(false)}
+          bandId={bandId}
+        />
+      )}
     </main>
   );
 }

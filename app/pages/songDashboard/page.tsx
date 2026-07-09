@@ -2,26 +2,59 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Suspense } from "react";
+
+type Song = {
+  id: string;
+  title: string;
+  status: string;
+  project: {
+    id: string;
+    title: string;
+    band_id: string;
+  };
+};
 
 function SongDashboardPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const bandId = searchParams.get("bandId");
+  const songId = searchParams.get("songId");
+
+  const [song, setSong] = useState<Song | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
 
     if (!token) {
       router.push("/pages/auth/login");
+      return;
     }
-  }, [router]);
 
-  const backHref = bandId
-    ? `/pages/bandProfile?id=${bandId}`
-    : "/pages/userProfile";
+    if (!songId) return;
+
+    async function loadSong() {
+      const response = await fetch(`/api/songs/${songId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        setSong(await response.json());
+      }
+    }
+
+    void loadSong();
+  }, [router, songId]);
+
+  const backHref = song
+    ? `/pages/projectDetails/${song.project.id}`
+    : bandId
+      ? `/pages/bandProfile?id=${bandId}`
+      : "/pages/userProfile";
   return (
     <>
       <section className="mx-auto  my-auto px-4 sm:px-6 w-full max-w-2xl md:max-w-4xl lg:max-w-5xl overflow-hidden border border-neutral-700 from-neutral-950 to-neutral-900 bg-linear-to-t shadow-2xl p-24 ">
@@ -33,8 +66,14 @@ function SongDashboardPageContent() {
           </Link>
         </div>
         <h1 className="text-center  md:text-4xl font-bold tracking-tight text-yellow-100  px-4 py-2 rounded-full">
-          What&apos;s to come?
+          {song ? song.title : "What's to come?"}
         </h1>
+
+        {song && (
+          <p className="mt-2 text-center text-xs md:text-sm uppercase tracking-wide text-neutral-400">
+            {song.status === "finished" ? "Finished" : "Work in progress"}
+          </p>
+        )}
         <div className="mb-2 mt-12 flex flex-wrap w-full items-center justify-center gap-3">
           <h3 className="text-center text-xs md:text-base lg:text-lg font-bold tracking-tight text-yellow-100 border border-yellow-100 px-4 py-2 rounded-md">
             Song Dashboard
