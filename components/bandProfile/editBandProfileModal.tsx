@@ -4,6 +4,7 @@ type EditBandProfileModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onSave: (e: React.FormEvent<HTMLFormElement>) => void;
+  error?: string | null;
 
   bandName: string;
   setBandName: (value: string) => void;
@@ -46,6 +47,7 @@ export function EditBandProfileModal({
   isOpen,
   onClose,
   onSave,
+  error,
   bandName,
   setBandName,
   bio,
@@ -90,6 +92,8 @@ export function EditBandProfileModal({
 
         {/* Form */}
         <form onSubmit={onSave} className="space-y-5 p-6">
+          {error && <p className="form-error">{error}</p>}
+
           <div>
             <label className="mb-2 block text-sm font-semibold text-yellow-100">
               Band name

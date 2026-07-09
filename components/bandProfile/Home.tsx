@@ -21,9 +21,15 @@ type HomeNavProps = {
   bandId: string | number;
 
   role: string | null;
+  eventsError?: string | null;
 };
 
-export function HomeNav({ events, bandId, role }: HomeNavProps) {
+export function HomeNav({
+  events,
+  bandId,
+  role,
+  eventsError,
+}: HomeNavProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showEventForm, setShowEventForm] = useState(false);
 
@@ -34,7 +40,9 @@ export function HomeNav({ events, bandId, role }: HomeNavProps) {
           Upcoming events
         </h2>
         <div className="max-h-[50vh] space-y-3  overflow-y-auto ">
-          {events.length > 0 ? (
+          {eventsError ? (
+            <p className="form-error">{eventsError}</p>
+          ) : events.length > 0 ? (
             events.map((event) => <EventCard key={event.id} event={event} />)
           ) : (
             <p className="text-sm text-neutral-400">No upcoming events</p>

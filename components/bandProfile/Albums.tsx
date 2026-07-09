@@ -7,10 +7,18 @@ type Project = {
   cover_image_url: string | null;
 };
 
-export function Albums({ projects }: { projects: Project[] }) {
+export function Albums({
+  projects,
+  error,
+}: {
+  projects: Project[];
+  error?: string | null;
+}) {
   return (
     <ProfileSection title="Albums">
-      {projects.length === 0 ? (
+      {error ? (
+        <p className="form-error">{error}</p>
+      ) : projects.length === 0 ? (
         <p className="text-neutral-400">Albums will show up here...</p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">

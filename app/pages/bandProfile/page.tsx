@@ -104,6 +104,9 @@ function BandProfileContent() {
 
   const [band, setBand] = useState<Band | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -213,9 +216,11 @@ function BandProfileContent() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      setError("Unauthorized");
+      setActionError("Unauthorized");
       return;
     }
+
+    setActionError(null);
 
     const response = await fetch(`/api/bands/${bandId} `, {
       method: "PUT",
@@ -241,7 +246,7 @@ function BandProfileContent() {
     });
 
     if (!response.ok) {
-      setError("Failed to save band");
+      setActionError("Failed to save band");
       return;
     }
 
@@ -261,7 +266,7 @@ function BandProfileContent() {
     setFacebookUrl(data.band?.facebook_url ?? "");
     setTiktokUrl(data.band?.tiktok_url ?? "");
     setWebsiteUrl(data.band?.website_url ?? "");
-    setError(null);
+    setActionError(null);
   }
 
   useEffect(() => {
@@ -270,9 +275,11 @@ function BandProfileContent() {
 
       try {
         if (!token) {
-          setError("Unauthorized");
+          setActionError("Unauthorized");
           return;
         }
+
+        setActionError(null);
 
         const response = await fetch(`/api/users`, {
           headers: {
@@ -281,14 +288,14 @@ function BandProfileContent() {
         });
 
         if (!response.ok) {
-          setError("Failed to load users");
+          setActionError("Failed to load users");
           return;
         }
 
         const data = await response.json();
         setUsers(data.users ?? data);
       } catch (error) {
-        setError("Failed to load users");
+        setActionError("Failed to load users");
       }
     }
 
@@ -302,9 +309,12 @@ function BandProfileContent() {
 
     try {
       if (!token) {
-        setError("Unauthorized");
+        setActionError("Unauthorized");
         return;
       }
+
+      setActionError(null);
+
       const response = await fetch(`/api/bands/${bandId}/members`, {
         method: "POST",
         headers: {
@@ -315,14 +325,14 @@ function BandProfileContent() {
       });
 
       if (!response.ok) {
-        setError("Failed to add member");
+        setActionError("Failed to add member");
         return;
       }
 
       setShowModal(false);
       window.location.reload();
     } catch (error) {
-      setError("Failed to add member");
+      setActionError("Failed to add member");
     }
   }
 
@@ -331,9 +341,12 @@ function BandProfileContent() {
 
     try {
       if (!token) {
-        setError("Unauthorized");
+        setActionError("Unauthorized");
         return;
       }
+
+      setActionError(null);
+
       const response = await fetch(`/api/bands/${bandId}/members/${userId}`, {
         method: "DELETE",
         headers: {
@@ -342,14 +355,14 @@ function BandProfileContent() {
       });
 
       if (!response.ok) {
-        setError("Failed to remove member");
+        setActionError("Failed to remove member");
         return;
       }
 
       setShowModal(false);
       window.location.reload(); // Reload the page to show the new member in the list
     } catch (error) {
-      setError("Failed to remove member");
+      setActionError("Failed to remove member");
     }
   }
 
@@ -359,9 +372,11 @@ function BandProfileContent() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      setError("Unauthorized");
+      setEventsError("Unauthorized");
       return;
     }
+
+    setEventsError(null);
 
     try {
       const response = await fetch(`/api/bands/${bandId}/events`, {
@@ -372,17 +387,15 @@ function BandProfileContent() {
 
       if (!response.ok) {
         console.error("Failed to fetch events:", await response.text());
-        setError("Failed to fetch events");
+        setEventsError("Failed to fetch events");
         return;
       }
 
       const data = await response.json();
-      console.log("events from API:", data);
-
       setEvents(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error(error);
-      setError("Failed to fetch events");
+      setEventsError("Failed to fetch events");
     }
   }, [bandId]);
 
@@ -424,9 +437,11 @@ function BandProfileContent() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      setError("Unauthorized");
+      setProjectsError("Unauthorized");
       return;
     }
+
+    setProjectsError(null);
 
     try {
       const response = await fetch(`/api/bands/${bandId}/projects`, {
@@ -436,19 +451,23 @@ function BandProfileContent() {
       });
 
       if (!response.ok) {
-        setError("Failed to fetch projects");
+        setProjectsError("Failed to fetch projects");
         return;
       }
 
       const data = await response.json();
       setProjects(Array.isArray(data) ? data : []);
     } catch (error) {
-      setError("Failed to fetch projects");
+      setProjectsError("Failed to fetch projects");
     }
   }, [bandId]);
 
   useEffect(() => {
-    void fetchProjects();
+    async function loadProjects() {
+      await fetchProjects();
+    }
+
+    void loadProjects();
   }, [fetchProjects]);
 
   const albumProjects = projects.filter((project) => project.type === "album");
@@ -474,16 +493,6 @@ function BandProfileContent() {
     );
   }
 
-  if (error) {
-    return (
-      <main className="auth-page">
-        <section className="auth-card">
-          <p className="form-error">{error}</p>
-        </section>
-      </main>
-    );
-  }
-
   if (!bandId) {
     return <p>Band not found</p>;
   }
@@ -491,39 +500,43 @@ function BandProfileContent() {
   return (
     <main className="w-full  min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
       <NavBar />
-      <Link
-        href="/pages/userProfile?page?id=${user?.id}"
-        className="flex items-center gap-2 ml-4 mt-4 w-fit rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
-      >
-        Back
-      </Link>
 
-      <div className="relative mx-auto mt-4 w-full max-w-7xl px-4">
-        {/* Mobile nav */}
-        <div className="relative mb-4 md:hidden">
-          <BandProfileNav
-            activeSection={activeSection}
-            setActiveSection={setActiveSection}
-          />
-          <div
-            className="
-      pointer-events-none
-      absolute right-0 top-0 h-full w-8
-      bg-gradient-to-l from-neutral-950/80 to-transparent
-    "
-          ></div>
-        </div>
-
+      <div className="md:flex">
         {/* Desktop sidebar */}
-        <aside className="hidden md:block md:absolute md:left-[-240px] md:top-0 md:w-[220px]">
+        <aside className="hidden md:flex md:w-[220px] md:shrink-0 md:flex-col md:self-start md:sticky md:top-4 md:border-r md:border-neutral-800/60 md:px-4 md:py-2">
           <BandProfileNav
             activeSection={activeSection}
             setActiveSection={setActiveSection}
           />
         </aside>
 
-        <div className="w-full">
-          {/* Profile card */}
+        <div className="w-full min-w-0">
+          <Link
+            href="/pages/userProfile?page?id=${user?.id}"
+            className="flex items-center gap-2 ml-4 mt-4 w-fit rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
+          >
+            Back
+          </Link>
+
+          <div className="relative mx-auto mt-4 w-full max-w-7xl px-4">
+            {/* Mobile nav */}
+            <div className="relative mb-4 md:hidden">
+              <BandProfileNav
+                activeSection={activeSection}
+                setActiveSection={setActiveSection}
+              />
+              <div
+                className="
+          pointer-events-none
+          absolute right-0 top-0 h-full w-8
+          bg-gradient-to-l from-neutral-950/80 to-transparent
+        "
+              ></div>
+            </div>
+
+            <div className="w-full">
+              {/* Profile card */}
+          {activeSection === "Home" && (
           <section className="w-full overflow-hidden rounded-md bg-neutral-900/80 shadow-2xl">
             {/* Header image */}
             <div className="relative h-32 sm:h-48 md:h-72 lg:h-110 w-full overflow-hidden bg-gradient-to-r from-neutral-950 via-neutral-800 to-slate-900 shadow">
@@ -718,6 +731,10 @@ mb-4
                       Members
                     </h2>
 
+                    {actionError && (
+                      <p className="form-error mb-4">{actionError}</p>
+                    )}
+
                     <div className="grid gap-4 sm:grid-cols-2">
                       {members.map((member) => (
                         <div
@@ -766,6 +783,7 @@ mb-4
                   isOpen={editBandModalOpen}
                   onClose={() => setEditBandModalOpen(false)}
                   onSave={handleSave}
+                  error={actionError}
                   bandName={band_name}
                   setBandName={setBandName}
                   bio={bio}
@@ -800,6 +818,10 @@ mb-4
                   <h2 className="mb-4 text-xl font-bold text-yellow-100">
                     Invite new member
                   </h2>
+
+                  {actionError && (
+                    <p className="form-error mb-4">{actionError}</p>
+                  )}
 
                   <input
                     type="text"
@@ -858,15 +880,23 @@ mb-4
               </Modal>
             )}
           </section>
+          )}
 
           <section className="mt-6 mb-24 w-full">
             <div className="rounded-lg  shadow-2xl ">
               {activeSection === "Home" && (
-                <HomeNav events={upComingEvents} bandId={bandId} role={role} />
+                <HomeNav
+                  events={upComingEvents}
+                  bandId={bandId}
+                  role={role}
+                  eventsError={eventsError}
+                />
               )}
-              {activeSection === "Albums" && <Albums projects={albumProjects} />}
+              {activeSection === "Albums" && (
+                <Albums projects={albumProjects} error={projectsError} />
+              )}
               {activeSection === "Singles" && (
-                <Singles projects={singleProjects} />
+                <Singles projects={singleProjects} error={projectsError} />
               )}
               {activeSection === "Wip" && <WIP />}
               {activeSection === "Finished" && <Finished />}
@@ -875,6 +905,8 @@ mb-4
               {activeSection === "Tickets" && <Tickets />}
             </div>
           </section>
+            </div>
+          </div>
         </div>
       </div>
 
