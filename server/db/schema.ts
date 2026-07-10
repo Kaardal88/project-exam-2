@@ -6,6 +6,7 @@ import {
   timestamp,
   unique,
   integer,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -184,9 +185,81 @@ export const songs = pgTable("songs", {
 
   track_number: integer("track_number"),
 
+  bpm: integer("bpm"),
+
+  key: varchar("key", { length: 20 }),
+
+  time_signature: varchar("time_signature", { length: 20 }),
+
+  audio_url: text("audio_url"),
+
+  artwork_url: text("artwork_url"),
+
   created_by: uuid("created_by").references(() => users.id),
 
   created_at: timestamp("created_at").defaultNow(),
+
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const song_comments = pgTable("song_comments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  song_id: uuid("song_id")
+    .notNull()
+    .references(() => songs.id, { onDelete: "cascade" }),
+
+  author_id: uuid("author_id")
+    .notNull()
+    .references(() => users.id),
+
+  timestamp_seconds: integer("timestamp_seconds").notNull(),
+
+  body: text("body").notNull(),
+
+  assignee_id: uuid("assignee_id").references(() => users.id),
+
+  status: varchar("status", { length: 20 }).notNull().default("open"),
+
+  created_at: timestamp("created_at").defaultNow(),
+
+  resolved_at: timestamp("resolved_at"),
+});
+
+export const song_tasks = pgTable("song_tasks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  song_id: uuid("song_id")
+    .notNull()
+    .references(() => songs.id, { onDelete: "cascade" }),
+
+  title: varchar("title", { length: 255 }).notNull(),
+
+  assignee_id: uuid("assignee_id").references(() => users.id),
+
+  due_date: timestamp("due_date"),
+
+  is_done: boolean("is_done").notNull().default(false),
+
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const song_notes = pgTable("song_notes", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  song_id: uuid("song_id")
+    .notNull()
+    .references(() => songs.id, { onDelete: "cascade" }),
+
+  title: varchar("title", { length: 255 }).notNull(),
+
+  body: text("body").notNull(),
+
+  published_by: uuid("published_by").references(() => users.id),
+
+  created_at: timestamp("created_at").defaultNow(),
+
+  updated_at: timestamp("updated_at").defaultNow(),
 });
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -201,5 +274,30 @@ export const songsRelations = relations(songs, ({ one }) => ({
   project: one(projects, {
     fields: [songs.project_id],
     references: [projects.id],
+  }),
+}));
+
+export const song_commentsRelations = relations(song_comments, ({ one }) => ({
+  author: one(users, {
+    fields: [song_comments.author_id],
+    references: [users.id],
+  }),
+  assignee: one(users, {
+    fields: [song_comments.assignee_id],
+    references: [users.id],
+  }),
+}));
+
+export const song_tasksRelations = relations(song_tasks, ({ one }) => ({
+  assignee: one(users, {
+    fields: [song_tasks.assignee_id],
+    references: [users.id],
+  }),
+}));
+
+export const song_notesRelations = relations(song_notes, ({ one }) => ({
+  publisher: one(users, {
+    fields: [song_notes.published_by],
+    references: [users.id],
   }),
 }));
