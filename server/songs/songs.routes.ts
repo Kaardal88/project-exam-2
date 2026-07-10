@@ -10,6 +10,20 @@ import {
   song_comment_events,
   song_files,
 } from "@/server/db/schema";
+import {
+  getUploadUrl,
+  getDownloadUrl,
+  deleteObject,
+  isLegacyPastedUrl,
+  MP3_MAX_BYTES,
+  IMAGE_MAX_BYTES,
+  FILE_MAX_BYTES,
+  ALLOWED_AUDIO_TYPES,
+  ALLOWED_IMAGE_TYPES,
+  AUDIO_DOWNLOAD_TTL_SECONDS,
+  ARTWORK_DOWNLOAD_TTL_SECONDS,
+  FILE_DOWNLOAD_TTL_SECONDS,
+} from "@/server/r2";
 
 const TICKET_STATUSES = ["open", "wip", "done"] as const;
 const NOTE_KINDS = ["note", "lyrics"] as const;
@@ -19,6 +33,12 @@ const FILE_CATEGORIES = [
   "press_photo",
   "contract",
 ] as const;
+const UPLOAD_TARGETS = ["audio", "artwork", "file"] as const;
+const IMAGE_FILE_CATEGORIES = ["artwork", "press_photo"];
+
+function sanitizeFilename(filename: string) {
+  return filename.replace(/[^a-zA-Z0-9.\-_]/g, "_").slice(0, 100);
+}
 
 type Variables = {
   userId: string;
@@ -91,10 +111,30 @@ songsRoutes.put("/:id", requireAuth, async (c) => {
       title: body.title,
       status: body.status,
       track_number: body.track_number,
+      audio_url: body.audio_url,
+      artwork_url: body.artwork_url,
       updated_at: new Date(),
     })
     .where(eq(songs.id, songId))
     .returning();
+
+  // Best-effort cleanup of the previous R2 object on replace — not on the
+  // critical path, so a failure here doesn't fail the request.
+  if (
+    body.audio_url &&
+    context.song.audio_url &&
+    context.song.audio_url !== body.audio_url
+  ) {
+    await deleteObject(context.song.audio_url).catch(() => {});
+  }
+
+  if (
+    body.artwork_url &&
+    context.song.artwork_url &&
+    context.song.artwork_url !== body.artwork_url
+  ) {
+    await deleteObject(context.song.artwork_url).catch(() => {});
+  }
 
   return c.json(updatedSong, 200);
 });
@@ -596,6 +636,17 @@ songsRoutes.delete("/:id/files/:fileId", requireAuth, async (c) => {
     );
   }
 
+  if (file.file_url && !isLegacyPastedUrl(file.file_url)) {
+    try {
+      await deleteObject(file.file_url);
+    } catch {
+      return c.json(
+        { error: "Failed to delete the file from storage. Please try again." },
+        502,
+      );
+    }
+  }
+
   const [deletedFile] = await db
     .delete(song_files)
     .where(eq(song_files.id, fileId))
@@ -604,4 +655,187 @@ songsRoutes.delete("/:id/files/:fileId", requireAuth, async (c) => {
   return c.json(deletedFile, 200);
 });
 
-// Phase 5: swap file_url text input for a real CloudFlare R2 upload widget.
+songsRoutes.post("/:id/presign-upload", requireAuth, async (c) => {
+  const songId = c.req.param("id");
+  const userId = c.get("userId");
+  const body = await c.req.json();
+
+  const context = await getSongContext(songId);
+
+  if (!context) {
+    return c.json({ error: "Song not found" }, 404);
+  }
+
+  const membership = await getMembership(context.project.band_id, userId);
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const { target, filename, contentType, size, category } = body;
+
+  if (!UPLOAD_TARGETS.includes(target)) {
+    return c.json({ error: "target must be 'audio', 'artwork', or 'file'" }, 400);
+  }
+
+  if (typeof filename !== "string" || !filename) {
+    return c.json({ error: "filename is required" }, 400);
+  }
+
+  if (typeof contentType !== "string" || !contentType) {
+    return c.json({ error: "contentType is required" }, 400);
+  }
+
+  if (typeof size !== "number" || size <= 0) {
+    return c.json({ error: "size is required" }, 400);
+  }
+
+  const isImageUpload =
+    target === "artwork" ||
+    (target === "file" && IMAGE_FILE_CATEGORIES.includes(category));
+
+  let maxBytes: number;
+  let extension: string;
+
+  if (target === "audio") {
+    if (!ALLOWED_AUDIO_TYPES[contentType]) {
+      return c.json({ error: "Only MP3 audio files are allowed" }, 400);
+    }
+
+    if (!filename.toLowerCase().endsWith(".mp3")) {
+      return c.json({ error: "Only .mp3 files are allowed" }, 400);
+    }
+
+    maxBytes = MP3_MAX_BYTES;
+    extension = ALLOWED_AUDIO_TYPES[contentType];
+  } else if (isImageUpload) {
+    if (!ALLOWED_IMAGE_TYPES[contentType]) {
+      return c.json({ error: "Only JPG or PNG images are allowed" }, 400);
+    }
+
+    const lower = filename.toLowerCase();
+
+    if (!lower.endsWith(".jpg") && !lower.endsWith(".jpeg") && !lower.endsWith(".png")) {
+      return c.json(
+        { error: "Only .jpg, .jpeg, or .png files are allowed" },
+        400,
+      );
+    }
+
+    maxBytes = IMAGE_MAX_BYTES;
+    extension = ALLOWED_IMAGE_TYPES[contentType];
+  } else {
+    maxBytes = FILE_MAX_BYTES;
+    extension = filename.includes(".") ? filename.split(".").pop()! : "bin";
+  }
+
+  if (size > maxBytes) {
+    return c.json(
+      { error: `File too large. Max ${Math.round(maxBytes / (1024 * 1024))}MB` },
+      400,
+    );
+  }
+
+  const uuid = crypto.randomUUID();
+  let key: string;
+
+  if (target === "audio") {
+    key = `songs/${songId}/audio/${uuid}.${extension}`;
+  } else if (target === "artwork") {
+    key = `songs/${songId}/artwork/${uuid}.${extension}`;
+  } else {
+    key = `songs/${songId}/files/${uuid}-${sanitizeFilename(filename)}`;
+  }
+
+  const uploadUrl = await getUploadUrl(key, contentType);
+
+  return c.json({ uploadUrl, key }, 200);
+});
+
+songsRoutes.get("/:id/audio-url", requireAuth, async (c) => {
+  const songId = c.req.param("id");
+  const userId = c.get("userId");
+
+  const context = await getSongContext(songId);
+
+  if (!context) {
+    return c.json({ error: "Song not found" }, 404);
+  }
+
+  const membership = await getMembership(context.project.band_id, userId);
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (!context.song.audio_url) {
+    return c.json({ error: "No audio uploaded" }, 404);
+  }
+
+  const url = await getDownloadUrl(context.song.audio_url, AUDIO_DOWNLOAD_TTL_SECONDS);
+
+  return c.json({ url }, 200);
+});
+
+songsRoutes.get("/:id/artwork-url", requireAuth, async (c) => {
+  const songId = c.req.param("id");
+  const userId = c.get("userId");
+
+  const context = await getSongContext(songId);
+
+  if (!context) {
+    return c.json({ error: "Song not found" }, 404);
+  }
+
+  const membership = await getMembership(context.project.band_id, userId);
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (!context.song.artwork_url) {
+    return c.json({ error: "No artwork uploaded" }, 404);
+  }
+
+  const url = await getDownloadUrl(
+    context.song.artwork_url,
+    ARTWORK_DOWNLOAD_TTL_SECONDS,
+  );
+
+  return c.json({ url }, 200);
+});
+
+songsRoutes.get("/:id/files/:fileId/download-url", requireAuth, async (c) => {
+  const songId = c.req.param("id");
+  const fileId = c.req.param("fileId");
+  const userId = c.get("userId");
+
+  const context = await getSongContext(songId);
+
+  if (!context) {
+    return c.json({ error: "Song not found" }, 404);
+  }
+
+  const membership = await getMembership(context.project.band_id, userId);
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const file = await db.query.song_files.findFirst({
+    where: (song_files, { eq, and }) =>
+      and(eq(song_files.id, fileId), eq(song_files.song_id, songId)),
+  });
+
+  if (!file || !file.file_url) {
+    return c.json({ error: "File not found" }, 404);
+  }
+
+  if (isLegacyPastedUrl(file.file_url)) {
+    return c.json({ url: file.file_url }, 200);
+  }
+
+  const url = await getDownloadUrl(file.file_url, FILE_DOWNLOAD_TTL_SECONDS);
+
+  return c.json({ url }, 200);
+});

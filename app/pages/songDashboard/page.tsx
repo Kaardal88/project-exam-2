@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState, Suspense } from "react";
+import { useCallback, useEffect, useRef, useState, Suspense } from "react";
+import { Upload } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
 import AmpLoader from "@/components/AmpLoader";
 import { SongSidebar } from "@/components/songDashboard/SongSidebar";
@@ -14,6 +15,9 @@ import { CommentsTab } from "@/components/songDashboard/CommentsTab";
 import { NotesTab } from "@/components/songDashboard/NotesTab";
 import { FilesTab } from "@/components/songDashboard/FilesTab";
 import type { TicketStatus } from "@/components/songDashboard/ticketStatus";
+import { uploadToR2 } from "@/lib/uploadToR2";
+
+const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 
 type Song = {
   id: string;
@@ -122,6 +126,13 @@ function SongDashboardPageContent() {
     seconds: number;
     nonce: number;
   } | null>(null);
+  const [audioPlaybackUrl, setAudioPlaybackUrl] = useState<string | null>(null);
+  const [artworkDisplayUrl, setArtworkDisplayUrl] = useState<string | null>(null);
+  const [artworkUploading, setArtworkUploading] = useState(false);
+  const [artworkUploadError, setArtworkUploadError] = useState<string | null>(
+    null,
+  );
+  const artworkInputRef = useRef<HTMLInputElement>(null);
 
   const requestSeekAndShow = useCallback((seconds: number) => {
     setActiveTab("Dashboard");
@@ -238,6 +249,108 @@ function SongDashboardPageContent() {
     if (response.ok) setFiles(await response.json());
   }, [song]);
 
+  const fetchAudioUrl = useCallback(async () => {
+    if (!song?.audio_url) {
+      setAudioPlaybackUrl(null);
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+
+    const response = await fetch(`/api/songs/${song.id}/audio-url`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    setAudioPlaybackUrl(response.ok ? (await response.json()).url : null);
+  }, [song]);
+
+  useEffect(() => {
+    async function loadAudioUrl() {
+      await fetchAudioUrl();
+    }
+
+    void loadAudioUrl();
+  }, [fetchAudioUrl]);
+
+  const fetchArtworkUrl = useCallback(async () => {
+    if (!song?.artwork_url) {
+      setArtworkDisplayUrl(null);
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+
+    const response = await fetch(`/api/songs/${song.id}/artwork-url`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    setArtworkDisplayUrl(response.ok ? (await response.json()).url : null);
+  }, [song]);
+
+  useEffect(() => {
+    async function loadArtworkUrl() {
+      await fetchArtworkUrl();
+    }
+
+    void loadArtworkUrl();
+  }, [fetchArtworkUrl]);
+
+  async function handleArtworkUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !song) return;
+
+    setArtworkUploadError(null);
+
+    const lower = file.name.toLowerCase();
+    const validExt =
+      lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png");
+    const validType = file.type === "image/jpeg" || file.type === "image/png";
+
+    if (!validExt || !validType) {
+      setArtworkUploadError("Only .jpg or .png files are allowed");
+      return;
+    }
+
+    if (file.size > IMAGE_MAX_BYTES) {
+      setArtworkUploadError("File too large. Max 10MB");
+      return;
+    }
+
+    setArtworkUploading(true);
+
+    try {
+      const { key } = await uploadToR2({
+        songId: song.id,
+        target: "artwork",
+        file,
+      });
+
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(`/api/songs/${song.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ artwork_url: key }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save artwork");
+      }
+
+      await fetchSong();
+    } catch (err) {
+      setArtworkUploadError(
+        err instanceof Error ? err.message : "Upload failed",
+      );
+    } finally {
+      setArtworkUploading(false);
+    }
+  }
+
   if (loading) {
     return (
       <main className="flex h-screen w-full items-center justify-center bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900">
@@ -279,19 +392,47 @@ function SongDashboardPageContent() {
               {song.project.title}
             </Link>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-              {song.project.cover_image_url ? (
-                <img
-                  src={song.project.cover_image_url}
-                  alt={song.project.title}
-                  className="h-20 w-20 shrink-0 rounded object-cover"
+              <div className="group relative h-20 w-20 shrink-0">
+                {artworkDisplayUrl ? (
+                  <img
+                    src={artworkDisplayUrl}
+                    alt={song.title}
+                    className="h-20 w-20 rounded object-cover"
+                  />
+                ) : song.project.cover_image_url ? (
+                  <img
+                    src={song.project.cover_image_url}
+                    alt={song.project.title}
+                    className="h-20 w-20 rounded object-cover"
+                  />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded bg-neutral-800 text-2xl font-bold text-yellow-100">
+                    {song.title.charAt(0).toUpperCase()}
+                  </div>
+                )}
+
+                <input
+                  ref={artworkInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+                  onChange={handleArtworkUpload}
+                  className="hidden"
                 />
-              ) : (
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded bg-neutral-800 text-2xl font-bold text-yellow-100">
-                  {song.title.charAt(0).toUpperCase()}
-                </div>
-              )}
+
+                <button
+                  onClick={() => artworkInputRef.current?.click()}
+                  disabled={artworkUploading}
+                  title="Upload artwork (JPG/PNG, max 10MB)"
+                  className="absolute inset-0 flex items-center justify-center rounded bg-black/60 opacity-0 transition group-hover:opacity-100 hover:cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <Upload className="h-5 w-5 text-yellow-100" />
+                </button>
+              </div>
 
               <div className="min-w-0 flex-1">
+                {artworkUploadError && (
+                  <p className="form-error mb-2">{artworkUploadError}</p>
+                )}
                 <h1 className="text-2xl font-bold text-yellow-100">
                   {song.title}
                 </h1>
@@ -351,6 +492,9 @@ function SongDashboardPageContent() {
               setActiveTab={setActiveTab}
               seekSignal={seekSignal}
               onSeek={requestSeekAndShow}
+              audioUrl={audioPlaybackUrl}
+              onAudioUploaded={fetchSong}
+              onAudioUrlExpired={fetchAudioUrl}
             />
           ) : activeTab === "Comments" ? (
             <CommentsTab
