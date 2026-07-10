@@ -8,46 +8,84 @@ import {
   SkipForward,
   Volume2,
   Maximize2,
+  Upload,
 } from "lucide-react";
 import { formatSongTime } from "@/lib/utils";
+import { uploadToR2 } from "@/lib/uploadToR2";
 import { TICKET_STATUS_STYLES, type TicketStatus } from "./ticketStatus";
 
-// Placeholder duration until CloudFlare R2 audio (audio_url) is wired up.
-const TOTAL_SECONDS = 246;
+// Placeholder duration used until real audio is uploaded/loaded.
+const PLACEHOLDER_TOTAL_SECONDS = 246;
+const MP3_MAX_BYTES = 25 * 1024 * 1024;
 
 type Comment = { id: string; timestamp_seconds: number; status: TicketStatus };
 
 type SeekSignal = { seconds: number; nonce: number };
 
 type MediaPlayerProps = {
+  songId: string;
+  audioUrl: string | null;
   comments: Comment[];
   onRequestAddComment: (timestampSeconds: number) => void;
   onPositionChange?: (seconds: number) => void;
   seekSignal?: SeekSignal | null;
+  onAudioUploaded: () => void;
+  onAudioUrlExpired: () => void;
 };
 
 export function MediaPlayer({
+  songId,
+  audioUrl,
   comments,
   onRequestAddComment,
   onPositionChange,
   seekSignal,
+  onAudioUploaded,
+  onAudioUrlExpired,
 }: MediaPlayerProps) {
+  const hasRealAudio = Boolean(audioUrl);
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSeconds, setCurrentSeconds] = useState(0);
+  const [duration, setDuration] = useState(PLACEHOLDER_TOTAL_SECONDS);
   const [pendingSeconds, setPendingSeconds] = useState<number | null>(null);
   const [appliedSeekNonce, setAppliedSeekNonce] = useState(seekSignal?.nonce);
+  const [seekTarget, setSeekTarget] = useState<number | null>(null);
+  const [appliedAudioUrl, setAppliedAudioUrl] = useState(audioUrl);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const waveformRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasRetriedAfterError = useRef(false);
 
   // Adjusting state in response to a prop change (not an effect) — see
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  // Refs can't be touched during render, so a real-audio seek is deferred to
+  // the effect below via `seekTarget` instead of writing audioRef here.
   if (seekSignal && seekSignal.nonce !== appliedSeekNonce) {
     setAppliedSeekNonce(seekSignal.nonce);
-    setCurrentSeconds(seekSignal.seconds);
     setPendingSeconds(null);
+
+    if (hasRealAudio) {
+      setSeekTarget(seekSignal.seconds);
+    } else {
+      setCurrentSeconds(seekSignal.seconds);
+    }
+  }
+
+  if (hasRealAudio && audioUrl !== appliedAudioUrl) {
+    setAppliedAudioUrl(audioUrl);
+    setCurrentSeconds(0);
+    setIsPlaying(false);
+    setAudioError(null);
   }
 
   const bars = useMemo(() => {
     // Deterministic pseudo-random hash per bar index, no mutable closure state.
+    // Real waveform analysis is out of scope this phase — see plan notes.
     return Array.from({ length: 80 }, (_, i) => {
       const hash = Math.abs(Math.sin(i * 12.9898 + 78.233) * 43758.5453) % 1;
       return 20 + hash * 80;
@@ -58,36 +96,90 @@ export function MediaPlayer({
     onPositionChange?.(currentSeconds);
   }, [currentSeconds, onPositionChange]);
 
+  // Fake simulated playback — only runs while no real audio is loaded.
   useEffect(() => {
-    if (!isPlaying) return;
+    if (hasRealAudio || !isPlaying) return;
 
     const interval = setInterval(() => {
       setCurrentSeconds((prev) => {
-        if (prev >= TOTAL_SECONDS) {
+        if (prev >= duration) {
           setIsPlaying(false);
-          return TOTAL_SECONDS;
+          return duration;
         }
         return prev + 1;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPlaying]);
+  }, [hasRealAudio, isPlaying, duration]);
+
+  // Ref-only reset (not state) — safe to do directly in an effect.
+  useEffect(() => {
+    hasRetriedAfterError.current = false;
+  }, [audioUrl]);
+
+  // Deferred seek: audioRef can only be touched outside of render.
+  useEffect(() => {
+    if (seekTarget !== null && audioRef.current) {
+      audioRef.current.currentTime = seekTarget;
+      setSeekTarget(null);
+    }
+  }, [seekTarget]);
+
+  function handleTimeUpdate() {
+    if (audioRef.current) setCurrentSeconds(audioRef.current.currentTime);
+  }
+
+  function handleLoadedMetadata() {
+    if (audioRef.current && Number.isFinite(audioRef.current.duration)) {
+      setDuration(audioRef.current.duration);
+    }
+  }
+
+  function handleAudioError() {
+    if (!hasRetriedAfterError.current) {
+      hasRetriedAfterError.current = true;
+      onAudioUrlExpired();
+      return;
+    }
+
+    setAudioError("Couldn't load audio — try refreshing the page.");
+  }
+
+  function togglePlayPause() {
+    if (hasRealAudio) {
+      if (!audioRef.current) return;
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        void audioRef.current.play();
+      }
+      return;
+    }
+
+    setIsPlaying((prev) => !prev);
+    setPendingSeconds(null);
+  }
 
   function secondsFromClientX(clientX: number) {
     const el = waveformRef.current;
     if (!el) return null;
     const rect = el.getBoundingClientRect();
     const fraction = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    return Math.round(fraction * TOTAL_SECONDS);
+    return fraction * duration;
   }
 
   function handleWaveformClick(e: React.MouseEvent<HTMLDivElement>) {
     const seconds = secondsFromClientX(e.clientX);
     if (seconds === null) return;
 
-    setCurrentSeconds(seconds);
-    setPendingSeconds(isPlaying ? null : seconds);
+    if (hasRealAudio && audioRef.current) {
+      audioRef.current.currentTime = seconds;
+    } else {
+      setCurrentSeconds(Math.round(seconds));
+    }
+
+    setPendingSeconds(isPlaying ? null : Math.round(seconds));
   }
 
   function jumpToComment(direction: "prev" | "next") {
@@ -97,30 +189,96 @@ export function MediaPlayer({
       .map((comment) => comment.timestamp_seconds)
       .sort((a, b) => a - b);
 
+    let target: number;
+
     if (direction === "next") {
       const next = sorted.find((t) => t > currentSeconds);
-      setCurrentSeconds(next ?? sorted[sorted.length - 1]);
+      target = next ?? sorted[sorted.length - 1];
     } else {
       const before = sorted.filter((t) => t < currentSeconds);
-      setCurrentSeconds(before.length ? before[before.length - 1] : sorted[0]);
+      target = before.length ? before[before.length - 1] : sorted[0];
+    }
+
+    if (hasRealAudio && audioRef.current) {
+      audioRef.current.currentTime = target;
+    } else {
+      setCurrentSeconds(target);
     }
 
     setPendingSeconds(null);
   }
 
-  const progressPercent = (currentSeconds / TOTAL_SECONDS) * 100;
+  async function handleUploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setUploadError(null);
+
+    if (!file.name.toLowerCase().endsWith(".mp3") || file.type !== "audio/mpeg") {
+      setUploadError("Only .mp3 files are allowed");
+      return;
+    }
+
+    if (file.size > MP3_MAX_BYTES) {
+      setUploadError("File too large. Max 25MB");
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const { key } = await uploadToR2({ songId, target: "audio", file });
+
+      const token = localStorage.getItem("token");
+      const response = await fetch(`/api/songs/${songId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ audio_url: key }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save audio to song");
+      }
+
+      onAudioUploaded();
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const progressPercent = (currentSeconds / duration) * 100;
   const pendingPercent =
-    pendingSeconds !== null ? (pendingSeconds / TOTAL_SECONDS) * 100 : null;
+    pendingSeconds !== null ? (pendingSeconds / duration) * 100 : null;
 
   return (
     <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-4 shadow-2xl">
+      {hasRealAudio && (
+        <audio
+          ref={audioRef}
+          src={audioUrl!}
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onEnded={() => setIsPlaying(false)}
+          onError={handleAudioError}
+        />
+      )}
+
+      {audioError && <p className="form-error mb-2">{audioError}</p>}
+      {uploadError && <p className="form-error mb-2">{uploadError}</p>}
+
       <div className="flex items-center gap-3 sm:gap-4">
         <button
-          onClick={() => {
-            setIsPlaying((prev) => !prev);
-            setPendingSeconds(null);
-          }}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-yellow-100 text-black transition hover:cursor-pointer hover:bg-yellow-200"
+          onClick={togglePlayPause}
+          disabled={hasRealAudio && !!audioError}
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-yellow-100 text-black transition hover:cursor-pointer hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
           aria-label={isPlaying ? "Pause" : "Play"}
         >
           {isPlaying ? (
@@ -198,12 +356,16 @@ export function MediaPlayer({
                 key={comment.id}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setCurrentSeconds(comment.timestamp_seconds);
+                  if (hasRealAudio && audioRef.current) {
+                    audioRef.current.currentTime = comment.timestamp_seconds;
+                  } else {
+                    setCurrentSeconds(comment.timestamp_seconds);
+                  }
                   setPendingSeconds(null);
                 }}
                 title={`${TICKET_STATUS_STYLES[comment.status].label} ticket at ${formatSongTime(comment.timestamp_seconds)}`}
                 style={{
-                  left: `${(comment.timestamp_seconds / TOTAL_SECONDS) * 100}%`,
+                  left: `${(comment.timestamp_seconds / duration) * 100}%`,
                 }}
                 className={`pointer-events-auto absolute h-2 w-2 -translate-x-1/2 rounded-full ring-1 ring-neutral-950 hover:cursor-pointer ${TICKET_STATUS_STYLES[comment.status].dot}`}
               />
@@ -212,13 +374,31 @@ export function MediaPlayer({
         </div>
 
         <span className="w-10 shrink-0 text-xs text-neutral-400">
-          {formatSongTime(TOTAL_SECONDS)}
+          {formatSongTime(duration)}
         </span>
 
         <Volume2
           className="h-4 w-4 shrink-0 text-neutral-500"
           aria-hidden="true"
         />
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/mpeg,.mp3"
+          onChange={handleUploadFile}
+          className="hidden"
+        />
+
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          title={hasRealAudio ? "Replace audio (MP3, max 25MB)" : "Upload audio (MP3, max 25MB)"}
+          className="hidden shrink-0 items-center gap-1 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed disabled:opacity-50 sm:flex"
+        >
+          <Upload className="h-3 w-3" />
+          {uploading ? "Uploading…" : hasRealAudio ? "Replace" : "Upload MP3"}
+        </button>
 
         <button
           disabled

@@ -55,6 +55,9 @@ type DashboardTabProps = {
   setActiveTab: (tab: SongTab) => void;
   seekSignal: { seconds: number; nonce: number } | null;
   onSeek: (seconds: number) => void;
+  audioUrl: string | null;
+  onAudioUploaded: () => void;
+  onAudioUrlExpired: () => void;
 };
 
 export function DashboardTab({
@@ -70,6 +73,9 @@ export function DashboardTab({
   setActiveTab,
   seekSignal,
   onSeek,
+  audioUrl,
+  onAudioUploaded,
+  onAudioUrlExpired,
 }: DashboardTabProps) {
   const [playerPosition, setPlayerPosition] = useState(0);
   const [addCommentSeconds, setAddCommentSeconds] = useState<number | null>(
@@ -139,10 +145,14 @@ export function DashboardTab({
       </div>
 
       <MediaPlayer
+        songId={songId}
+        audioUrl={audioUrl}
         comments={comments}
         onRequestAddComment={(seconds) => setAddCommentSeconds(seconds)}
         onPositionChange={setPlayerPosition}
         seekSignal={seekSignal}
+        onAudioUploaded={onAudioUploaded}
+        onAudioUrlExpired={onAudioUrlExpired}
       />
 
       <div className="grid gap-6 md:grid-cols-3">

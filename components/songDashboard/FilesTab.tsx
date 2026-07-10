@@ -37,9 +37,13 @@ export function FilesTab({
 }: FilesTabProps) {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
+  const [openError, setOpenError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function handleDelete(fileId: string) {
     setDeletingId(fileId);
+    setDeleteError(null);
 
     const token = localStorage.getItem("token");
 
@@ -48,9 +52,35 @@ export function FilesTab({
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    if (response.ok) onFilesChanged();
+    if (response.ok) {
+      onFilesChanged();
+    } else {
+      const body = await response.json().catch(() => ({}));
+      setDeleteError(body.error ?? "Failed to delete file");
+    }
 
     setDeletingId(null);
+  }
+
+  async function handleOpen(fileId: string) {
+    setOpeningId(fileId);
+    setOpenError(null);
+
+    const token = localStorage.getItem("token");
+
+    const response = await fetch(
+      `/api/songs/${songId}/files/${fileId}/download-url`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+
+    if (response.ok) {
+      const { url } = await response.json();
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      setOpenError("Failed to open file. Try again.");
+    }
+
+    setOpeningId(null);
   }
 
   return (
@@ -65,6 +95,9 @@ export function FilesTab({
           Upload file
         </button>
       </div>
+
+      {openError && <p className="form-error mb-3">{openError}</p>}
+      {deleteError && <p className="form-error mb-3">{deleteError}</p>}
 
       {files.length === 0 ? (
         <p className="text-sm text-neutral-500">No files yet</p>
@@ -97,15 +130,14 @@ export function FilesTab({
                 </span>
 
                 {file.file_url && (
-                  <a
-                    href={file.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-yellow-200 transition hover:text-yellow-100"
+                  <button
+                    onClick={() => handleOpen(file.id)}
+                    disabled={openingId === file.id}
+                    className="flex items-center gap-1 text-xs text-yellow-200 transition hover:cursor-pointer hover:text-yellow-100 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <ExternalLink className="h-3 w-3" />
-                    Open
-                  </a>
+                    {openingId === file.id ? "Opening…" : "Open"}
+                  </button>
                 )}
 
                 <button
