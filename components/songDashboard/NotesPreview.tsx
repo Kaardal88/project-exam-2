@@ -1,7 +1,10 @@
+import { stripHtml } from "@/lib/utils";
+
 type Note = {
   id: string;
   title: string;
   body: string;
+  kind: "note" | "lyrics";
   created_at: string | null;
   publisher: { id: string; username: string } | null;
 };
@@ -12,7 +15,7 @@ type NotesPreviewProps = {
 };
 
 export function NotesPreview({ notes, onViewAll }: NotesPreviewProps) {
-  const preview = notes.slice(0, 2);
+  const preview = notes.filter((note) => note.kind === "note").slice(0, 2);
 
   return (
     <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-4 shadow-2xl">
@@ -27,7 +30,9 @@ export function NotesPreview({ notes, onViewAll }: NotesPreviewProps) {
           {preview.map((note) => (
             <li key={note.id} className="text-sm">
               <p className="font-semibold text-yellow-100">{note.title}</p>
-              <p className="mt-1 line-clamp-2 text-neutral-300">{note.body}</p>
+              <p className="mt-1 line-clamp-2 text-neutral-300">
+                {stripHtml(note.body)}
+              </p>
               <p className="mt-1 text-xs text-neutral-500">
                 {note.publisher?.username ?? "Unknown"}
                 {note.created_at

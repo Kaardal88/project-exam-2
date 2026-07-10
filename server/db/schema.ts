@@ -255,11 +255,33 @@ export const song_notes = pgTable("song_notes", {
 
   body: text("body").notNull(),
 
+  kind: varchar("kind", { length: 20 }).notNull().default("note"),
+
   published_by: uuid("published_by").references(() => users.id),
+
+  updated_by: uuid("updated_by").references(() => users.id),
 
   created_at: timestamp("created_at").defaultNow(),
 
   updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const song_files = pgTable("song_files", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  song_id: uuid("song_id")
+    .notNull()
+    .references(() => songs.id, { onDelete: "cascade" }),
+
+  filename: varchar("filename", { length: 255 }).notNull(),
+
+  category: varchar("category", { length: 20 }).notNull(),
+
+  file_url: text("file_url"),
+
+  uploaded_by: uuid("uploaded_by").references(() => users.id),
+
+  created_at: timestamp("created_at").defaultNow(),
 });
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -298,6 +320,17 @@ export const song_tasksRelations = relations(song_tasks, ({ one }) => ({
 export const song_notesRelations = relations(song_notes, ({ one }) => ({
   publisher: one(users, {
     fields: [song_notes.published_by],
+    references: [users.id],
+  }),
+  editor: one(users, {
+    fields: [song_notes.updated_by],
+    references: [users.id],
+  }),
+}));
+
+export const song_filesRelations = relations(song_files, ({ one }) => ({
+  uploader: one(users, {
+    fields: [song_files.uploaded_by],
     references: [users.id],
   }),
 }));

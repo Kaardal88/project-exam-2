@@ -5,7 +5,8 @@ export type SongTab =
   | "Tasks"
   | "Activity"
   | "Song Info"
-  | "Notes & Ideas";
+  | "Notes & Ideas"
+  | "Files";
 
 type SongTabsProps = {
   activeTab: SongTab;
@@ -20,6 +21,7 @@ const tabs: SongTab[] = [
   "Activity",
   "Song Info",
   "Notes & Ideas",
+  "Files",
 ];
 
 export function SongTabs({ activeTab, setActiveTab }: SongTabsProps) {

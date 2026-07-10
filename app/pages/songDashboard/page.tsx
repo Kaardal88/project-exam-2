@@ -11,6 +11,8 @@ import { SongTabs, type SongTab } from "@/components/songDashboard/SongTabs";
 import { PlaceholderTab } from "@/components/songDashboard/PlaceholderTab";
 import { DashboardTab } from "@/components/songDashboard/DashboardTab";
 import { CommentsTab } from "@/components/songDashboard/CommentsTab";
+import { NotesTab } from "@/components/songDashboard/NotesTab";
+import { FilesTab } from "@/components/songDashboard/FilesTab";
 import type { TicketStatus } from "@/components/songDashboard/ticketStatus";
 
 type Song = {
@@ -70,19 +72,31 @@ type Note = {
   id: string;
   title: string;
   body: string;
+  kind: "note" | "lyrics";
   created_at: string | null;
+  updated_at: string | null;
+  published_by: string | null;
+  updated_by: string | null;
   publisher: { id: string; username: string } | null;
+  editor: { id: string; username: string } | null;
+};
+
+type SongFile = {
+  id: string;
+  filename: string;
+  category: string;
+  file_url: string | null;
+  created_at: string | null;
+  uploader: { id: string; username: string } | null;
 };
 
 const PHASE_NOTES: Record<
-  Exclude<SongTab, "Dashboard" | "Comments">,
+  Exclude<SongTab, "Dashboard" | "Comments" | "Lyrics" | "Notes & Ideas" | "Files">,
   string
 > = {
-  Lyrics: "Rich text lyric editor coming in Phase 3.",
   Tasks: "Task creation and lifecycle coming in Phase 2.",
   Activity: "Activity feed coming soon.",
-  "Song Info": "Editable BPM/key/time signature and file uploads coming soon.",
-  "Notes & Ideas": "Rich text notes editor coming in Phase 3.",
+  "Song Info": "Editable BPM/key/time signature coming soon.",
 };
 
 function SongDashboardPageContent() {
@@ -98,6 +112,7 @@ function SongDashboardPageContent() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [files, setFiles] = useState<SongFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<SongTab>("Dashboard");
@@ -158,13 +173,15 @@ function SongDashboardPageContent() {
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [bandRes, commentsRes, tasksRes, notesRes, meRes] = await Promise.all([
-        fetch(`/api/bands/${song.project.band_id}`, { headers }),
-        fetch(`/api/songs/${song.id}/comments`, { headers }),
-        fetch(`/api/songs/${song.id}/tasks`, { headers }),
-        fetch(`/api/songs/${song.id}/notes`, { headers }),
-        fetch(`/api/auth/me`, { headers }),
-      ]);
+      const [bandRes, commentsRes, tasksRes, notesRes, filesRes, meRes] =
+        await Promise.all([
+          fetch(`/api/bands/${song.project.band_id}`, { headers }),
+          fetch(`/api/songs/${song.id}/comments`, { headers }),
+          fetch(`/api/songs/${song.id}/tasks`, { headers }),
+          fetch(`/api/songs/${song.id}/notes`, { headers }),
+          fetch(`/api/songs/${song.id}/files`, { headers }),
+          fetch(`/api/auth/me`, { headers }),
+        ]);
 
       if (bandRes.ok) {
         const bandData = await bandRes.json();
@@ -176,6 +193,7 @@ function SongDashboardPageContent() {
       if (commentsRes.ok) setComments(await commentsRes.json());
       if (tasksRes.ok) setTasks(await tasksRes.json());
       if (notesRes.ok) setNotes(await notesRes.json());
+      if (filesRes.ok) setFiles(await filesRes.json());
       if (meRes.ok) setCurrentUserId((await meRes.json()).user.id);
 
       setLoading(false);
@@ -194,6 +212,30 @@ function SongDashboardPageContent() {
     });
 
     if (response.ok) setComments(await response.json());
+  }, [song]);
+
+  const refreshNotes = useCallback(async () => {
+    if (!song) return;
+
+    const token = localStorage.getItem("token");
+
+    const response = await fetch(`/api/songs/${song.id}/notes`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (response.ok) setNotes(await response.json());
+  }, [song]);
+
+  const refreshFiles = useCallback(async () => {
+    if (!song) return;
+
+    const token = localStorage.getItem("token");
+
+    const response = await fetch(`/api/songs/${song.id}/files`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (response.ok) setFiles(await response.json());
   }, [song]);
 
   if (loading) {
@@ -319,6 +361,30 @@ function SongDashboardPageContent() {
               currentUserId={currentUserId}
               onCommentsChanged={refreshComments}
               onSeekAndShow={requestSeekAndShow}
+            />
+          ) : activeTab === "Lyrics" ? (
+            <NotesTab
+              songId={song.id}
+              kind="lyrics"
+              label="Lyrics"
+              notes={notes}
+              onNotesChanged={refreshNotes}
+            />
+          ) : activeTab === "Notes & Ideas" ? (
+            <NotesTab
+              songId={song.id}
+              kind="note"
+              label="Notes & Ideas"
+              notes={notes}
+              onNotesChanged={refreshNotes}
+            />
+          ) : activeTab === "Files" ? (
+            <FilesTab
+              songId={song.id}
+              files={files}
+              role={role}
+              currentUserId={currentUserId}
+              onFilesChanged={refreshFiles}
             />
           ) : (
             <PlaceholderTab label={activeTab} note={PHASE_NOTES[activeTab]} />

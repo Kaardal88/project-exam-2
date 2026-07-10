@@ -8,9 +8,17 @@ import {
   song_tasks,
   song_notes,
   song_comment_events,
+  song_files,
 } from "@/server/db/schema";
 
 const TICKET_STATUSES = ["open", "wip", "done"] as const;
+const NOTE_KINDS = ["note", "lyrics"] as const;
+const FILE_CATEGORIES = [
+  "project_file",
+  "artwork",
+  "press_photo",
+  "contract",
+] as const;
 
 type Variables = {
   userId: string;
@@ -396,4 +404,204 @@ songsRoutes.get("/:id/notes", requireAuth, async (c) => {
   return c.json(notes, 200);
 });
 
-// Phase 3: POST /:id/notes / PUT /:id/notes/:noteId for the rich-text editor.
+songsRoutes.post("/:id/notes", requireAuth, async (c) => {
+  const songId = c.req.param("id");
+  const userId = c.get("userId");
+  const body = await c.req.json();
+
+  const context = await getSongContext(songId);
+
+  if (!context) {
+    return c.json({ error: "Song not found" }, 404);
+  }
+
+  const membership = await getMembership(context.project.band_id, userId);
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (!body.title) {
+    return c.json({ error: "title is required" }, 400);
+  }
+
+  if (!body.body) {
+    return c.json({ error: "body is required" }, 400);
+  }
+
+  if (!NOTE_KINDS.includes(body.kind)) {
+    return c.json({ error: "kind must be 'note' or 'lyrics'" }, 400);
+  }
+
+  const [note] = await db
+    .insert(song_notes)
+    .values({
+      song_id: songId,
+      title: body.title,
+      body: body.body,
+      kind: body.kind,
+      published_by: userId,
+      updated_by: userId,
+    })
+    .returning();
+
+  return c.json(note, 201);
+});
+
+songsRoutes.put("/:id/notes/:noteId", requireAuth, async (c) => {
+  const songId = c.req.param("id");
+  const noteId = c.req.param("noteId");
+  const userId = c.get("userId");
+  const body = await c.req.json();
+
+  const context = await getSongContext(songId);
+
+  if (!context) {
+    return c.json({ error: "Song not found" }, 404);
+  }
+
+  const membership = await getMembership(context.project.band_id, userId);
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const note = await db.query.song_notes.findFirst({
+    where: (song_notes, { eq, and }) =>
+      and(eq(song_notes.id, noteId), eq(song_notes.song_id, songId)),
+  });
+
+  if (!note) {
+    return c.json({ error: "Note not found" }, 404);
+  }
+
+  const [updatedNote] = await db
+    .update(song_notes)
+    .set({
+      title: body.title ?? note.title,
+      body: body.body ?? note.body,
+      updated_by: userId,
+      updated_at: new Date(),
+    })
+    .where(eq(song_notes.id, noteId))
+    .returning();
+
+  return c.json(updatedNote, 200);
+});
+
+songsRoutes.get("/:id/files", requireAuth, async (c) => {
+  const songId = c.req.param("id");
+  const userId = c.get("userId");
+
+  const context = await getSongContext(songId);
+
+  if (!context) {
+    return c.json({ error: "Song not found" }, 404);
+  }
+
+  const membership = await getMembership(context.project.band_id, userId);
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const files = await db.query.song_files.findMany({
+    where: (song_files, { eq }) => eq(song_files.song_id, songId),
+    orderBy: desc(song_files.created_at),
+    with: {
+      uploader: {
+        columns: { id: true, username: true, image_url: true },
+      },
+    },
+  });
+
+  return c.json(files, 200);
+});
+
+songsRoutes.post("/:id/files", requireAuth, async (c) => {
+  const songId = c.req.param("id");
+  const userId = c.get("userId");
+  const body = await c.req.json();
+
+  const context = await getSongContext(songId);
+
+  if (!context) {
+    return c.json({ error: "Song not found" }, 404);
+  }
+
+  const membership = await getMembership(context.project.band_id, userId);
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (!body.filename) {
+    return c.json({ error: "filename is required" }, 400);
+  }
+
+  if (!FILE_CATEGORIES.includes(body.category)) {
+    return c.json(
+      { error: "category must be one of: " + FILE_CATEGORIES.join(", ") },
+      400,
+    );
+  }
+
+  const [file] = await db
+    .insert(song_files)
+    .values({
+      song_id: songId,
+      filename: body.filename,
+      category: body.category,
+      file_url: body.file_url || null,
+      uploaded_by: userId,
+    })
+    .returning();
+
+  return c.json(file, 201);
+});
+
+songsRoutes.delete("/:id/files/:fileId", requireAuth, async (c) => {
+  const songId = c.req.param("id");
+  const fileId = c.req.param("fileId");
+  const userId = c.get("userId");
+
+  const context = await getSongContext(songId);
+
+  if (!context) {
+    return c.json({ error: "Song not found" }, 404);
+  }
+
+  const membership = await getMembership(context.project.band_id, userId);
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const file = await db.query.song_files.findFirst({
+    where: (song_files, { eq, and }) =>
+      and(eq(song_files.id, fileId), eq(song_files.song_id, songId)),
+  });
+
+  if (!file) {
+    return c.json({ error: "File not found" }, 404);
+  }
+
+  const isUploader = file.uploaded_by === userId;
+  const isLeader = membership.role === "band_leader";
+
+  if (!isUploader && !isLeader) {
+    return c.json(
+      { error: "Only the uploader or band leader can delete this file" },
+      403,
+    );
+  }
+
+  const [deletedFile] = await db
+    .delete(song_files)
+    .where(eq(song_files.id, fileId))
+    .returning();
+
+  return c.json(deletedFile, 200);
+});
+
+// Phase 5: swap file_url text input for a real CloudFlare R2 upload widget.

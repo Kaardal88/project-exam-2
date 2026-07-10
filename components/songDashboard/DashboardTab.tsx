@@ -37,6 +37,7 @@ type Note = {
   id: string;
   title: string;
   body: string;
+  kind: "note" | "lyrics";
   created_at: string | null;
   publisher: { id: string; username: string } | null;
 };
