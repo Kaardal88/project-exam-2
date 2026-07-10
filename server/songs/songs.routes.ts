@@ -2,7 +2,15 @@ import { Hono } from "hono";
 import { eq, desc } from "drizzle-orm";
 import { requireAuth } from "@/server/auth/auth.middleware";
 import { db } from "@/server/db";
-import { songs, song_comments, song_tasks, song_notes } from "@/server/db/schema";
+import {
+  songs,
+  song_comments,
+  song_tasks,
+  song_notes,
+  song_comment_events,
+} from "@/server/db/schema";
+
+const TICKET_STATUSES = ["open", "wip", "done"] as const;
 
 type Variables = {
   userId: string;
@@ -183,7 +191,150 @@ songsRoutes.post("/:id/comments", requireAuth, async (c) => {
   return c.json(comment, 201);
 });
 
-// Phase 2: PUT /:id/comments/:commentId to move status open -> wip -> done.
+songsRoutes.put("/:id/comments/:commentId", requireAuth, async (c) => {
+  const songId = c.req.param("id");
+  const commentId = c.req.param("commentId");
+  const userId = c.get("userId");
+  const body = await c.req.json();
+
+  const context = await getSongContext(songId);
+
+  if (!context) {
+    return c.json({ error: "Song not found" }, 404);
+  }
+
+  const membership = await getMembership(context.project.band_id, userId);
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const comment = await db.query.song_comments.findFirst({
+    where: (song_comments, { eq, and }) =>
+      and(eq(song_comments.id, commentId), eq(song_comments.song_id, songId)),
+  });
+
+  if (!comment) {
+    return c.json({ error: "Comment not found" }, 404);
+  }
+
+  const isLeader = membership.role === "band_leader";
+  const isAssignee = comment.assignee_id === userId;
+
+  const wantsStatusChange =
+    typeof body.status === "string" && body.status !== comment.status;
+  const wantsReassign =
+    "assignee_id" in body && body.assignee_id !== comment.assignee_id;
+
+  if (!wantsStatusChange && !wantsReassign) {
+    return c.json({ error: "Nothing to update" }, 400);
+  }
+
+  if (wantsStatusChange) {
+    if (!isAssignee && !isLeader) {
+      return c.json(
+        { error: "Only the assignee or band leader can change ticket status" },
+        403,
+      );
+    }
+
+    if (!TICKET_STATUSES.includes(body.status)) {
+      return c.json({ error: "Invalid status" }, 400);
+    }
+  }
+
+  if (wantsReassign && !isAssignee && !isLeader) {
+    return c.json(
+      { error: "Only the current assignee or band leader can reassign a ticket" },
+      403,
+    );
+  }
+
+  const updates: Partial<typeof song_comments.$inferInsert> = {};
+
+  if (wantsStatusChange) {
+    updates.status = body.status;
+    updates.resolved_at = body.status === "done" ? new Date() : null;
+  }
+
+  if (wantsReassign) {
+    updates.assignee_id = body.assignee_id ?? null;
+  }
+
+  const [updatedComment] = await db
+    .update(song_comments)
+    .set(updates)
+    .where(eq(song_comments.id, commentId))
+    .returning();
+
+  const events: (typeof song_comment_events.$inferInsert)[] = [];
+
+  if (wantsStatusChange) {
+    events.push({
+      comment_id: commentId,
+      actor_id: userId,
+      event_type: "status_change",
+      from_value: comment.status,
+      to_value: body.status,
+    });
+  }
+
+  if (wantsReassign) {
+    events.push({
+      comment_id: commentId,
+      actor_id: userId,
+      event_type: "reassigned",
+      from_value: comment.assignee_id ?? "unassigned",
+      to_value: body.assignee_id ?? "unassigned",
+    });
+  }
+
+  if (events.length > 0) {
+    await db.insert(song_comment_events).values(events);
+  }
+
+  return c.json(updatedComment, 200);
+});
+
+songsRoutes.get("/:id/comments/:commentId/history", requireAuth, async (c) => {
+  const songId = c.req.param("id");
+  const commentId = c.req.param("commentId");
+  const userId = c.get("userId");
+
+  const context = await getSongContext(songId);
+
+  if (!context) {
+    return c.json({ error: "Song not found" }, 404);
+  }
+
+  const membership = await getMembership(context.project.band_id, userId);
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const comment = await db.query.song_comments.findFirst({
+    where: (song_comments, { eq, and }) =>
+      and(eq(song_comments.id, commentId), eq(song_comments.song_id, songId)),
+  });
+
+  if (!comment) {
+    return c.json({ error: "Comment not found" }, 404);
+  }
+
+  const history = await db.query.song_comment_events.findMany({
+    where: (song_comment_events, { eq }) =>
+      eq(song_comment_events.comment_id, commentId),
+    orderBy: (song_comment_events, { asc }) => asc(song_comment_events.created_at),
+    with: {
+      actor: {
+        columns: { id: true, username: true, image_url: true },
+      },
+    },
+  });
+
+  return c.json(history, 200);
+});
 
 songsRoutes.get("/:id/tasks", requireAuth, async (c) => {
   const songId = c.req.param("id");

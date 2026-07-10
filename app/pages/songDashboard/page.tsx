@@ -10,6 +10,8 @@ import { SettingsModal } from "@/components/songDashboard/SettingsModal";
 import { SongTabs, type SongTab } from "@/components/songDashboard/SongTabs";
 import { PlaceholderTab } from "@/components/songDashboard/PlaceholderTab";
 import { DashboardTab } from "@/components/songDashboard/DashboardTab";
+import { CommentsTab } from "@/components/songDashboard/CommentsTab";
+import type { TicketStatus } from "@/components/songDashboard/ticketStatus";
 
 type Song = {
   id: string;
@@ -49,6 +51,8 @@ type Comment = {
   id: string;
   timestamp_seconds: number;
   body: string;
+  status: TicketStatus;
+  resolved_at: string | null;
   created_at: string | null;
   author: { id: string; username: string; image_url: string | null } | null;
   assignee: { id: string; username: string; image_url: string | null } | null;
@@ -70,10 +74,11 @@ type Note = {
   publisher: { id: string; username: string } | null;
 };
 
-const PHASE_NOTES: Record<Exclude<SongTab, "Dashboard">, string> = {
+const PHASE_NOTES: Record<
+  Exclude<SongTab, "Dashboard" | "Comments">,
+  string
+> = {
   Lyrics: "Rich text lyric editor coming in Phase 3.",
-  Comments:
-    "Full comment/ticket lifecycle (open → wip → done, history) coming in Phase 2.",
   Tasks: "Task creation and lifecycle coming in Phase 2.",
   Activity: "Activity feed coming soon.",
   "Song Info": "Editable BPM/key/time signature and file uploads coming soon.",
@@ -97,6 +102,16 @@ function SongDashboardPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<SongTab>("Dashboard");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [seekSignal, setSeekSignal] = useState<{
+    seconds: number;
+    nonce: number;
+  } | null>(null);
+
+  const requestSeekAndShow = useCallback((seconds: number) => {
+    setActiveTab("Dashboard");
+    setSeekSignal({ seconds, nonce: Date.now() });
+  }, []);
 
   const fetchSong = useCallback(async () => {
     const token = localStorage.getItem("token");
@@ -143,11 +158,12 @@ function SongDashboardPageContent() {
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [bandRes, commentsRes, tasksRes, notesRes] = await Promise.all([
+      const [bandRes, commentsRes, tasksRes, notesRes, meRes] = await Promise.all([
         fetch(`/api/bands/${song.project.band_id}`, { headers }),
         fetch(`/api/songs/${song.id}/comments`, { headers }),
         fetch(`/api/songs/${song.id}/tasks`, { headers }),
         fetch(`/api/songs/${song.id}/notes`, { headers }),
+        fetch(`/api/auth/me`, { headers }),
       ]);
 
       if (bandRes.ok) {
@@ -160,6 +176,7 @@ function SongDashboardPageContent() {
       if (commentsRes.ok) setComments(await commentsRes.json());
       if (tasksRes.ok) setTasks(await tasksRes.json());
       if (notesRes.ok) setNotes(await notesRes.json());
+      if (meRes.ok) setCurrentUserId((await meRes.json()).user.id);
 
       setLoading(false);
     }
@@ -290,6 +307,18 @@ function SongDashboardPageContent() {
               notes={notes}
               onCommentsChanged={refreshComments}
               setActiveTab={setActiveTab}
+              seekSignal={seekSignal}
+              onSeek={requestSeekAndShow}
+            />
+          ) : activeTab === "Comments" ? (
+            <CommentsTab
+              songId={song.id}
+              comments={comments}
+              bandMembers={members}
+              role={role}
+              currentUserId={currentUserId}
+              onCommentsChanged={refreshComments}
+              onSeekAndShow={requestSeekAndShow}
             />
           ) : (
             <PlaceholderTab label={activeTab} note={PHASE_NOTES[activeTab]} />

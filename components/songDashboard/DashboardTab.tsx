@@ -7,6 +7,7 @@ import { CommentsPreview } from "./CommentsPreview";
 import { TasksPreview } from "./TasksPreview";
 import { NotesPreview } from "./NotesPreview";
 import type { SongTab } from "./SongTabs";
+import type { TicketStatus } from "./ticketStatus";
 
 type BandMember = {
   user_id: string;
@@ -17,6 +18,8 @@ type Comment = {
   id: string;
   timestamp_seconds: number;
   body: string;
+  status: TicketStatus;
+  resolved_at: string | null;
   created_at: string | null;
   author: { id: string; username: string; image_url: string | null } | null;
   assignee: { id: string; username: string; image_url: string | null } | null;
@@ -49,6 +52,8 @@ type DashboardTabProps = {
   notes: Note[];
   onCommentsChanged: () => void;
   setActiveTab: (tab: SongTab) => void;
+  seekSignal: { seconds: number; nonce: number } | null;
+  onSeek: (seconds: number) => void;
 };
 
 export function DashboardTab({
@@ -62,15 +67,13 @@ export function DashboardTab({
   notes,
   onCommentsChanged,
   setActiveTab,
+  seekSignal,
+  onSeek,
 }: DashboardTabProps) {
   const [playerPosition, setPlayerPosition] = useState(0);
   const [addCommentSeconds, setAddCommentSeconds] = useState<number | null>(
     null,
   );
-  const [seekSignal, setSeekSignal] = useState<{
-    seconds: number;
-    nonce: number;
-  } | null>(null);
 
   const creator = bandMembers.find((member) => member.user.id === createdBy);
 
@@ -146,7 +149,7 @@ export function DashboardTab({
           comments={comments}
           onNewComment={() => setAddCommentSeconds(playerPosition)}
           onViewAll={() => setActiveTab("Comments")}
-          onSeek={(seconds) => setSeekSignal({ seconds, nonce: Date.now() })}
+          onSeek={onSeek}
         />
         <TasksPreview tasks={tasks} onViewAll={() => setActiveTab("Tasks")} />
         <NotesPreview

@@ -10,11 +10,12 @@ import {
   Maximize2,
 } from "lucide-react";
 import { formatSongTime } from "@/lib/utils";
+import { TICKET_STATUS_STYLES, type TicketStatus } from "./ticketStatus";
 
 // Placeholder duration until CloudFlare R2 audio (audio_url) is wired up.
 const TOTAL_SECONDS = 246;
 
-type Comment = { id: string; timestamp_seconds: number };
+type Comment = { id: string; timestamp_seconds: number; status: TicketStatus };
 
 type SeekSignal = { seconds: number; nonce: number };
 
@@ -189,6 +190,24 @@ export function MediaPlayer({
               style={{ left: `${progressPercent}%` }}
               className="absolute top-0 h-full w-px bg-yellow-300"
             />
+          </div>
+
+          <div className="pointer-events-none absolute inset-x-0 -bottom-2 h-2">
+            {comments.map((comment) => (
+              <button
+                key={comment.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentSeconds(comment.timestamp_seconds);
+                  setPendingSeconds(null);
+                }}
+                title={`${TICKET_STATUS_STYLES[comment.status].label} ticket at ${formatSongTime(comment.timestamp_seconds)}`}
+                style={{
+                  left: `${(comment.timestamp_seconds / TOTAL_SECONDS) * 100}%`,
+                }}
+                className={`pointer-events-auto absolute h-2 w-2 -translate-x-1/2 rounded-full ring-1 ring-neutral-950 hover:cursor-pointer ${TICKET_STATUS_STYLES[comment.status].dot}`}
+              />
+            ))}
           </div>
         </div>
 

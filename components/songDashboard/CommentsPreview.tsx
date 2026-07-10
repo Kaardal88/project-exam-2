@@ -1,11 +1,13 @@
 "use client";
 
 import { formatSongTime } from "@/lib/utils";
+import { TICKET_STATUS_STYLES, type TicketStatus } from "./ticketStatus";
 
 type Comment = {
   id: string;
   timestamp_seconds: number;
   body: string;
+  status: TicketStatus;
   created_at: string | null;
   author: { id: string; username: string; image_url: string | null } | null;
   assignee: { id: string; username: string; image_url: string | null } | null;
@@ -83,6 +85,12 @@ export function CommentsPreview({
                     {comment.assignee.username}
                   </span>
                 )}
+
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-xs ${TICKET_STATUS_STYLES[comment.status].badge}`}
+                >
+                  {TICKET_STATUS_STYLES[comment.status].label}
+                </span>
               </div>
             </li>
           ))}

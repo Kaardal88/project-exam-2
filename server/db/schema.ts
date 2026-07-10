@@ -301,3 +301,33 @@ export const song_notesRelations = relations(song_notes, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+export const song_comment_events = pgTable("song_comment_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  comment_id: uuid("comment_id")
+    .notNull()
+    .references(() => song_comments.id, { onDelete: "cascade" }),
+
+  actor_id: uuid("actor_id")
+    .notNull()
+    .references(() => users.id),
+
+  event_type: varchar("event_type", { length: 20 }).notNull(),
+
+  from_value: varchar("from_value", { length: 255 }),
+
+  to_value: varchar("to_value", { length: 255 }),
+
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const song_comment_eventsRelations = relations(
+  song_comment_events,
+  ({ one }) => ({
+    actor: one(users, {
+      fields: [song_comment_events.actor_id],
+      references: [users.id],
+    }),
+  }),
+);
