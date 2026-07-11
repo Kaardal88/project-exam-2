@@ -1,8 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { uploadToR2 } from "@/lib/uploadToR2";
+import { UploadProgress } from "./UploadProgress";
 
 const CATEGORIES: { value: string; label: string }[] = [
   { value: "project_file", label: "Project file" },
@@ -30,8 +32,20 @@ export function AddFileModal({
 }: AddFileModalProps) {
   const [category, setCategory] = useState(CATEGORIES[0].value);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isImageCategory = IMAGE_CATEGORIES.includes(category);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setError(null);
+    setSelectedFile(file);
+  }
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isImageCategory = IMAGE_CATEGORIES.includes(category);
@@ -69,11 +83,37 @@ export function AddFileModal({
       }
     } else if (selectedFile.size > FILE_MAX_BYTES) {
       setError("File too large. Max 10MB");
+    if (!selectedFile) {
+      setError("Choose a file to upload");
+      return;
+    }
+
+    const lower = selectedFile.name.toLowerCase();
+
+    if (isImageCategory) {
+      const validExt =
+        lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png");
+      const validType =
+        selectedFile.type === "image/jpeg" || selectedFile.type === "image/png";
+
+      if (!validExt || !validType) {
+        setError("Only .jpg or .png files are allowed for this category");
+        return;
+      }
+
+      if (selectedFile.size > IMAGE_MAX_BYTES) {
+        setError("File too large. Max 10MB");
+        return;
+      }
+    } else if (selectedFile.size > FILE_MAX_BYTES) {
+      setError("File too large. Max 10MB");
       return;
     }
 
     setSubmitting(true);
     setError(null);
+    setUploadProgress(0);
+    setUploadSuccess(false);
 
     try {
       const { key } = await uploadToR2({
@@ -81,10 +121,24 @@ export function AddFileModal({
         target: "file",
         file: selectedFile,
         category,
+        onProgress: setUploadProgress,
       });
 
       const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token");
 
+      const response = await fetch(`/api/songs/${songId}/files`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          filename: selectedFile.name,
+          category,
+          file_url: key,
+        }),
+      });
       const response = await fetch(`/api/songs/${songId}/files`, {
         method: "POST",
         headers: {
@@ -102,11 +156,12 @@ export function AddFileModal({
         throw new Error("Failed to save file record");
       }
 
-      onCreated();
+      setUploadSuccess(true);
+      setTimeout(() => onCreated(), 600);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add file");
-    } finally {
       setSubmitting(false);
+      setUploadProgress(null);
     }
   }
 
@@ -128,6 +183,10 @@ export function AddFileModal({
                 setCategory(e.target.value);
                 setError(null);
               }}
+              onChange={(e) => {
+                setCategory(e.target.value);
+                setError(null);
+              }}
               className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-4 py-2 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
             >
               {CATEGORIES.map((c) => (
@@ -141,8 +200,14 @@ export function AddFileModal({
           <div>
             <label className="mb-2 block text-sm font-semibold text-yellow-100">
               File
+              File
             </label>
             <input
+              ref={fileInputRef}
+              type="file"
+              accept={isImageCategory ? "image/jpeg,image/png,.jpg,.jpeg,.png" : undefined}
+              onChange={handleFileChange}
+              className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-4 py-2 text-sm text-yellow-100 outline-none transition file:mr-3 file:rounded-md file:border-0 file:bg-yellow-100 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-neutral-950 focus:border-yellow-200"
               ref={fileInputRef}
               type="file"
               accept={isImageCategory ? "image/jpeg,image/png,.jpg,.jpeg,.png" : undefined}
@@ -153,10 +218,15 @@ export function AddFileModal({
               {isImageCategory
                 ? "JPG or PNG, max 10MB."
                 : "Max 10MB."}
+              {isImageCategory
+                ? "JPG or PNG, max 10MB."
+                : "Max 10MB."}
             </p>
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <UploadProgress progress={uploadProgress} success={uploadSuccess} />
+
             <button
               type="button"
               onClick={onClose}
@@ -170,6 +240,7 @@ export function AddFileModal({
               disabled={submitting}
               className="border border-yellow-200 bg-yellow-100 px-4 py-2 text-sm font-bold text-neutral-950 transition hover:cursor-pointer hover:bg-yellow-200 disabled:opacity-50"
             >
+              {submitting ? "Uploading..." : "Add file"}
               {submitting ? "Uploading..." : "Add file"}
             </button>
           </div>

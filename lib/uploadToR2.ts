@@ -5,13 +5,46 @@ type UploadToR2Params = {
   target: UploadTarget;
   file: File;
   category?: string;
+  onProgress?: (percent: number) => void;
 };
+
+function putWithProgress(
+  url: string,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("Content-Type", file.type);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        onProgress?.(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error("Upload to storage failed. Please try again."));
+      }
+    };
+
+    xhr.onerror = () =>
+      reject(new Error("Upload to storage failed. Please try again."));
+
+    xhr.send(file);
+  });
+}
 
 export async function uploadToR2({
   songId,
   target,
   file,
   category,
+  onProgress,
 }: UploadToR2Params): Promise<{ key: string }> {
   const token = localStorage.getItem("token");
 
@@ -37,15 +70,7 @@ export async function uploadToR2({
 
   const { uploadUrl, key } = await presignResponse.json();
 
-  const putResponse = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: { "Content-Type": file.type },
-    body: file,
-  });
-
-  if (!putResponse.ok) {
-    throw new Error("Upload to storage failed. Please try again.");
-  }
+  await putWithProgress(uploadUrl, file, onProgress);
 
   return { key };
 }

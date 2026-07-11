@@ -131,8 +131,6 @@ function UserProfileContent() {
 
     const data = await response.json();
 
-    console.log("user events:", data);
-
     if (!response.ok) {
       setError(data.error || "Could not load events");
       return;
