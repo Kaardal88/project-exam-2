@@ -6,11 +6,9 @@ import {
   useCallback,
   useEffect,
   useRef,
-  useRef,
   useState,
   Suspense,
 } from "react";
-import { Upload } from "lucide-react";
 import { Upload } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
 import AmpLoader from "@/components/AmpLoader";
@@ -24,9 +22,6 @@ import { NotesTab } from "@/components/songDashboard/NotesTab";
 import { FilesTab } from "@/components/songDashboard/FilesTab";
 import { UploadProgress } from "@/components/songDashboard/UploadProgress";
 import type { TicketStatus } from "@/components/songDashboard/ticketStatus";
-import { uploadToR2 } from "@/lib/uploadToR2";
-
-const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 import { uploadToR2 } from "@/lib/uploadToR2";
 
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
@@ -471,9 +466,6 @@ function SongDashboardPageContent() {
                 {artworkUploadError && (
                   <p className="form-error mb-2">{artworkUploadError}</p>
                 )}
-                {artworkUploadError && (
-                  <p className="form-error mb-2">{artworkUploadError}</p>
-                )}
                 <h1 className="text-2xl font-bold text-yellow-100">
                   {song.title}
                 </h1>
@@ -533,9 +525,6 @@ function SongDashboardPageContent() {
               setActiveTab={setActiveTab}
               seekSignal={seekSignal}
               onSeek={requestSeekAndShow}
-              audioUrl={audioPlaybackUrl}
-              onAudioUploaded={fetchSong}
-              onAudioUrlExpired={fetchAudioUrl}
               audioUrl={audioPlaybackUrl}
               onAudioUploaded={fetchSong}
               onAudioUrlExpired={fetchAudioUrl}
