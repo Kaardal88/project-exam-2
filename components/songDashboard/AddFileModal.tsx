@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { uploadToR2 } from "@/lib/uploadToR2";
+import { UploadProgress } from "./UploadProgress";
 
 const CATEGORIES: { value: string; label: string }[] = [
   { value: "project_file", label: "Project file" },
@@ -31,6 +32,8 @@ export function AddFileModal({
   const [category, setCategory] = useState(CATEGORIES[0].value);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -74,6 +77,8 @@ export function AddFileModal({
 
     setSubmitting(true);
     setError(null);
+    setUploadProgress(0);
+    setUploadSuccess(false);
 
     try {
       const { key } = await uploadToR2({
@@ -81,6 +86,7 @@ export function AddFileModal({
         target: "file",
         file: selectedFile,
         category,
+        onProgress: setUploadProgress,
       });
 
       const token = localStorage.getItem("token");
@@ -102,11 +108,12 @@ export function AddFileModal({
         throw new Error("Failed to save file record");
       }
 
-      onCreated();
+      setUploadSuccess(true);
+      setTimeout(() => onCreated(), 600);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add file");
-    } finally {
       setSubmitting(false);
+      setUploadProgress(null);
     }
   }
 
@@ -156,7 +163,9 @@ export function AddFileModal({
             </p>
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <UploadProgress progress={uploadProgress} success={uploadSuccess} />
+
             <button
               type="button"
               onClick={onClose}

@@ -13,6 +13,7 @@ import {
 import { formatSongTime } from "@/lib/utils";
 import { uploadToR2 } from "@/lib/uploadToR2";
 import { TICKET_STATUS_STYLES, type TicketStatus } from "./ticketStatus";
+import { UploadProgress } from "./UploadProgress";
 
 // Placeholder duration used until real audio is uploaded/loaded.
 const PLACEHOLDER_TOTAL_SECONDS = 246;
@@ -54,6 +55,8 @@ export function MediaPlayer({
   const [appliedAudioUrl, setAppliedAudioUrl] = useState(audioUrl);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const waveformRef = useRef<HTMLDivElement>(null);
@@ -226,9 +229,16 @@ export function MediaPlayer({
     }
 
     setUploading(true);
+    setUploadProgress(0);
+    setUploadSuccess(false);
 
     try {
-      const { key } = await uploadToR2({ songId, target: "audio", file });
+      const { key } = await uploadToR2({
+        songId,
+        target: "audio",
+        file,
+        onProgress: setUploadProgress,
+      });
 
       const token = localStorage.getItem("token");
       const response = await fetch(`/api/songs/${songId}`, {
@@ -245,10 +255,13 @@ export function MediaPlayer({
       }
 
       onAudioUploaded();
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 2000);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   }
 
@@ -394,10 +407,15 @@ export function MediaPlayer({
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
           title={hasRealAudio ? "Replace audio (MP3, max 25MB)" : "Upload audio (MP3, max 25MB)"}
-          className="hidden shrink-0 items-center gap-1 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed disabled:opacity-50 sm:flex"
+          className="hidden shrink-0 items-center gap-1.5 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed sm:flex"
         >
-          <Upload className="h-3 w-3" />
-          {uploading ? "Uploading…" : hasRealAudio ? "Replace" : "Upload MP3"}
+          <UploadProgress progress={uploadProgress} success={uploadSuccess} />
+          {uploadProgress === null && !uploadSuccess && (
+            <>
+              <Upload className="h-3 w-3" />
+              {hasRealAudio ? "Replace" : "Upload MP3"}
+            </>
+          )}
         </button>
 
         <button

@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, Suspense } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  Suspense,
+} from "react";
 import { Upload } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
 import AmpLoader from "@/components/AmpLoader";
@@ -14,6 +20,7 @@ import { DashboardTab } from "@/components/songDashboard/DashboardTab";
 import { CommentsTab } from "@/components/songDashboard/CommentsTab";
 import { NotesTab } from "@/components/songDashboard/NotesTab";
 import { FilesTab } from "@/components/songDashboard/FilesTab";
+import { UploadProgress } from "@/components/songDashboard/UploadProgress";
 import type { TicketStatus } from "@/components/songDashboard/ticketStatus";
 import { uploadToR2 } from "@/lib/uploadToR2";
 
@@ -95,7 +102,10 @@ type SongFile = {
 };
 
 const PHASE_NOTES: Record<
-  Exclude<SongTab, "Dashboard" | "Comments" | "Lyrics" | "Notes & Ideas" | "Files">,
+  Exclude<
+    SongTab,
+    "Dashboard" | "Comments" | "Lyrics" | "Notes & Ideas" | "Files"
+  >,
   string
 > = {
   Tasks: "Task creation and lifecycle coming in Phase 2.",
@@ -127,8 +137,14 @@ function SongDashboardPageContent() {
     nonce: number;
   } | null>(null);
   const [audioPlaybackUrl, setAudioPlaybackUrl] = useState<string | null>(null);
-  const [artworkDisplayUrl, setArtworkDisplayUrl] = useState<string | null>(null);
+  const [artworkDisplayUrl, setArtworkDisplayUrl] = useState<string | null>(
+    null,
+  );
   const [artworkUploading, setArtworkUploading] = useState(false);
+  const [artworkUploadProgress, setArtworkUploadProgress] = useState<
+    number | null
+  >(null);
+  const [artworkUploadSuccess, setArtworkUploadSuccess] = useState(false);
   const [artworkUploadError, setArtworkUploadError] = useState<string | null>(
     null,
   );
@@ -304,7 +320,9 @@ function SongDashboardPageContent() {
 
     const lower = file.name.toLowerCase();
     const validExt =
-      lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png");
+      lower.endsWith(".jpg") ||
+      lower.endsWith(".jpeg") ||
+      lower.endsWith(".png");
     const validType = file.type === "image/jpeg" || file.type === "image/png";
 
     if (!validExt || !validType) {
@@ -318,12 +336,15 @@ function SongDashboardPageContent() {
     }
 
     setArtworkUploading(true);
+    setArtworkUploadProgress(0);
+    setArtworkUploadSuccess(false);
 
     try {
       const { key } = await uploadToR2({
         songId: song.id,
         target: "artwork",
         file,
+        onProgress: setArtworkUploadProgress,
       });
 
       const token = localStorage.getItem("token");
@@ -342,12 +363,15 @@ function SongDashboardPageContent() {
       }
 
       await fetchSong();
+      setArtworkUploadSuccess(true);
+      setTimeout(() => setArtworkUploadSuccess(false), 2000);
     } catch (err) {
       setArtworkUploadError(
         err instanceof Error ? err.message : "Upload failed",
       );
     } finally {
       setArtworkUploading(false);
+      setArtworkUploadProgress(null);
     }
   }
 
@@ -392,7 +416,7 @@ function SongDashboardPageContent() {
               {song.project.title}
             </Link>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-              <div className="group relative h-20 w-20 shrink-0">
+              <div className="relative h-20 w-20 shrink-0">
                 {artworkDisplayUrl ? (
                   <img
                     src={artworkDisplayUrl}
@@ -419,13 +443,22 @@ function SongDashboardPageContent() {
                   className="hidden"
                 />
 
+                {/* Always visible (not hover-only) so it's reachable on touch
+                    devices too — hover only adds a subtle highlight. */}
                 <button
                   onClick={() => artworkInputRef.current?.click()}
                   disabled={artworkUploading}
                   title="Upload artwork (JPG/PNG, max 10MB)"
-                  className="absolute inset-0 flex items-center justify-center rounded bg-black/60 opacity-0 transition group-hover:opacity-100 hover:cursor-pointer disabled:cursor-not-allowed"
+                  className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-neutral-700 bg-neutral-900 text-yellow-100 shadow-md transition hover:cursor-pointer hover:border-yellow-200 hover:bg-neutral-800 disabled:cursor-not-allowed"
                 >
-                  <Upload className="h-5 w-5 text-yellow-100" />
+                  <UploadProgress
+                    progress={artworkUploadProgress}
+                    success={artworkUploadSuccess}
+                    compact
+                  />
+                  {artworkUploadProgress === null && !artworkUploadSuccess && (
+                    <Upload className="h-3.5 w-3.5" />
+                  )}
                 </button>
               </div>
 
