@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { NavBar } from "@/components/NavBar";
+import { BackButton } from "@/components/BackButton";
 
 type Band = {
   id: string;
@@ -45,7 +46,7 @@ export default function BandsPage() {
     <main className="w-full min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
       <NavBar />
       <div className="w-full max-w-6xl mx-auto px-4 py-8">
-        <Link href="/">Back</Link>
+        <BackButton />
 
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 w-full max-w-6xl mx-auto mt-6 bg-neutral-900/80 rounded-md p-6 border border-neutral-700">
           <div className="flex flex-col items-center rounded-md  p-6 text-center shadow-xl border border-neutral-700" />
@@ -53,7 +54,7 @@ export default function BandsPage() {
             <Link
               className="flex flex-col items-center rounded-md  p-6 text-center shadow-xl border border-neutral-700"
               key={band.id}
-              href={`/pages/bandPublicDetails/${band.id}`}
+              href={`/pages/bandProfile?id=${band.id}`}
             >
               {band.image_url ? (
                 <img
