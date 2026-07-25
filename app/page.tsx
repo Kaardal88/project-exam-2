@@ -92,7 +92,7 @@ export default function HomePage() {
             {featuredBands.map((band) => (
               <Link
                 key={band.id}
-                href={`/pages/bandPublicDetails/${band.id}`}
+                href={`/pages/bandProfile?id=${band.id}`}
                 className="flex flex-col items-center rounded-md border border-neutral-700 p-3 text-center shadow-xl sm:p-5"
               >
                 {band.image_url ? (

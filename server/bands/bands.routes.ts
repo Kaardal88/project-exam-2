@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { and, eq, asc } from "drizzle-orm";
-import { requireAuth } from "@/server/auth/auth.middleware";
+import { requireAuth, optionalAuth } from "@/server/auth/auth.middleware";
 import { db } from "@/server/db";
 import { bands, band_members, band_events, projects, songs } from "@/server/db/schema";
 import { updateBand } from "@/server/bands/bands.service";
@@ -47,49 +47,6 @@ bandsRoutes.get("/public", async (c) => {
   return c.json(allBands, 200);
 });
 
-bandsRoutes.get("/public/:id", async (c) => {
-  const bandId = c.req.param("id");
-
-  const band = await db.query.bands.findFirst({
-    columns: {
-      id: true,
-      band_name: true,
-      bio: true,
-      image_url: true,
-      header_image_url: true,
-      country: true,
-      spotify_url: true,
-      bandcamp_url: true,
-      youtube_url: true,
-      tidal_url: true,
-      instagram_url: true,
-      facebook_url: true,
-      tiktok_url: true,
-      website_url: true,
-    },
-    where: (bands, { eq }) => eq(bands.id, bandId),
-  });
-
-  if (!band) {
-    return c.json({ error: "Band not found" }, 404);
-  }
-
-  const members = await db.query.band_members.findMany({
-    where: (band_members, { eq }) => eq(band_members.band_id, bandId),
-    with: {
-      user: {
-        columns: {
-          id: true,
-          username: true,
-          image_url: true,
-        },
-      },
-    },
-  });
-
-  return c.json({ ...band, members }, 200);
-});
-
 bandsRoutes.post("/", requireAuth, async (c) => {
   const userId = c.get("userId");
   const body = await c.req.json();
@@ -127,10 +84,9 @@ bandsRoutes.post("/", requireAuth, async (c) => {
   return c.json(band, 201);
 });
 
-bandsRoutes.get("/:id", requireAuth, async (c) => {
-  console.log("Fetching private band");
+bandsRoutes.get("/:id", optionalAuth, async (c) => {
   const bandId = c.req.param("id");
-  const userId = c.get("userId");
+  const userId = c.get("userId") as string | undefined;
 
   const band = await db.query.bands.findFirst({
     where: (bands, { eq }) => eq(bands.id, bandId),
@@ -140,13 +96,55 @@ bandsRoutes.get("/:id", requireAuth, async (c) => {
     return c.json({ error: "Band not found" }, 404);
   }
 
-  const membership = await db.query.band_members.findFirst({
-    where: (band_members, { eq, and }) =>
-      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
-  });
+  const membership = userId
+    ? await db.query.band_members.findFirst({
+        where: (band_members, { eq, and }) =>
+          and(
+            eq(band_members.band_id, bandId),
+            eq(band_members.user_id, userId),
+          ),
+      })
+    : null;
 
+  // Guest, or a logged-in user who isn't a member of this specific band:
+  // public-safe fields only, no error.
   if (!membership) {
-    return c.json({ error: "Unauthorized" }, 401);
+    const members = await db.query.band_members.findMany({
+      where: (band_members, { eq }) => eq(band_members.band_id, bandId),
+      with: {
+        user: {
+          columns: {
+            id: true,
+            username: true,
+            image_url: true,
+          },
+        },
+      },
+    });
+
+    return c.json(
+      {
+        authenticated: false,
+        band: {
+          id: band.id,
+          band_name: band.band_name,
+          bio: band.bio,
+          image_url: band.image_url,
+          header_image_url: band.header_image_url,
+          country: band.country,
+          spotify_url: band.spotify_url,
+          bandcamp_url: band.bandcamp_url,
+          youtube_url: band.youtube_url,
+          tidal_url: band.tidal_url,
+          instagram_url: band.instagram_url,
+          facebook_url: band.facebook_url,
+          tiktok_url: band.tiktok_url,
+          website_url: band.website_url,
+        },
+        members,
+      },
+      200,
+    );
   }
 
   const members = await db.query.band_members.findMany({
@@ -156,7 +154,10 @@ bandsRoutes.get("/:id", requireAuth, async (c) => {
     },
   });
 
-  return c.json({ band, role: membership?.role ?? null, members }, 200);
+  return c.json(
+    { authenticated: true, band, role: membership.role, members },
+    200,
+  );
 });
 
 bandsRoutes.post("/:id/members", requireAuth, async (c) => {

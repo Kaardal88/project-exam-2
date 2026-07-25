@@ -18,6 +18,7 @@ import { EventCard } from "@/components/calendar/EventCard";
 import { UserPlus, UserX, LucidePanelBottomOpen } from "lucide-react";
 import { Suspense } from "react";
 import { BandProfileNav } from "@/components/bandProfile/BandProfileNav";
+import { BackButton } from "@/components/BackButton";
 
 import countries from "world-countries";
 import ReactCountryFlag from "react-country-flag";
@@ -31,6 +32,11 @@ import { HomeNav } from "@/components/bandProfile/Home";
 import { Bio } from "@/components/bandProfile/Bio";
 import { Tickets } from "@/components/bandProfile/Tickets";
 import { ChevronRight } from "lucide-react";
+import {
+  BandPublicInfoCard,
+  type PublicBand,
+  type PublicMember,
+} from "@/components/band/BandPublicInfoCard";
 export type Band = {
   id: string | number;
   band_name: string;
@@ -103,6 +109,9 @@ function BandProfileContent() {
   const bandId = searchParams.get("id");
 
   const [band, setBand] = useState<Band | null>(null);
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [publicBand, setPublicBand] = useState<PublicBand | null>(null);
+  const [publicMembers, setPublicMembers] = useState<PublicMember[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [eventsError, setEventsError] = useState<string | null>(null);
@@ -161,16 +170,10 @@ function BandProfileContent() {
   useEffect(() => {
     async function loadBand() {
       const token = localStorage.getItem("token");
+
       try {
-        if (!token) {
-          setError("Unauthorized");
-          setLoading(false);
-          return;
-        }
         const response = await fetch(`/api/bands/${bandId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
 
         if (!response.ok) {
@@ -180,6 +183,15 @@ function BandProfileContent() {
         }
 
         const data = await response.json();
+        setAuthenticated(data.authenticated);
+
+        if (!data.authenticated) {
+          setPublicBand(data.band);
+          setPublicMembers(data.members ?? []);
+          setLoading(false);
+          return;
+        }
+
         setBand(data.band);
         setRole(data.role);
         setBandName(data.band?.band_name ?? "");
@@ -195,13 +207,8 @@ function BandProfileContent() {
         setTiktokUrl(data.band?.tiktok_url ?? "");
         setWebsiteUrl(data.band?.website_url ?? "");
 
-        const membership = data.membership;
-        if (membership) {
-          setRole(membership.role);
-        }
-
-        setLoading(false);
         setMembers(data.members);
+        setLoading(false);
       } catch (error) {
         setError("Failed to load band");
         setLoading(false);
@@ -367,7 +374,7 @@ function BandProfileContent() {
   }
 
   const fetchEvents = useCallback(async () => {
-    if (!bandId) return;
+    if (!bandId || !authenticated) return;
 
     const token = localStorage.getItem("token");
 
@@ -397,7 +404,7 @@ function BandProfileContent() {
       console.error(error);
       setEventsError("Failed to fetch events");
     }
-  }, [bandId]);
+  }, [bandId, authenticated]);
 
   function startOfDay(date: Date) {
     const copy = new Date(date);
@@ -432,7 +439,7 @@ function BandProfileContent() {
   }, [fetchEvents]);
 
   const fetchProjects = useCallback(async () => {
-    if (!bandId) return;
+    if (!bandId || !authenticated) return;
 
     const token = localStorage.getItem("token");
 
@@ -460,7 +467,7 @@ function BandProfileContent() {
     } catch (error) {
       setProjectsError("Failed to fetch projects");
     }
-  }, [bandId]);
+  }, [bandId, authenticated]);
 
   useEffect(() => {
     async function loadProjects() {
@@ -497,6 +504,19 @@ function BandProfileContent() {
     return <p>Band not found</p>;
   }
 
+  if (authenticated === false) {
+    return (
+      <main className="w-full min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
+        <NavBar />
+        <div className="mx-auto max-w-4xl px-4 py-8">
+          {publicBand && (
+            <BandPublicInfoCard band={publicBand} members={publicMembers} />
+          )}
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="w-full  min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
       <NavBar />
@@ -511,12 +531,7 @@ function BandProfileContent() {
         </aside>
 
         <div className="w-full min-w-0">
-          <Link
-            href="/pages/userProfile?page?id=${user?.id}"
-            className="flex items-center gap-2 ml-4 mt-4 w-fit rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
-          >
-            Back
-          </Link>
+          <BackButton className="flex items-center gap-2 ml-4 mt-4 w-fit rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer" />
 
           <div className="relative mx-auto mt-4 w-full max-w-7xl px-4">
             {/* Mobile nav */}
