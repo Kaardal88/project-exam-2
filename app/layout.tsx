@@ -30,7 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", permanentMarker.variable, caveatBrush.variable, "font-sans", geist.variable)}
+      className={cn("h-full", "antialiased", "scroll-smooth", permanentMarker.variable, caveatBrush.variable, "font-sans", geist.variable)}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
