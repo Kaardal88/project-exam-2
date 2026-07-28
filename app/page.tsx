@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PreviewMixer } from "@/components/home/PreviewMixer";
+import { FeatureShowcase } from "@/components/landing/FeatureShowcase";
+import { LandingNav } from "@/components/landing/LandingNav";
 
 type Band = {
   id: string;
@@ -35,8 +37,13 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(255,229,150,0.10),transparent_28%),linear-gradient(to_bottom,#0a0a0a,#171717)] text-yellow-100">
+      <LandingNav />
+
       {/*Hero section*/}
-      <div className="mx-auto flex max-w-5xl flex-col items-center justify-center px-6 py-10 text-center sm:py-14 md:min-h-screen md:py-16">
+      <div
+        id="home"
+        className="mx-auto flex max-w-5xl scroll-mt-20 flex-col items-center justify-center px-6 py-10 text-center sm:py-14 md:min-h-screen md:py-16"
+      >
         <div
           className="
         flex  items-center justify-center
@@ -82,7 +89,9 @@ export default function HomePage() {
 
       <PreviewMixer />
 
-      <section className="bands-section mt-24! mb-24!">
+      <FeatureShowcase />
+
+      <section id="bands" className="bands-section mt-24! mb-24! scroll-mt-20">
         <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-yellow-100 font-[family-name:var(--font-caveat)]">
           Bands on the stage
         </h2>
