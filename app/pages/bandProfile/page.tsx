@@ -940,7 +940,13 @@ mb-4
 
 export default function BandProfilePage() {
   return (
-    <Suspense fallback={<p>Loading...</p>}>
+    <Suspense
+      fallback={
+        <main className="w-full h-screen flex items-center justify-center">
+          <AmpLoader />
+        </main>
+      }
+    >
       <BandProfileContent />
     </Suspense>
   );

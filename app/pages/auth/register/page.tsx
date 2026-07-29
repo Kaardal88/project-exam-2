@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { TagCombobox } from "@/components/userProfile/userMusInstTitle";
+import { SuccessMessage } from "@/components/SuccessMessage";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -33,7 +35,10 @@ export default function RegisterPage() {
       return;
     }
 
-    router.push("/pages/auth/login");
+    setSuccess(true);
+    setTimeout(() => {
+      router.push("/pages/auth/login");
+    }, 1000);
   }
 
   return (
@@ -88,11 +93,17 @@ export default function RegisterPage() {
           </label>
 
           <button
-            className="border border-neutral-700 bg-neutral-800 py-2 px-4 rounded-md hover:bg-yellow-50 hover:cursor-pointer hover:text-black hover:font-bold! transition"
+            className="border border-neutral-700 bg-neutral-800 py-2 px-4 rounded-md hover:bg-yellow-50 hover:cursor-pointer hover:text-black hover:font-bold! transition disabled:cursor-not-allowed disabled:opacity-80"
             type="submit"
-            disabled={loading}
+            disabled={loading || success}
           >
-            {loading ? "Creating account..." : "Create account"}
+            {success ? (
+              <SuccessMessage message="Account created" />
+            ) : loading ? (
+              "Creating account..."
+            ) : (
+              "Create account"
+            )}
           </button>
         </form>
 

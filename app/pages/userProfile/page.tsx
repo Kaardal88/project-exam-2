@@ -418,7 +418,13 @@ function UserProfileContent() {
 
 export default function UserProfilePage() {
   return (
-    <Suspense fallback={<p>Loading...</p>}>
+    <Suspense
+      fallback={
+        <main className="w-full h-screen flex items-center justify-center">
+          <AmpLoader />
+        </main>
+      }
+    >
       <UserProfileContent />
     </Suspense>
   );

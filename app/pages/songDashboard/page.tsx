@@ -584,7 +584,13 @@ function SongDashboardPageContent() {
 
 export default function SongDashboard() {
   return (
-    <Suspense fallback={<p>Loading...</p>}>
+    <Suspense
+      fallback={
+        <main className="flex h-screen w-full items-center justify-center bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900">
+          <AmpLoader />
+        </main>
+      }
+    >
       <SongDashboardPageContent />
     </Suspense>
   );

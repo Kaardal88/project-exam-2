@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { NavBar } from "@/components/NavBar";
 import { Search } from "lucide-react";
+import AmpLoader from "@/components/AmpLoader";
 
 type User = {
   id: string;
@@ -52,7 +53,12 @@ export default function UsersPage() {
     loadUsers();
   }, []);
 
-  if (loading) return <p>Loading users...</p>;
+  if (loading)
+    return (
+      <main className="w-full h-screen flex items-center justify-center bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900">
+        <AmpLoader />
+      </main>
+    );
   if (error) return <p>{error}</p>;
 
   return (

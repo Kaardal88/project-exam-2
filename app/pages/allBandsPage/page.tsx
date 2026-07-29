@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { NavBar } from "@/components/NavBar";
 import { BackButton } from "@/components/BackButton";
+import AmpLoader from "@/components/AmpLoader";
 
 type Band = {
   id: string;
@@ -39,7 +40,12 @@ export default function BandsPage() {
     loadBands();
   }, []);
 
-  if (loading) return <p>Loading bands...</p>;
+  if (loading)
+    return (
+      <main className="w-full h-screen flex items-center justify-center bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900">
+        <AmpLoader />
+      </main>
+    );
   if (error) return <p>{error}</p>;
 
   return (

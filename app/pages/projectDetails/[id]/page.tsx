@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
@@ -28,6 +28,7 @@ type Project = {
 
 export default function ProjectDetailsPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const projectId = params.id;
 
   const [project, setProject] = useState<Project | null>(null);
@@ -39,8 +40,7 @@ export default function ProjectDetailsPage() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      setError("Unauthorized");
-      setLoading(false);
+      router.push("/pages/auth/login");
       return;
     }
 
@@ -64,10 +64,14 @@ export default function ProjectDetailsPage() {
       setError("Failed to load project");
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, router]);
 
   useEffect(() => {
-    void fetchProject();
+    async function loadProject() {
+      await fetchProject();
+    }
+
+    void loadProject();
   }, [fetchProject]);
 
   if (loading) {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import countries from "world-countries";
+import { SuccessMessage } from "@/components/SuccessMessage";
 
 /* const countries = [
   { value: "NO", label: "Norway", flag: "🇳🇴" },
@@ -27,6 +28,7 @@ export default function RegisterPage() {
   const [headerImageUrl, setHeaderImageUrl] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [country, setCountry] = useState("");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -73,7 +75,10 @@ export default function RegisterPage() {
       return;
     }
 
-    router.push(`/pages/bandProfile?id=${data.id}`);
+    setSuccess(true);
+    setTimeout(() => {
+      router.push(`/pages/bandProfile?id=${data.id}`);
+    }, 1000);
   }
 
   return (
@@ -172,11 +177,17 @@ export default function RegisterPage() {
           </div>
 
           <button
-            className="mt-4 flex w-full items-center justify-center rounded-lg bg-yellow-200 px-5 py-3 font-semibold text-black transition hover:cursor-pointer hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 flex w-full items-center justify-center rounded-lg bg-yellow-200 px-5 py-3 font-semibold text-black transition hover:cursor-pointer hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-80"
             type="submit"
-            disabled={loading}
+            disabled={loading || success}
           >
-            {loading ? "Creating profile..." : "Create profile"}
+            {success ? (
+              <SuccessMessage message="Band profile created" tone="dark" />
+            ) : loading ? (
+              "Creating profile..."
+            ) : (
+              "Create profile"
+            )}
           </button>
         </form>
 
