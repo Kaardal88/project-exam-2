@@ -42,18 +42,22 @@ export default function HomePage() {
       {/*Hero section*/}
       <div
         id="home"
-        className="mx-auto flex max-w-5xl scroll-mt-20 flex-col items-center justify-center px-6 py-10 text-center sm:py-14 md:min-h-screen md:py-16"
+        className="mx-auto flex max-w-5xl scroll-mt-20 flex-col items-center justify-center px-6 pt-20 pb-10 text-center sm:pt-24 sm:pb-14 md:min-h-screen md:py-16"
       >
+        {/* extra top padding above clears the fixed LandingNav, which
+            otherwise sits directly on top of this badge on mobile where
+            the nav is centered instead of tucked into the corner */}
         <div
           className="
         flex  items-center justify-center
         bg-[#f3e7b6] text-neutral-950
-        px-24 py-8
+        px-10 py-4
         font-[family-name:var(--font-marker)]
          font-black tracking-tight
         shadow-[0_8px_25px_rgba(0,0,0,0.45)]
-        -rotate-2 text-4xl
-        md:text-5xl lg:text-8xl
+        -rotate-2 text-3xl
+        sm:px-16 sm:py-6 sm:text-4xl
+        md:px-24 md:py-8 md:text-5xl lg:text-8xl
         [clip-path:polygon(6%_0%,94%_0%,98%_8%,95%_18%,99%_28%,94%_42%,97%_56%,93%_72%,98%_88%,95%_100%,6%_100%,2%_92%,5%_80%,1%_68%,6%_54%,2%_38%,5%_22%,1%_10%)]
       "
         >

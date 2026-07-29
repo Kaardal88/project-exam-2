@@ -103,10 +103,22 @@ export function FeatureShowcase() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [paused]);
+    // Re-armed on activeIndex too, so a manual prev/next click restarts the
+    // 3s countdown instead of auto-advancing again a moment later.
+  }, [paused, activeIndex]);
 
   const activeFeature = features[activeIndex];
   const Icon = activeFeature.icon;
+
+  function nextFeature() {
+    setActiveIndex((current) => (current + 1) % features.length);
+  }
+
+  function previousFeature() {
+    setActiveIndex((current) =>
+      current === 0 ? features.length - 1 : current - 1,
+    );
+  }
 
   return (
     <section
@@ -142,17 +154,35 @@ export function FeatureShowcase() {
             </div>
           </div>
 
-          <div aria-hidden className="mt-6 flex items-center justify-center gap-2">
-            {features.map((feature, index) => (
-              <span
-                key={feature.heading}
-                className={`h-1.5 w-1.5 rounded-full transition ${
-                  index === activeIndex
-                    ? "bg-amber-300 shadow-[0_0_6px_rgba(252,211,77,0.8)]"
-                    : "bg-neutral-700"
-                }`}
-              />
-            ))}
+          <div className="mt-6 flex items-center justify-center gap-4">
+            <button
+              onClick={previousFeature}
+              className="text-xl text-yellow-100/70 transition hover:scale-110 hover:text-yellow-100"
+              aria-label="Previous feature"
+            >
+              ‹
+            </button>
+
+            <div aria-hidden className="flex items-center gap-2">
+              {features.map((feature, index) => (
+                <span
+                  key={feature.heading}
+                  className={`h-1.5 w-1.5 rounded-full transition ${
+                    index === activeIndex
+                      ? "bg-amber-300 shadow-[0_0_6px_rgba(252,211,77,0.8)]"
+                      : "bg-neutral-700"
+                  }`}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={nextFeature}
+              className="text-xl text-yellow-100/70 transition hover:scale-110 hover:text-yellow-100"
+              aria-label="Next feature"
+            >
+              ›
+            </button>
           </div>
         </div>
       </div>
