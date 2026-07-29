@@ -3,27 +3,28 @@
 // plausible product data instead of lorem ipsum.
 
 export const mockUser = {
-  username: "sigridvange",
-  displayName: "Sigrid Vange",
+  username: "kaldr",
+  displayName: "Kim André",
   tags: [
     { value: "singer", label: "Singer", icon: "🎤" },
     { value: "producer", label: "Producer", icon: "🎛️" },
   ],
   bands: [
-    { name: "Nattkjøring", role: "Lead vocals", initial: "N" },
+    { name: "Kaldvard", role: "Lead vocals", initial: "N" },
     { name: "Kaldt Lys", role: "Songwriter", initial: "K" },
   ],
 };
 
 export const mockBand = {
-  band_name: "Nattkjøring",
+  band_name: "Kaldvard",
   country: "Norway",
-  bio: "Four-piece synth-rock band from Bergen, chasing neon-lit choruses since 2019.",
+  bio: "Melodic black metal band from the fjords of Norway.",
   members: [
-    { username: "sigridvange", initial: "S" },
-    { username: "eirikstorm", initial: "E" },
+    { username: "kaldr", initial: "K" },
+    { username: "sigridv", initial: "S" },
+    { username: "eiriks", initial: "E" },
     { username: "majalind", initial: "M" },
-    { username: "torbjornhauge", initial: "T" },
+    { username: "torbjornh", initial: "T" },
   ],
   upcomingEvent: {
     title: "Release show — Landmark",
@@ -46,8 +47,18 @@ export const mockSong: {
 };
 
 export const mockTasks = [
-  { id: "t1", title: "Finish second verse lyrics", is_done: false, assignee: "sigridvange" },
-  { id: "t2", title: "Re-record guitar bridge", is_done: false, assignee: "eirikstorm" },
+  {
+    id: "t1",
+    title: "Finish second verse lyrics",
+    is_done: false,
+    assignee: "sigridv",
+  },
+  {
+    id: "t2",
+    title: "Re-record guitar bridge",
+    is_done: false,
+    assignee: "eiriks",
+  },
   { id: "t3", title: "Rough mix v1", is_done: true, assignee: "majalind" },
 ];
 
@@ -56,6 +67,6 @@ export const mockNotes = [
     id: "n1",
     title: "Chorus idea",
     body: "Try stacking the harmony an octave up on the last chorus, more lift going into the outro.",
-    publisher: "sigridvange",
+    publisher: "sigridv",
   },
 ];
