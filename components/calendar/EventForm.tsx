@@ -6,21 +6,43 @@ import { DateRangePicker } from "./DatePicker";
 
 import "@daypicker/react/style.css";
 
+export type EventFormEvent = {
+  id: string;
+  title: string;
+  description?: string | null;
+  start_date: string;
+  end_date?: string | null;
+};
+
 type EventFormProps = {
-  bandId: string | number;
-  canCreateEvent: boolean;
-  onCreated?: () => void;
+  mode?: "band" | "private";
+  bandId?: string | number;
+  canSubmit: boolean;
+  initialEvent?: EventFormEvent | null;
+  onSaved?: () => void;
 };
 
 export function EventForm({
+  mode = "band",
   bandId,
-  canCreateEvent,
-  onCreated,
+  canSubmit,
+  initialEvent,
+  onSaved,
 }: EventFormProps) {
-  const [title, setTitle] = useState("");
+  const isEditing = Boolean(initialEvent);
 
-  const [selectedRange, setSelectedRange] = useState<DateRange | undefined>();
-  const [description, setDescription] = useState("");
+  const [title, setTitle] = useState(initialEvent?.title ?? "");
+  const [description, setDescription] = useState(
+    initialEvent?.description ?? "",
+  );
+  const [selectedRange, setSelectedRange] = useState<DateRange | undefined>(
+    initialEvent
+      ? {
+          from: new Date(initialEvent.start_date),
+          to: new Date(initialEvent.end_date ?? initialEvent.start_date),
+        }
+      : undefined,
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,8 +62,17 @@ export function EventForm({
     const startDate = selectedRange.from;
     const endDate = selectedRange.to ?? selectedRange.from;
 
-    const response = await fetch(`/api/bands/${bandId}/events`, {
-      method: "POST",
+    const endpoint =
+      mode === "private"
+        ? isEditing
+          ? `/api/users/me/private-events/${initialEvent!.id}`
+          : "/api/users/me/private-events"
+        : isEditing
+          ? `/api/bands/${bandId}/events/${initialEvent!.id}`
+          : `/api/bands/${bandId}/events`;
+
+    const response = await fetch(endpoint, {
+      method: isEditing ? "PUT" : "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
@@ -55,17 +86,19 @@ export function EventForm({
     });
 
     if (!response.ok) {
-      console.error("Failed to create event", await response.text());
+      console.error("Failed to save event", await response.text());
       return;
     }
 
-    setTitle("");
-    setDescription("");
-    setSelectedRange(undefined);
-    onCreated?.();
+    if (!isEditing) {
+      setTitle("");
+      setDescription("");
+      setSelectedRange(undefined);
+    }
+    onSaved?.();
   }
 
-  if (!canCreateEvent) return null;
+  if (!canSubmit) return null;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -96,7 +129,7 @@ export function EventForm({
         type="submit"
         className="rounded bg-yellow-200 px-4 py-2 mt-6 w-full text-black hover:cursor-pointer hover:bg-yellow-300"
       >
-        Save event
+        {isEditing ? "Save changes" : "Save event"}
       </button>
     </form>
   );

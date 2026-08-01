@@ -905,6 +905,7 @@ mb-4
                   bandId={bandId}
                   role={role}
                   eventsError={eventsError}
+                  onEventsChanged={fetchEvents}
                 />
               )}
               {activeSection === "Albums" && (

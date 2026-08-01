@@ -4,6 +4,9 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { NavBar } from "@/components/NavBar";
+import { Modal } from "@/components/Modal";
+import { BandCalendar } from "@/components/calendar/BandCalendar";
+import { EventForm, EventFormEvent } from "@/components/calendar/EventForm";
 import { EventCard } from "@/components/calendar/EventCard";
 import { EditUserProfileModal } from "@/components/userProfile/EditUserProfileModal";
 import { ExternalLink } from "lucide-react";
@@ -42,6 +45,18 @@ type BandEvent = {
   band_id: string | number;
 };
 
+type PrivateEvent = {
+  id: string;
+  title: string;
+  description?: string | null;
+  start_date: string;
+  end_date?: string | null;
+};
+
+type ProfileEvent = (BandEvent | PrivateEvent) & {
+  source: "band" | "private";
+};
+
 const defaultTags = [
   { value: "drummer", label: "Drummer", icon: "🥁" },
   { value: "singer", label: "Singer", icon: "🎤" },
@@ -71,6 +86,11 @@ function UserProfileContent() {
   const [headerImageUrl, setHeaderImageUrl] = useState("");
   const [username, setUsername] = useState("");
   const [events, setEvents] = useState<BandEvent[]>([]);
+  const [privateEvents, setPrivateEvents] = useState<PrivateEvent[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [showPrivateEventForm, setShowPrivateEventForm] = useState(false);
+  const [editingPrivateEvent, setEditingPrivateEvent] =
+    useState<EventFormEvent | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const tagMap = Object.fromEntries(defaultTags.map((tag) => [tag.value, tag]));
 
@@ -139,18 +159,104 @@ function UserProfileContent() {
     setEvents(Array.isArray(data) ? data : (data.events ?? []));
   }, [user?.id, router]);
 
-  const upComingEvents = events.filter((event) => {
-    const endDate = new Date(event.end_date ?? event.start_date);
-    return endDate >= new Date();
-  });
+  const fetchPrivateEvents = useCallback(async () => {
+    if (!user?.id || !isOwnProfile) return;
+
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      router.push("/pages/auth/login");
+      return;
+    }
+
+    const response = await fetch(`/api/users/me/private-events`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.error || "Could not load private events");
+      return;
+    }
+
+    setPrivateEvents(Array.isArray(data) ? data : []);
+  }, [user?.id, isOwnProfile, router]);
+
+  const allEvents: ProfileEvent[] = [
+    ...events.map((event) => ({ ...event, source: "band" as const })),
+    ...privateEvents.map((event) => ({ ...event, source: "private" as const })),
+  ];
+
+  function startOfDay(date: Date) {
+    const copy = new Date(date);
+    copy.setHours(0, 0, 0, 0);
+    return copy;
+  }
+
+  const selectedEvents = selectedDate
+    ? allEvents.filter((event) => {
+        const selected = startOfDay(selectedDate);
+        const start = startOfDay(new Date(event.start_date));
+        const end = startOfDay(new Date(event.end_date ?? event.start_date));
+        return selected >= start && selected <= end;
+      })
+    : [];
+
+  const upComingEvents = selectedDate
+    ? selectedEvents
+    : allEvents.filter((event) => {
+        const endDate = new Date(event.end_date ?? event.start_date);
+        return endDate >= new Date();
+      });
 
   useEffect(() => {
     async function loadEvents() {
       await fetchUserEvents();
+      await fetchPrivateEvents();
     }
 
     void loadEvents();
-  }, [fetchUserEvents]);
+  }, [fetchUserEvents, fetchPrivateEvents]);
+
+  function openCreatePrivateEvent() {
+    setEditingPrivateEvent(null);
+    setShowPrivateEventForm(true);
+  }
+
+  function openEditPrivateEvent(event: PrivateEvent) {
+    setEditingPrivateEvent({
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      start_date: event.start_date,
+      end_date: event.end_date,
+    });
+    setShowPrivateEventForm(true);
+  }
+
+  async function handleDeletePrivateEvent(eventId: string) {
+    if (!window.confirm("Delete this event?")) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const response = await fetch(`/api/users/me/private-events/${eventId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error("Failed to delete event", await response.text());
+      return;
+    }
+
+    await fetchPrivateEvents();
+  }
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -381,37 +487,118 @@ function UserProfileContent() {
           {/* Upcoming events */}
           <section className="mx-auto mt-2 mb-8 w-full max-w-7xl overflow-hidden rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl">
             <h2 className="mb-4 text-center text-yellow-100">
-              Upcoming events
+              {selectedDate ? "Events on selected date" : "Upcoming events"}
             </h2>
             <div className="mb-4 flex flex-col  gap-4 divide-y divide-yellow-100">
-              {upComingEvents.map((event) => {
-                const bandName = members.find(
-                  (member) => member.band_id === event.band_id,
-                )?.band.band_name;
+              {upComingEvents.length === 0 ? (
+                <p className="text-center text-sm text-neutral-400">
+                  No events
+                </p>
+              ) : (
+                upComingEvents.map((event) => {
+                  const isBandEvent = event.source === "band";
+                  const bandName = isBandEvent
+                    ? members.find(
+                        (member) =>
+                          member.band_id === (event as BandEvent).band_id,
+                      )?.band.band_name
+                    : null;
 
-                return (
-                  <div
-                    key={event.id}
-                    className="pt-3 bg-neutral-950 border border-neutral-700 p-4 rounded-md "
-                  >
-                    <Link
-                      className="mb-2 flex flex-row items-center gap-2  font-semibold text-yellow-100"
-                      href={`/pages/bandProfile?id=${event.band_id}`}
+                  return (
+                    <div
+                      key={`${event.source}-${event.id}`}
+                      className="pt-3 bg-neutral-950 border border-neutral-700 p-4 rounded-md "
                     >
-                      <p className="mb-2 text-md font-semibold text-yellow-100">
-                        {bandName ?? "Unknown band"}
-                      </p>
-                      <ExternalLink className="mb-2 text-xs text-neutral-400" />
-                    </Link>
+                      {isBandEvent ? (
+                        <Link
+                          className="mb-2 flex flex-row items-center gap-2  font-semibold text-yellow-100"
+                          href={`/pages/bandProfile?id=${(event as BandEvent).band_id}`}
+                        >
+                          <p className="mb-2 text-md font-semibold text-yellow-100">
+                            {bandName ?? "Unknown band"}
+                          </p>
+                          <ExternalLink className="mb-2 text-xs text-neutral-400" />
+                        </Link>
+                      ) : (
+                        <p className="mb-2 flex items-center gap-2 text-md font-semibold text-blue-300">
+                          Private event
+                        </p>
+                      )}
 
-                    <EventCard event={event} />
-                  </div>
-                );
-              })}
+                      <EventCard
+                        event={event}
+                        canManage={isOwnProfile && !isBandEvent}
+                        onEdit={() =>
+                          openEditPrivateEvent(event as PrivateEvent)
+                        }
+                        onDelete={() => handleDeletePrivateEvent(event.id)}
+                      />
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </section>
+
+          {/* Calendar */}
+          <section className="mx-auto mt-2 mb-8 w-full max-w-7xl overflow-hidden rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl lg:col-span-2">
+            <h2 className="mb-4 text-center text-yellow-100">Calendar</h2>
+            <div className="flex flex-col gap-6">
+              <div className="flex justify-center">
+                <BandCalendar
+                  events={allEvents}
+                  selectedDate={selectedDate}
+                  onSelect={(date) => setSelectedDate(date)}
+                  showLegend
+                />
+              </div>
+
+              {selectedDate && (
+                <button
+                  onClick={() => setSelectedDate(undefined)}
+                  className="mx-auto text-xs text-neutral-400 underline hover:cursor-pointer hover:text-yellow-100"
+                >
+                  Clear selected date
+                </button>
+              )}
+
+              {isOwnProfile && (
+                <button
+                  onClick={openCreatePrivateEvent}
+                  className="mt-2 flex w-full justify-center rounded bg-yellow-200 px-4 py-2 text-black hover:cursor-pointer hover:bg-yellow-300"
+                >
+                  <span className="mr-2 text-2xl">+</span>
+                  Add private event
+                </button>
+              )}
             </div>
           </section>
         </div>
       </section>
+
+      {isOwnProfile && showPrivateEventForm && (
+        <Modal
+          isOpen={showPrivateEventForm}
+          onClose={() => setShowPrivateEventForm(false)}
+        >
+          <div className="w-[90vw] max-w-2xl max-h-[85vh] overflow-y-auto">
+            <h2 className="mb-4 text-xl font-bold text-yellow-100">
+              {editingPrivateEvent ? "Edit private event" : "Add private event"}
+            </h2>
+
+            <EventForm
+              mode="private"
+              canSubmit={isOwnProfile}
+              initialEvent={editingPrivateEvent}
+              onSaved={async () => {
+                setShowPrivateEventForm(false);
+                setEditingPrivateEvent(null);
+                await fetchPrivateEvents();
+              }}
+            />
+          </div>
+        </Modal>
+      )}
     </main>
   );
 }

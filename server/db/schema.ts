@@ -142,6 +142,31 @@ export const band_events = pgTable("band_events", {
   created_at: timestamp("created_at").defaultNow(),
 });
 
+export const user_events = pgTable("user_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  user_id: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+
+  title: varchar("title", {
+    length: 255,
+  }).notNull(),
+
+  description: text("description"),
+  start_date: timestamp("start_date").notNull(),
+  end_date: timestamp("end_date"),
+
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const user_eventsRelations = relations(user_events, ({ one }) => ({
+  user: one(users, {
+    fields: [user_events.user_id],
+    references: [users.id],
+  }),
+}));
+
 export const projects = pgTable("projects", {
   id: uuid("id").defaultRandom().primaryKey(),
 

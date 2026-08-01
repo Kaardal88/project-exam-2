@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { Modal } from "@/components/Modal";
 import { BandCalendar } from "@/components/calendar/BandCalendar";
-import { EventForm } from "@/components/calendar/EventForm";
+import { EventForm, EventFormEvent } from "@/components/calendar/EventForm";
 import { EventCard } from "@/components/calendar/EventCard";
-import { ProfileSection } from "./ProfileSection";
 import { BandEvent } from "@/components/calendar/BandCalendar";
 type HomeEvent = BandEvent & {
   band_id?: {
@@ -22,6 +21,7 @@ type HomeNavProps = {
 
   role: string | null;
   eventsError?: string | null;
+  onEventsChanged?: () => void | Promise<void>;
 };
 
 export function HomeNav({
@@ -29,9 +29,60 @@ export function HomeNav({
   bandId,
   role,
   eventsError,
+  onEventsChanged,
 }: HomeNavProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showEventForm, setShowEventForm] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<EventFormEvent | null>(
+    null,
+  );
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const canManageEvents = role === "band_leader";
+
+  function openCreateForm() {
+    setEditingEvent(null);
+    setShowEventForm(true);
+  }
+
+  function openEditForm(event: HomeEvent) {
+    setEditingEvent({
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      start_date: event.start_date,
+      end_date: event.end_date,
+    });
+    setShowEventForm(true);
+  }
+
+  async function handleDelete(eventId: string) {
+    if (!canManageEvents) return;
+    if (!window.confirm("Delete this event?")) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    setDeletingId(eventId);
+
+    try {
+      const response = await fetch(`/api/bands/${bandId}/events/${eventId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.error("Failed to delete event", await response.text());
+        return;
+      }
+
+      await onEventsChanged?.();
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="grid grid-cols-1  gap-6 lg:grid-cols-2">
@@ -43,7 +94,15 @@ export function HomeNav({
           {eventsError ? (
             <p className="form-error">{eventsError}</p>
           ) : events.length > 0 ? (
-            events.map((event) => <EventCard key={event.id} event={event} />)
+            events.map((event) => (
+              <EventCard
+                key={event.id}
+                event={event}
+                canManage={canManageEvents}
+                onEdit={() => openEditForm(event)}
+                onDelete={() => handleDelete(event.id)}
+              />
+            ))
           ) : (
             <p className="text-sm text-neutral-400">No upcoming events</p>
           )}
@@ -65,10 +124,11 @@ export function HomeNav({
             />
           </div>
 
-          {role === "band_leader" && (
+          {canManageEvents && (
             <button
-              onClick={() => setShowEventForm(true)}
-              className="mt-2 flex w-full justify-center rounded bg-yellow-200 px-4 py-2 text-black hover:cursor-pointer hover:bg-yellow-300"
+              onClick={openCreateForm}
+              disabled={deletingId !== null}
+              className="mt-2 flex w-full justify-center rounded bg-yellow-200 px-4 py-2 text-black hover:cursor-pointer hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="mr-2 text-2xl">+</span>
               Add Event
@@ -81,14 +141,17 @@ export function HomeNav({
         <Modal isOpen={showEventForm} onClose={() => setShowEventForm(false)}>
           <div className="w-[90vw] max-w-2xl max-h-[85vh] overflow-y-auto">
             <h2 className="mb-4 text-xl font-bold text-yellow-100">
-              Add event
+              {editingEvent ? "Edit event" : "Add event"}
             </h2>
 
             <EventForm
               bandId={bandId}
-              canCreateEvent={role === "band_leader"}
-              onCreated={() => {
+              canSubmit={canManageEvents}
+              initialEvent={editingEvent}
+              onSaved={async () => {
                 setShowEventForm(false);
+                setEditingEvent(null);
+                await onEventsChanged?.();
               }}
             />
           </div>

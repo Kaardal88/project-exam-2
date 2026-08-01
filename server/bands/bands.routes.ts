@@ -271,6 +271,16 @@ bandsRoutes.put("/:id", requireAuth, async (c) => {
 
 bandsRoutes.get("/:id/events", requireAuth, async (c) => {
   const bandId = c.req.param("id");
+  const userId = c.get("userId");
+
+  const membership = await db.query.band_members.findFirst({
+    where: (band_members, { eq, and }) =>
+      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
+  });
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
 
   const events = await db.query.band_events.findMany({
     where: (events, { eq }) => eq(events.band_id, bandId),
@@ -283,7 +293,24 @@ bandsRoutes.post("/:id/events", requireAuth, async (c) => {
   const bandId = c.req.param("id");
   const userId = c.get("userId");
 
+  const membership = await db.query.band_members.findFirst({
+    where: (band_members, { eq, and }) =>
+      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
+  });
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (membership.role !== "band_leader") {
+    return c.json({ error: "Only band leaders can create events" }, 403);
+  }
+
   const body = await c.req.json();
+
+  if (!body.title || !body.start_date) {
+    return c.json({ error: "title and start_date are required" }, 400);
+  }
 
   const [createdEvent] = await db
     .insert(band_events)
@@ -299,6 +326,78 @@ bandsRoutes.post("/:id/events", requireAuth, async (c) => {
     .returning();
 
   return c.json(createdEvent, 201);
+});
+
+bandsRoutes.put("/:id/events/:eventId", requireAuth, async (c) => {
+  const bandId = c.req.param("id");
+  const eventId = c.req.param("eventId");
+  const userId = c.get("userId");
+
+  const membership = await db.query.band_members.findFirst({
+    where: (band_members, { eq, and }) =>
+      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
+  });
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (membership.role !== "band_leader") {
+    return c.json({ error: "Only band leaders can edit events" }, 403);
+  }
+
+  const body = await c.req.json();
+
+  if (!body.title || !body.start_date) {
+    return c.json({ error: "title and start_date are required" }, 400);
+  }
+
+  const [updatedEvent] = await db
+    .update(band_events)
+    .set({
+      title: body.title,
+      description: body.description ?? null,
+      start_date: new Date(body.start_date),
+      end_date: new Date(body.end_date ?? body.start_date),
+    })
+    .where(and(eq(band_events.id, eventId), eq(band_events.band_id, bandId)))
+    .returning();
+
+  if (!updatedEvent) {
+    return c.json({ error: "Event not found" }, 404);
+  }
+
+  return c.json(updatedEvent, 200);
+});
+
+bandsRoutes.delete("/:id/events/:eventId", requireAuth, async (c) => {
+  const bandId = c.req.param("id");
+  const eventId = c.req.param("eventId");
+  const userId = c.get("userId");
+
+  const membership = await db.query.band_members.findFirst({
+    where: (band_members, { eq, and }) =>
+      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
+  });
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (membership.role !== "band_leader") {
+    return c.json({ error: "Only band leaders can delete events" }, 403);
+  }
+
+  const [deletedEvent] = await db
+    .delete(band_events)
+    .where(and(eq(band_events.id, eventId), eq(band_events.band_id, bandId)))
+    .returning();
+
+  if (!deletedEvent) {
+    return c.json({ error: "Event not found" }, 404);
+  }
+
+  return c.json({ success: true }, 200);
 });
 
 bandsRoutes.get("/:id/projects", requireAuth, async (c) => {

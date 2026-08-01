@@ -2,8 +2,8 @@ import { Hono } from "hono";
 import { updateUser, deleteUser } from "@/server/users/users.service";
 import { requireAuth } from "../auth/auth.middleware";
 import { db } from "../db";
-import { eq, inArray, asc } from "drizzle-orm";
-import { band_members, band_events } from "@/server/db/schema";
+import { and, eq, inArray, asc } from "drizzle-orm";
+import { band_members, band_events, user_events } from "@/server/db/schema";
 
 type Variables = {
   userId: string;
@@ -106,6 +106,82 @@ usersRoutes.get("/me/events", requireAuth, async (c) => {
   });
 
   return c.json(events, 200);
+});
+
+usersRoutes.get("/me/private-events", requireAuth, async (c) => {
+  const userId = c.get("userId");
+
+  const events = await db.query.user_events.findMany({
+    where: eq(user_events.user_id, userId),
+    orderBy: asc(user_events.start_date),
+  });
+
+  return c.json(events, 200);
+});
+
+usersRoutes.post("/me/private-events", requireAuth, async (c) => {
+  const userId = c.get("userId");
+  const body = await c.req.json();
+
+  if (!body.title || !body.start_date) {
+    return c.json({ error: "title and start_date are required" }, 400);
+  }
+
+  const [createdEvent] = await db
+    .insert(user_events)
+    .values({
+      user_id: userId,
+      title: body.title,
+      description: body.description ?? null,
+      start_date: new Date(body.start_date),
+      end_date: new Date(body.end_date ?? body.start_date),
+    })
+    .returning();
+
+  return c.json(createdEvent, 201);
+});
+
+usersRoutes.put("/me/private-events/:eventId", requireAuth, async (c) => {
+  const userId = c.get("userId");
+  const eventId = c.req.param("eventId");
+  const body = await c.req.json();
+
+  if (!body.title || !body.start_date) {
+    return c.json({ error: "title and start_date are required" }, 400);
+  }
+
+  const [updatedEvent] = await db
+    .update(user_events)
+    .set({
+      title: body.title,
+      description: body.description ?? null,
+      start_date: new Date(body.start_date),
+      end_date: new Date(body.end_date ?? body.start_date),
+    })
+    .where(and(eq(user_events.id, eventId), eq(user_events.user_id, userId)))
+    .returning();
+
+  if (!updatedEvent) {
+    return c.json({ error: "Event not found" }, 404);
+  }
+
+  return c.json(updatedEvent, 200);
+});
+
+usersRoutes.delete("/me/private-events/:eventId", requireAuth, async (c) => {
+  const userId = c.get("userId");
+  const eventId = c.req.param("eventId");
+
+  const [deletedEvent] = await db
+    .delete(user_events)
+    .where(and(eq(user_events.id, eventId), eq(user_events.user_id, userId)))
+    .returning();
+
+  if (!deletedEvent) {
+    return c.json({ error: "Event not found" }, 404);
+  }
+
+  return c.json({ success: true }, 200);
 });
 
 export default usersRoutes;

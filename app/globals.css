@@ -263,6 +263,13 @@ input {
 
 .vardo-calendar .rdp-root {
   --rdp-accent-color: #fde68a;
+  --rdp-accent-background-color: rgba(253, 230, 138, 0.25);
+  --rdp-range_middle-background-color: rgba(253, 230, 138, 0.25);
+  --rdp-range_middle-color: #f5f0d8;
+  --rdp-range_start-date-background-color: #fde68a;
+  --rdp-range_end-date-background-color: #fde68a;
+  --rdp-range_start-color: #171717;
+  --rdp-range_end-color: #171717;
 }
 
 .vardo-calendar .rdp-months {
