@@ -598,127 +598,83 @@ function BandProfileContent() {
                   </p>
                 </div>
 
-                {role === "band_leader" && (
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-                    <button
-                      onClick={() => setEditBandModalOpen(true)}
-                      className="rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800"
-                    >
-                      Edit profile
-                    </button>
+                {/* Members card */}
+                <div
+                  style={{
+                    backgroundImage: "url('/bg-components.jpg')",
+                  }}
+                  className="relative w-full overflow-hidden rounded-md border border-neutral-600/70 bg-cover bg-center p-4 shadow-[inset_0_4px_6px_rgba(255,255,255,0.01),0_8px_16px_rgba(0,0,0,0.3)] sm:w-64"
+                >
+                  <div className="absolute inset-0 bg-black/20" />
 
-                    <button
-                      onClick={() => setNewProjectModalOpen(true)}
-                      className="flex items-center justify-center gap-2 rounded-full border border-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-50 hover:text-black!"
-                    >
-                      <Plus className="h-4 w-4" />
-                      New project
-                    </button>
+                  <div className="absolute left-2 top-2 z-10 h-4 w-4 opacity-90">
+                    <img
+                      src="/svg/hardware/panel-screw.png"
+                      alt="Panel Screw"
+                      className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+                    />
                   </div>
-                )}
-              </div>
-            </div>
+                  <div className="absolute right-2 top-2 z-10 h-4 w-4">
+                    <img
+                      src="/svg/hardware/panel-screw.png"
+                      alt="Panel Screw"
+                      className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+                    />
+                  </div>
+                  <div className="absolute bottom-2 left-2 z-10 h-4 w-4">
+                    <img
+                      src="/svg/hardware/panel-screw.png"
+                      alt="Panel Screw"
+                      className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+                    />
+                  </div>
+                  <div className="absolute bottom-2 right-2 z-10 h-4 w-4 opacity-90">
+                    <img
+                      src="/svg/hardware/panel-screw.png"
+                      alt="Panel Screw"
+                      className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+                    />
+                  </div>
 
-            {/*Members section*/}
-            <h3 className="text-sm md:text-xl lg:text-2xl font-bold text-yellow-100 mb-2 justify-center flex font-[family-name:var(--font-caveat)]  ">
-              Members
-            </h3>
-            <div
-              style={{
-                backgroundImage: "url('/bg-components.jpg')",
-              }}
-              className="
-    relative
+                  <h3 className="relative z-10 mb-3 text-center text-sm font-bold text-yellow-100 font-[family-name:var(--font-caveat)]">
+                    Members
+                  </h3>
 
-    mx-auto
-    flex
-    max-w-2xl
-    flex-wrap
-    items-center
-    justify-center
-    gap-4
-    rounded-md
-    border
-    border-neutral-600/70
-    before:absolute before:inset-0 before:rounded-md before:border before:border-white/5
-    p-4
-mb-4
+                  <div className="relative z-10 grid grid-cols-4 gap-2">
+                    {members.slice(0, 4).map((member) => (
+                      <Link
+                        key={member.user_id}
+                        href={`/pages/userProfile?id=${member.user_id}`}
+                        className="flex flex-col items-center gap-1"
+                      >
+                        {member.user.image_url ? (
+                          <img
+                            src={member.user.image_url}
+                            alt={member.user.username}
+                            className="h-9 w-9 rounded-full border border-neutral-600 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-600 bg-neutral-950 text-xs font-bold text-yellow-100">
+                            {member.user.username.charAt(0).toUpperCase()}
+                          </div>
+                        )}
 
-    bg-cover
-    bg-center
+                        <span className="max-w-12 truncate text-[10px] text-yellow-100">
+                          {member.user.username}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
 
-    shadow-[inset_0_6px_6px_rgba(255,255,255,0.01),_0_10px_20px_rgba(0,0,0,0.3  )]
-  "
-            >
-              <div className="absolute inset-0 bg-black/20" />
-              <div className=" absolute left-3 top-3 h-6 w-6 opacity-90 z-10">
-                <img
-                  src="/svg/hardware/panel-screw.png"
-                  alt="Panel Screw"
-                  className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
-                />
-              </div>
-
-              <div className="absolute right-3 top-3 z-10 h-6 w-6">
-                <img
-                  src="/svg/hardware/panel-screw.png"
-                  alt="Panel Screw"
-                  className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
-                />
-              </div>
-              <div className="absolute bottom-3 left-3 h-6 w-6 z-10">
-                <img
-                  src="/svg/hardware/panel-screw.png"
-                  alt="Panel Screw"
-                  className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
-                />
-              </div>
-
-              <div className="absolute bottom-3 right-3 h-6 w-6 z-10 opacity-90">
-                <img
-                  src="/svg/hardware/panel-screw.png"
-                  alt="Panel Screw"
-                  className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
-                />
-              </div>
-
-              <div className="flex gap-4 overflow-x-auto z-10 pb-2">
-                {members.slice(0, 5).map((member) => (
-                  <Link
-                    key={member.user_id}
-                    href={`/pages/userProfile?id=${member.user_id}`}
-                    className="min-w-14 flex flex-col items-center gap-1"
-                  >
-                    {member.user.image_url ? (
-                      <img
-                        src={member.user.image_url}
-                        alt={member.user.username}
-                        className="h-11 w-11 rounded-full border border-neutral-600 object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-11 w-11 items-center justify-center rounded-full border border-neutral-600 bg-neutral-950 text-sm font-bold text-yellow-100">
-                        {member.user.username.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-
-                    <span className="max-w-16 truncate text-xs text-yellow-100">
-                      {member.user.username}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-
-              <div className="mt-6 rounded-md   p-4">
-                <div className="mb-3 flex items-center justify-between gap-3 ">
-                  <div className="flex gap-2 z-10">
+                  <div className="relative z-10 mt-3 flex flex-wrap items-center justify-between gap-2">
                     {members.length > 0 && (
                       <button
                         type="button"
                         onClick={() => setMembersOpen(true)}
-                        className="flex items-center gap-1 rounded-full border border-neutral-600 px-3 py-1.5 text-xs text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800"
+                        className="flex items-center gap-0.5 rounded-full border border-neutral-600 px-1.5 py-0.5 text-[9px] text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800"
                       >
                         See all
-                        <ChevronRight className="h-3.5 w-3.5" />
+                        <ChevronRight className="h-2.5 w-2.5" />
                       </button>
                     )}
 
@@ -726,15 +682,35 @@ mb-4
                       <button
                         type="button"
                         onClick={() => setShowModal(true)}
-                        className="rounded-full border border-yellow-100 px-3 py-1.5 text-xs text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-200 hover:text-black"
+                        className="flex items-center gap-0.5 rounded-full border border-yellow-100 px-1.5 py-0.5 text-[9px] font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-200 hover:text-black"
                       >
-                        <UserPlus className="h-4 w-4" />
+                        <UserPlus className="h-2.5 w-2.5" />
+                        Add member
                       </button>
                     )}
                   </div>
-                  <div className="absolute inset-0 bg-black/50" />
                 </div>
               </div>
+
+              {role === "band_leader" && (
+                <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    onClick={() => setEditBandModalOpen(true)}
+                    className="rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800"
+                  >
+                    Edit profile
+                  </button>
+
+                  <button
+                    onClick={() => setNewProjectModalOpen(true)}
+                    className="flex items-center justify-center gap-2 rounded-full border border-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-50 hover:text-black!"
+                  >
+                    <Plus className="h-4 w-4" />
+                    New project
+                  </button>
+                </div>
+              )}
+            </div>
 
               {membersOpen && (
                 <Modal
@@ -825,7 +801,6 @@ mb-4
                   setWebsiteUrl={setWebsiteUrl}
                 />
               )}
-            </div>
 
             {showModal && (
               <Modal isOpen={showModal} onClose={() => setShowModal(false)}>
