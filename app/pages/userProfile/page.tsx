@@ -438,49 +438,83 @@ function UserProfileContent() {
       <section className="mx-auto mt-6  mb-10 w-full max-w-7xl md:w-3/4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-1 lg:grid-cols-3">
           <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl lg:col-span-4">
-            <div className="mt-4 ">
+            <div className="mt-4">
               <p className="mb-4 text-lg font-bold text-yellow-100">
                 <strong>{user?.username}&apos;s artistpages</strong>
               </p>
 
               {members.length > 0 ? (
-                <div className="flex flex-wrap justify-center gap-4 md:justify-start">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3">
                   {members.map((member) => (
                     <Link
                       key={member.band_id}
                       href={`/pages/bandProfile?id=${member.band_id}`}
-                      className="flex justify-center w-44 flex-col items-center rounded-md border border-neutral-700  p-4 text-center transition hover:bg-neutral-800"
+                      style={{ backgroundImage: "url('/bg-components.jpg')" }}
+                      className="relative flex w-full flex-col items-center overflow-hidden rounded-md border border-neutral-600/70 bg-cover bg-center p-4 text-center shadow-[inset_0_4px_6px_rgba(255,255,255,0.01),0_8px_16px_rgba(0,0,0,0.4)] transition-transform duration-200 hover:scale-[1.03] hover:border-yellow-200/60"
                     >
-                      {member.band.image_url ? (
+                      <div className="absolute inset-0 bg-black/55" />
+
+                      <div className="absolute left-2 top-2 z-10 h-4 w-4 opacity-90">
                         <img
-                          src={member.band.image_url}
-                          alt={member.band.band_name}
-                          className="mb-3 h-24 w-24 rounded-full object-cover"
+                          src="/svg/hardware/panel-screw.png"
+                          alt="Panel Screw"
+                          className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
                         />
-                      ) : (
-                        <div className="mb-3 flex h-24 w-24 items-center justify-center rounded-full bg-slate-700 text-3xl font-bold text-yellow-100">
-                          {member.band.band_name?.charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                      </div>
+                      <div className="absolute right-2 top-2 z-10 h-4 w-4">
+                        <img
+                          src="/svg/hardware/panel-screw.png"
+                          alt="Panel Screw"
+                          className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+                        />
+                      </div>
+                      <div className="absolute bottom-2 left-2 z-10 h-4 w-4">
+                        <img
+                          src="/svg/hardware/panel-screw.png"
+                          alt="Panel Screw"
+                          className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+                        />
+                      </div>
+                      <div className="absolute bottom-2 right-2 z-10 h-4 w-4 opacity-90">
+                        <img
+                          src="/svg/hardware/panel-screw.png"
+                          alt="Panel Screw"
+                          className="h-full w-full object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]"
+                        />
+                      </div>
 
-                      <h3 className="font-semibold text-yellow-100">
-                        {member.band.band_name}
-                      </h3>
+                      <div className="relative z-10 flex flex-col items-center">
+                        {member.band.image_url ? (
+                          <img
+                            src={member.band.image_url}
+                            alt={member.band.band_name}
+                            className="mb-3 h-24 w-24 rounded-full object-cover shadow-[0_0_16px_rgba(245,158,11,0.4)]"
+                          />
+                        ) : (
+                          <div className="mb-3 flex h-24 w-24 items-center justify-center rounded-full bg-slate-700 text-3xl font-bold text-yellow-100 shadow-[0_0_16px_rgba(245,158,11,0.4)]">
+                            {member.band.band_name?.charAt(0).toUpperCase()}
+                          </div>
+                        )}
 
-                      <p className="mt-1 text-sm text-neutral-400">
-                        {member.role}
-                      </p>
+                        <h3 className="font-semibold text-yellow-100">
+                          {member.band.band_name}
+                        </h3>
 
-                      <p className="mt-2 text-xs text-neutral-500">
-                        {member.joined_at
-                          ? new Date(member.joined_at).toLocaleDateString()
-                          : "No join date"}
-                      </p>
+                        <p className="mt-1 text-sm text-neutral-400">
+                          {member.role}
+                        </p>
+
+                        <p className="mt-2 text-xs text-neutral-500">
+                          {member.joined_at
+                            ? new Date(member.joined_at).toLocaleDateString()
+                            : "No join date"}
+                        </p>
+                      </div>
                     </Link>
                   ))}
                 </div>
               ) : (
-                <p className="text-neutral-400">None</p>
+                <p className="text-center text-neutral-400">None</p>
               )}
             </div>
           </section>

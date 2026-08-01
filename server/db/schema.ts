@@ -59,6 +59,7 @@ export const bands = pgTable("bands", {
 
   created_at: timestamp("created_at").defaultNow(),
   country: text("country"),
+  genre: text("genre"),
   spotify_url: text("spotify_url"),
   bandcamp_url: text("bandcamp_url"),
   youtube_url: text("youtube_url"),

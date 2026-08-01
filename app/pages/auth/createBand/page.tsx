@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import countries from "world-countries";
 import { SuccessMessage } from "@/components/SuccessMessage";
+import { genreOptions } from "@/lib/genres";
 
 /* const countries = [
   { value: "NO", label: "Norway", flag: "🇳🇴" },
@@ -30,6 +31,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [country, setCountry] = useState("");
+  const [genre, setGenre] = useState("");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -56,6 +58,7 @@ export default function RegisterPage() {
         image_url: imageUrl,
         header_image_url: headerImageUrl,
         country,
+        genre,
       }),
     });
 
@@ -129,6 +132,25 @@ export default function RegisterPage() {
               {countryOptions.map((country) => (
                 <option key={country.value} value={country.value}>
                   {country.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-yellow-100">Genre</span>
+
+            <select
+              className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-3 text-neutral-50 outline-none transition focus:border-yellow-200"
+              value={genre}
+              onChange={(event) => setGenre(event.target.value)}
+              required
+            >
+              <option value="">Select genre</option>
+
+              {genreOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
                 </option>
               ))}
             </select>
