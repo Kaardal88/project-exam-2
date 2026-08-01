@@ -44,9 +44,6 @@ type Note = {
 
 type DashboardTabProps = {
   songId: string;
-  createdBy: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
   bandMembers: BandMember[];
   comments: Comment[];
   tasks: Task[];
@@ -62,9 +59,6 @@ type DashboardTabProps = {
 
 export function DashboardTab({
   songId,
-  createdBy,
-  createdAt,
-  updatedAt,
   bandMembers,
   comments,
   tasks,
@@ -82,68 +76,8 @@ export function DashboardTab({
     null,
   );
 
-  const creator = bandMembers.find((member) => member.user.id === createdBy);
-
-  const contributorIds = new Set<string>();
-  if (createdBy) contributorIds.add(createdBy);
-  comments.forEach((comment) => {
-    if (comment.author?.id) contributorIds.add(comment.author.id);
-    if (comment.assignee?.id) contributorIds.add(comment.assignee.id);
-  });
-  tasks.forEach((task) => {
-    if (task.assignee?.id) contributorIds.add(task.assignee.id);
-  });
-  notes.forEach((note) => {
-    if (note.publisher?.id) contributorIds.add(note.publisher.id);
-  });
-
-  const contributors = bandMembers.filter((member) =>
-    contributorIds.has(member.user.id),
-  );
-
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <div className="w-full max-w-sm rounded-md border border-neutral-700 bg-neutral-900/80 p-4 shadow-2xl">
-          <p className="mb-3 text-center text-xs uppercase tracking-[0.3em] text-neutral-500">
-            — Song dashboard —
-          </p>
-
-          <dl className="space-y-1.5 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-neutral-500">Created by</dt>
-              <dd className="text-yellow-100">
-                {creator?.user.username ?? "Unknown"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-neutral-500">Created at</dt>
-              <dd className="text-yellow-100">
-                {createdAt
-                  ? new Date(createdAt).toLocaleDateString("no-NO")
-                  : "—"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-neutral-500">Last updated</dt>
-              <dd className="text-yellow-100">
-                {updatedAt
-                  ? new Date(updatedAt).toLocaleDateString("no-NO")
-                  : "—"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="shrink-0 text-neutral-500">Contributors</dt>
-              <dd className="text-right text-yellow-100">
-                {contributors.length
-                  ? contributors.map((member) => member.user.username).join(", ")
-                  : "—"}
-              </dd>
-            </div>
-          </dl>
-        </div>
-      </div>
-
       <MediaPlayer
         songId={songId}
         audioUrl={audioUrl}

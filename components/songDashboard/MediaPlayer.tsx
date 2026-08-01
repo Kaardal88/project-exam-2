@@ -19,6 +19,74 @@ import { UploadProgress } from "./UploadProgress";
 const PLACEHOLDER_TOTAL_SECONDS = 246;
 const MP3_MAX_BYTES = 25 * 1024 * 1024;
 
+// Decoded/placeholder data is generated at this resolution so the display
+// can always downsample to however many bars actually fit on screen,
+// instead of being locked to a fixed, screen-independent bar count.
+const RAW_PEAK_COUNT = 400;
+const MIN_BARS = 60;
+const MAX_BARS = RAW_PEAK_COUNT;
+const PIXELS_PER_BAR = 3;
+
+// Resamples a peak array to a different resolution by taking the max per
+// bucket — works for both downsampling (the common case) and upsampling.
+function resampleBars(source: number[], targetCount: number): number[] {
+  if (source.length === 0) return [];
+  if (source.length === targetCount) return source;
+
+  const bucketSize = source.length / targetCount;
+
+  return Array.from({ length: targetCount }, (_, i) => {
+    const start = Math.floor(i * bucketSize);
+    const end = Math.max(start + 1, Math.floor((i + 1) * bucketSize));
+
+    let max = 0;
+    for (let j = start; j < end && j < source.length; j++) {
+      if (source[j] > max) max = source[j];
+    }
+
+    return max;
+  });
+}
+
+// Decodes the audio into peak amplitudes, at RAW_PEAK_COUNT resolution.
+async function computeWaveformPeaks(audioUrl: string): Promise<number[]> {
+  // no-store: the <audio> element already fetched this same URL in
+  // no-cors mode for playback, so a cached/revalidated (304) response
+  // here would carry no CORS headers and fail the cors-mode fetch below.
+  const response = await fetch(audioUrl, { cache: "no-store" });
+  const arrayBuffer = await response.arrayBuffer();
+
+  const audioContext = new AudioContext();
+
+  try {
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    const channelData = audioBuffer.getChannelData(0);
+    const samplesPerPeak = Math.max(
+      1,
+      Math.floor(channelData.length / RAW_PEAK_COUNT),
+    );
+
+    const peaks = Array.from({ length: RAW_PEAK_COUNT }, (_, i) => {
+      const start = i * samplesPerPeak;
+      const end = Math.min(start + samplesPerPeak, channelData.length);
+
+      let max = 0;
+      for (let j = start; j < end; j++) {
+        const abs = Math.abs(channelData[j]);
+        if (abs > max) max = abs;
+      }
+
+      return max;
+    });
+
+    const maxPeak = Math.max(...peaks, 0.0001);
+
+    return peaks.map((peak) => 20 + (peak / maxPeak) * 80);
+  } finally {
+    void audioContext.close();
+  }
+}
+
 type Comment = { id: string; timestamp_seconds: number; status: TicketStatus };
 
 type SeekSignal = { seconds: number; nonce: number };
@@ -86,14 +154,68 @@ export function MediaPlayer({
     setAudioError(null);
   }
 
-  const bars = useMemo(() => {
-    // Deterministic pseudo-random hash per bar index, no mutable closure state.
-    // Real waveform analysis is out of scope this phase — see plan notes.
-    return Array.from({ length: 80 }, (_, i) => {
+  // Deterministic pseudo-random hash per bar index — shown until the real
+  // waveform is decoded, and as a fallback if decoding fails.
+  const placeholderBars = useMemo(() => {
+    return Array.from({ length: RAW_PEAK_COUNT }, (_, i) => {
       const hash = Math.abs(Math.sin(i * 12.9898 + 78.233) * 43758.5453) % 1;
       return 20 + hash * 80;
     });
   }, []);
+
+  const [realBars, setRealBars] = useState<number[] | null>(null);
+
+  // How many bars actually fit the waveform's rendered width — recomputed
+  // whenever the container resizes, so wide players show more detail
+  // instead of being stuck with the same fixed bar count as mobile.
+  const [barCount, setBarCount] = useState(MIN_BARS);
+
+  useEffect(() => {
+    const el = waveformRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (!width) return;
+
+      setBarCount(
+        Math.min(MAX_BARS, Math.max(MIN_BARS, Math.round(width / PIXELS_PER_BAR))),
+      );
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const bars = useMemo(
+    () => resampleBars(realBars ?? placeholderBars, barCount),
+    [realBars, placeholderBars, barCount],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadWaveform() {
+      if (!audioUrl) {
+        setRealBars(null);
+        return;
+      }
+
+      try {
+        const peaks = await computeWaveformPeaks(audioUrl);
+        if (!cancelled) setRealBars(peaks);
+      } catch (err) {
+        console.error("Failed to decode waveform:", err);
+        if (!cancelled) setRealBars(null);
+      }
+    }
+
+    void loadWaveform();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [audioUrl]);
 
   useEffect(() => {
     onPositionChange?.(currentSeconds);
@@ -340,7 +462,7 @@ export function MediaPlayer({
           <div
             ref={waveformRef}
             onClick={handleWaveformClick}
-            className="relative flex h-10 cursor-pointer items-end gap-[1px] overflow-hidden rounded-sm bg-neutral-950 px-1"
+            className="relative flex h-10 cursor-pointer items-end overflow-hidden rounded-sm bg-neutral-950 px-1"
           >
             {bars.map((height, i) => {
               const barPercent = (i / bars.length) * 100;

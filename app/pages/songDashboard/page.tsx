@@ -393,6 +393,25 @@ function SongDashboardPageContent() {
     );
   }
 
+  const creator = members.find((member) => member.user.id === song.created_by);
+
+  const contributorIds = new Set<string>();
+  if (song.created_by) contributorIds.add(song.created_by);
+  comments.forEach((comment) => {
+    if (comment.author?.id) contributorIds.add(comment.author.id);
+    if (comment.assignee?.id) contributorIds.add(comment.assignee.id);
+  });
+  tasks.forEach((task) => {
+    if (task.assignee?.id) contributorIds.add(task.assignee.id);
+  });
+  notes.forEach((note) => {
+    if (note.publisher?.id) contributorIds.add(note.publisher.id);
+  });
+
+  const contributors = members.filter((member) =>
+    contributorIds.has(member.user.id),
+  );
+
   const backHref = `/pages/projectDetails/${song.project.id}`;
 
   return (
@@ -507,6 +526,49 @@ function SongDashboardPageContent() {
                 </div>
               </div>
             </div>
+
+            <div className="mt-6 flex justify-end">
+              <div className="w-full max-w-sm rounded-md border border-neutral-700 bg-neutral-900/80 p-4 shadow-2xl">
+                <p className="mb-3 text-center text-xs uppercase tracking-[0.3em] text-neutral-500">
+                  — Song dashboard —
+                </p>
+
+                <dl className="space-y-1.5 text-sm">
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-neutral-500">Created by</dt>
+                    <dd className="text-yellow-100">
+                      {creator?.user.username ?? "Unknown"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-neutral-500">Created at</dt>
+                    <dd className="text-yellow-100">
+                      {song.created_at
+                        ? new Date(song.created_at).toLocaleDateString("no-NO")
+                        : "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-neutral-500">Last updated</dt>
+                    <dd className="text-yellow-100">
+                      {song.updated_at
+                        ? new Date(song.updated_at).toLocaleDateString("no-NO")
+                        : "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="shrink-0 text-neutral-500">Contributors</dt>
+                    <dd className="text-right text-yellow-100">
+                      {contributors.length
+                        ? contributors
+                            .map((member) => member.user.username)
+                            .join(", ")
+                        : "—"}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
           </section>
 
           <SongTabs activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -514,9 +576,6 @@ function SongDashboardPageContent() {
           {activeTab === "Dashboard" ? (
             <DashboardTab
               songId={song.id}
-              createdBy={song.created_by}
-              createdAt={song.created_at}
-              updatedAt={song.updated_at}
               bandMembers={members}
               comments={comments}
               tasks={tasks}

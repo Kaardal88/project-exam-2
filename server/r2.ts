@@ -9,6 +9,11 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 const r2 = new S3Client({
   region: "auto",
   endpoint: process.env.R2_ENDPOINT,
+  // R2 isn't AWS S3 — the SDK's newer default of always attaching a
+  // checksum adds query params/headers to presigned URLs that R2's CORS
+  // policy doesn't allow, breaking browser uploads/downloads with a CORS error.
+  requestChecksumCalculation: "WHEN_REQUIRED",
+  responseChecksumValidation: "WHEN_REQUIRED",
   credentials: {
     accessKeyId: process.env.R2_ACCESS_KEY!,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
