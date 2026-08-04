@@ -7,7 +7,7 @@ import { hashPassword } from "./password";
 import { requireAuth } from "./auth.middleware";
 
 import { db } from "@/server/db";
-import { users, bands, band_members } from "@/server/db/schema";
+import { users, band_members } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 
 type AuthVariables = {
