@@ -235,6 +235,10 @@ input {
   color: #f5f0d8;
 }
 
+.auth-form input[aria-invalid="true"] {
+  border-color: rgba(252, 165, 165, 0.5);
+}
+
 .auth-switch {
   margin-top: 1.5rem;
   font-size: 0.9rem;

@@ -19,6 +19,7 @@ import { UserPlus, UserX, LucidePanelBottomOpen } from "lucide-react";
 import { Suspense } from "react";
 import { BandProfileNav } from "@/components/bandProfile/BandProfileNav";
 import { BackButton } from "@/components/BackButton";
+import { SuccessMessage } from "@/components/SuccessMessage";
 
 import countries from "world-countries";
 import ReactCountryFlag from "react-country-flag";
@@ -122,6 +123,9 @@ function BandProfileContent() {
   const [showModal, setShowModal] = useState(false);
   const [members, setMembers] = useState<BandMember[]>([]);
   const [editBandModalOpen, setEditBandModalOpen] = useState(false);
+  const [savingBand, setSavingBand] = useState(false);
+  const [bandSaveSuccess, setBandSaveSuccess] = useState(false);
+  const [memberAddSuccess, setMemberAddSuccess] = useState(false);
   const [band_name, setBandName] = useState("");
   const [bio, setBio] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -228,6 +232,7 @@ function BandProfileContent() {
     }
 
     setActionError(null);
+    setSavingBand(true);
 
     const response = await fetch(`/api/bands/${bandId} `, {
       method: "PUT",
@@ -252,6 +257,8 @@ function BandProfileContent() {
       }),
     });
 
+    setSavingBand(false);
+
     if (!response.ok) {
       setActionError("Failed to save band");
       return;
@@ -264,7 +271,6 @@ function BandProfileContent() {
     setBio(data.band?.bio ?? "");
     setImageUrl(data.band?.image_url ?? "");
     setHeaderImageUrl(data.band?.header_image_url ?? "");
-    setEditBandModalOpen(false);
     setSpotifyUrl(data.band?.spotify_url ?? "");
     setBandcampUrl(data.band?.bandcamp_url ?? "");
     setYoutubeUrl(data.band?.youtube_url ?? "");
@@ -274,6 +280,12 @@ function BandProfileContent() {
     setTiktokUrl(data.band?.tiktok_url ?? "");
     setWebsiteUrl(data.band?.website_url ?? "");
     setActionError(null);
+
+    setBandSaveSuccess(true);
+    setTimeout(() => {
+      setBandSaveSuccess(false);
+      setEditBandModalOpen(false);
+    }, 900);
   }
 
   useEffect(() => {
@@ -336,8 +348,10 @@ function BandProfileContent() {
         return;
       }
 
-      setShowModal(false);
-      window.location.reload();
+      setMemberAddSuccess(true);
+      setTimeout(() => {
+        window.location.reload();
+      }, 900);
     } catch (error) {
       setActionError("Failed to add member");
     }
@@ -486,7 +500,9 @@ function BandProfileContent() {
     return (
       <main className="auth-page">
         <section className="auth-card">
-          <p className="form-error">{error}</p>
+          <p className="rounded-md border border-red-900/60 bg-red-950/20 px-3 py-2 text-sm text-red-300">
+            {error}
+          </p>
         </section>
       </main>
     );
@@ -681,7 +697,10 @@ function BandProfileContent() {
                     {role === "band_leader" && (
                       <button
                         type="button"
-                        onClick={() => setShowModal(true)}
+                        onClick={() => {
+                          setMemberAddSuccess(false);
+                          setShowModal(true);
+                        }}
                         className="flex items-center gap-0.5 rounded-full border border-yellow-100 px-1.5 py-0.5 text-[9px] font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-200 hover:text-black"
                       >
                         <UserPlus className="h-2.5 w-2.5" />
@@ -695,7 +714,10 @@ function BandProfileContent() {
               {role === "band_leader" && (
                 <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <button
-                    onClick={() => setEditBandModalOpen(true)}
+                    onClick={() => {
+                      setBandSaveSuccess(false);
+                      setEditBandModalOpen(true);
+                    }}
                     className="rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800"
                   >
                     Edit profile
@@ -723,7 +745,9 @@ function BandProfileContent() {
                     </h2>
 
                     {actionError && (
-                      <p className="form-error mb-4">{actionError}</p>
+                      <p className="mb-4 rounded-md border border-red-900/60 bg-red-950/20 px-3 py-2 text-sm text-red-300">
+                        {actionError}
+                      </p>
                     )}
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -775,6 +799,8 @@ function BandProfileContent() {
                   onClose={() => setEditBandModalOpen(false)}
                   onSave={handleSave}
                   error={actionError}
+                  saving={savingBand}
+                  success={bandSaveSuccess}
                   bandName={band_name}
                   setBandName={setBandName}
                   bio={bio}
@@ -810,7 +836,13 @@ function BandProfileContent() {
                   </h2>
 
                   {actionError && (
-                    <p className="form-error mb-4">{actionError}</p>
+                    <p className="mb-4 rounded-md border border-red-900/60 bg-red-950/20 px-3 py-2 text-sm text-red-300">
+                      {actionError}
+                    </p>
+                  )}
+
+                  {memberAddSuccess && (
+                    <SuccessMessage message="Member added" className="mb-4" />
                   )}
 
                   <input

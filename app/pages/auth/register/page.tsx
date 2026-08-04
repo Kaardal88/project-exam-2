@@ -5,12 +5,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { TagCombobox } from "@/components/userProfile/userMusInstTitle";
 import { SuccessMessage } from "@/components/SuccessMessage";
+import { registerSchema } from "@/server/auth/auth.schemas";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -19,6 +21,14 @@ export default function RegisterPage() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+
+    const passwordResult = registerSchema.shape.password.safeParse(password);
+    if (!passwordResult.success) {
+      setPasswordError("Password must be at least 8 characters long.");
+      return;
+    }
+    setPasswordError("");
+
     setLoading(true);
 
     const response = await fetch("/api/auth/register", {
@@ -31,7 +41,9 @@ export default function RegisterPage() {
     setLoading(false);
 
     if (!response.ok) {
-      setError(data.error || "Registration failed");
+      setError(
+        typeof data.error === "string" ? data.error : "Registration failed",
+      );
       return;
     }
 
@@ -85,11 +97,18 @@ export default function RegisterPage() {
             Password
             <input
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                if (passwordError) setPasswordError("");
+              }}
               type="password"
               placeholder="••••••••"
+              aria-invalid={passwordError ? "true" : undefined}
               required
             />
+            {passwordError && (
+              <span className="text-sm text-red-300">{passwordError}</span>
+            )}
           </label>
 
           <button
@@ -107,7 +126,11 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        {error && <p className="form-error">{error}</p>}
+        {error && (
+          <p className="mt-4 rounded-md border border-red-900/60 bg-red-950/20 px-3 py-2 text-sm text-red-300">
+            {error}
+          </p>
+        )}
 
         <p className="auth-switch">
           Already have an account? <Link href="/pages/auth/login">Log in</Link>

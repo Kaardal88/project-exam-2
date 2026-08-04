@@ -3,17 +3,32 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { loginSchema } from "@/server/auth/auth.schemas";
+
+// Shown for any failed login attempt, regardless of whether the email
+// or the password was wrong — naming the field that failed makes it
+// easier to enumerate registered accounts.
+const INVALID_CREDENTIALS_MESSAGE = "En eller flere av feltene er feil.";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+
+    const passwordResult = loginSchema.shape.password.safeParse(password);
+    if (!passwordResult.success) {
+      setPasswordError("Password must be at least 8 characters long.");
+      return;
+    }
+    setPasswordError("");
+
     setLoading(true);
 
     const response = await fetch("/api/auth/login", {
@@ -22,14 +37,14 @@ export default function LoginPage() {
       body: JSON.stringify({ email, password }),
     });
 
-    const data = await response.json();
     setLoading(false);
 
     if (!response.ok) {
-      setError(data.error || "Login failed");
+      setError(INVALID_CREDENTIALS_MESSAGE);
       return;
     }
 
+    const data = await response.json();
     localStorage.setItem("token", data.token);
     router.push(`/pages/userProfile`);
   }
@@ -62,11 +77,18 @@ export default function LoginPage() {
             Password
             <input
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                if (passwordError) setPasswordError("");
+              }}
               type="password"
               placeholder="••••••••"
+              aria-invalid={passwordError ? "true" : undefined}
               required
             />
+            {passwordError && (
+              <span className="text-sm text-red-300">{passwordError}</span>
+            )}
           </label>
 
           <button
@@ -78,7 +100,11 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {error && <p className="form-error">{error}</p>}
+        {error && (
+          <p className="mt-4 rounded-md border border-red-900/60 bg-red-950/20 px-3 py-2 text-sm text-red-300">
+            {error}
+          </p>
+        )}
 
         <p className="auth-switch">
           No account? <Link href="/pages/auth/register">Create one</Link>

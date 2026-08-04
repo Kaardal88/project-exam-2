@@ -80,7 +80,13 @@ function UserProfileContent() {
   const [members, setMembers] = useState<BandMember[]>([]);
 
   const [editOpen, setEditOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
+  const openEditModal = () => {
+    setSaveSuccess(false);
+    setEditOpen(true);
+  };
   const closeEditModal = () => setEditOpen(false);
   const [imageUrl, setImageUrl] = useState("");
   const [headerImageUrl, setHeaderImageUrl] = useState("");
@@ -272,6 +278,8 @@ function UserProfileContent() {
       return;
     }
 
+    setSaving(true);
+
     const response = await fetch(`/api/users/${user.id}`, {
       method: "PUT",
       headers: {
@@ -288,6 +296,7 @@ function UserProfileContent() {
     });
 
     const data = await response.json();
+    setSaving(false);
 
     if (!response.ok) {
       setError(data.error || "Could not update profile");
@@ -300,7 +309,11 @@ function UserProfileContent() {
     setHeaderImageUrl(data.user.header_image_url ?? "");
     setTags(data.user.tags ?? []);
 
-    closeEditModal();
+    setSaveSuccess(true);
+    setTimeout(() => {
+      setSaveSuccess(false);
+      closeEditModal();
+    }, 900);
   }
 
   function handleLogout() {
@@ -320,7 +333,9 @@ function UserProfileContent() {
     return (
       <main className="auth-page">
         <section className="auth-card">
-          <p className="form-error">{error}</p>
+          <p className="rounded-md border border-red-900/60 bg-red-950/20 px-3 py-2 text-sm text-red-300">
+            {error}
+          </p>
           <button
             className="btn"
             onClick={() => router.push("/pages/auth/login")}
@@ -395,7 +410,7 @@ function UserProfileContent() {
         <div className=" flex flex-row justify-end mb-2 mr-4 gap-2">
           {isOwnProfile && (
             <button
-              onClick={() => setEditOpen(true)}
+              onClick={openEditModal}
               className="  rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
             >
               <p className="text-xs md:text-sm lg:text-base">Edit profile</p>
@@ -422,6 +437,8 @@ function UserProfileContent() {
                 isOpen={editOpen}
                 onClose={closeEditModal}
                 onSave={handleSave}
+                saving={saving}
+                success={saveSuccess}
                 username={username}
                 setUsername={setUsername}
                 imageUrl={imageUrl}

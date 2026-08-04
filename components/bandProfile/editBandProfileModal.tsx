@@ -1,10 +1,14 @@
 "use client";
 
+import { SuccessMessage } from "@/components/SuccessMessage";
+
 type EditBandProfileModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onSave: (e: React.FormEvent<HTMLFormElement>) => void;
   error?: string | null;
+  saving?: boolean;
+  success?: boolean;
 
   bandName: string;
   setBandName: (value: string) => void;
@@ -48,6 +52,8 @@ export function EditBandProfileModal({
   onClose,
   onSave,
   error,
+  saving = false,
+  success = false,
   bandName,
   setBandName,
   bio,
@@ -92,7 +98,11 @@ export function EditBandProfileModal({
 
         {/* Form */}
         <form onSubmit={onSave} className="space-y-5 p-6">
-          {error && <p className="form-error">{error}</p>}
+          {error && (
+            <p className="rounded-md border border-red-900/60 bg-red-950/20 px-3 py-2 text-sm text-red-300">
+              {error}
+            </p>
+          )}
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-yellow-100">
@@ -261,9 +271,16 @@ export function EditBandProfileModal({
 
             <button
               type="submit"
-              className="border border-yellow-200 bg-yellow-100 px-4 py-2 text-sm font-bold text-neutral-950 transition hover:bg-yellow-200"
+              disabled={saving || success}
+              className="border border-yellow-200 bg-yellow-100 px-4 py-2 text-sm font-bold text-neutral-950 transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-80"
             >
-              Save changes
+              {success ? (
+                <SuccessMessage message="Band profile saved" tone="dark" />
+              ) : saving ? (
+                "Saving..."
+              ) : (
+                "Save changes"
+              )}
             </button>
           </div>
         </form>

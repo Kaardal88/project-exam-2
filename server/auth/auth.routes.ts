@@ -14,6 +14,12 @@ type AuthVariables = {
   userId: string;
 };
 
+// Precomputed bcrypt hash with no matching password. Used to keep the
+// login timing the same whether or not the email exists, so response
+// time can't be used to enumerate registered accounts.
+const DUMMY_PASSWORD_HASH =
+  "$2b$10$okj.e30iXuFPR6dmrySaOu.6DGDWHWMI3qKoL6/lE1/lcWyoC7j0q";
+
 export const authRoutes = new Hono<{
   Variables: AuthVariables;
 }>();
@@ -59,17 +65,13 @@ authRoutes.post("/login", zValidator("json", loginSchema), async (c) => {
     where: eq(users.email, data.email),
   });
 
-  if (!user) {
-    return c.json({ error: "User not found" }, 404);
-  }
-
   const isPasswordValid = await verifyPassword(
     data.password,
-    user.password_hash,
+    user?.password_hash ?? DUMMY_PASSWORD_HASH,
   );
 
-  if (!isPasswordValid) {
-    return c.json({ error: "Invalid password" }, 401);
+  if (!user || !isPasswordValid) {
+    return c.json({ error: "Invalid email or password" }, 401);
   }
 
   const token = await createToken(user.id);

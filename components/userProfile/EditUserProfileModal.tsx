@@ -1,9 +1,13 @@
 "use client";
 
+import { SuccessMessage } from "@/components/SuccessMessage";
+
 type EditUserProfileModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onSave: (e: React.FormEvent<HTMLFormElement>) => void;
+  saving?: boolean;
+  success?: boolean;
 
   username: string;
   setUsername: (value: string) => void;
@@ -22,6 +26,8 @@ export function EditUserProfileModal({
   isOpen,
   onClose,
   onSave,
+  saving = false,
+  success = false,
   username,
   setUsername,
   imageUrl,
@@ -113,9 +119,16 @@ export function EditUserProfileModal({
 
             <button
               type="submit"
-              className="border border-yellow-200 bg-yellow-100 px-4 py-2 text-sm font-bold text-neutral-950 transition hover:bg-yellow-200"
+              disabled={saving || success}
+              className="border border-yellow-200 bg-yellow-100 px-4 py-2 text-sm font-bold text-neutral-950 transition hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-80"
             >
-              Save changes
+              {success ? (
+                <SuccessMessage message="Profile saved" tone="dark" />
+              ) : saving ? (
+                "Saving..."
+              ) : (
+                "Save changes"
+              )}
             </button>
           </div>
         </form>
