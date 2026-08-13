@@ -8,8 +8,9 @@ import { Modal } from "@/components/Modal";
 import { BandCalendar } from "@/components/calendar/BandCalendar";
 import { EventForm, EventFormEvent } from "@/components/calendar/EventForm";
 import { EventCard } from "@/components/calendar/EventCard";
+import { EventDetailsModal } from "@/components/calendar/EventDetailsModal";
+import type { EventOrigin } from "@/components/calendar/EventOriginLabel";
 import { EditUserProfileModal } from "@/components/userProfile/EditUserProfileModal";
-import { ExternalLink } from "lucide-react";
 import { Suspense } from "react";
 import { PersonStanding } from "lucide-react";
 import AmpLoader from "@/components/AmpLoader";
@@ -97,6 +98,7 @@ function UserProfileContent() {
   const [showPrivateEventForm, setShowPrivateEventForm] = useState(false);
   const [editingPrivateEvent, setEditingPrivateEvent] =
     useState<EventFormEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<ProfileEvent | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const tagMap = Object.fromEntries(defaultTags.map((tag) => [tag.value, tag]));
 
@@ -232,7 +234,23 @@ function UserProfileContent() {
     setShowPrivateEventForm(true);
   }
 
+  function originForEvent(event: ProfileEvent): EventOrigin {
+    if (event.source !== "band") return { type: "private" };
+
+    const bandId = (event as BandEvent).band_id;
+    const bandName = members.find(
+      (member) => member.band_id === bandId,
+    )?.band.band_name;
+
+    return {
+      type: "band",
+      bandName: bandName ?? "Unknown band",
+      bandHref: `/pages/bandProfile?id=${bandId}`,
+    };
+  }
+
   function openEditPrivateEvent(event: PrivateEvent) {
+    setSelectedEvent(null);
     setEditingPrivateEvent({
       id: event.id,
       title: event.title,
@@ -244,10 +262,10 @@ function UserProfileContent() {
   }
 
   async function handleDeletePrivateEvent(eventId: string) {
-    if (!window.confirm("Delete this event?")) return;
+    if (!window.confirm("Delete this event?")) return false;
 
     const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!token) return false;
 
     const response = await fetch(`/api/users/me/private-events/${eventId}`, {
       method: "DELETE",
@@ -258,10 +276,16 @@ function UserProfileContent() {
 
     if (!response.ok) {
       console.error("Failed to delete event", await response.text());
-      return;
+      return false;
     }
 
     await fetchPrivateEvents();
+    return true;
+  }
+
+  async function deletePrivateEventFromDetails(eventId: string) {
+    const deleted = await handleDeletePrivateEvent(eventId);
+    if (deleted) setSelectedEvent(null);
   }
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
@@ -537,43 +561,17 @@ function UserProfileContent() {
               ) : (
                 upComingEvents.map((event) => {
                   const isBandEvent = event.source === "band";
-                  const bandName = isBandEvent
-                    ? members.find(
-                        (member) =>
-                          member.band_id === (event as BandEvent).band_id,
-                      )?.band.band_name
-                    : null;
 
                   return (
-                    <div
+                    <EventCard
                       key={`${event.source}-${event.id}`}
-                      className="pt-3 bg-neutral-950 border border-neutral-700 p-4 rounded-md "
-                    >
-                      {isBandEvent ? (
-                        <Link
-                          className="mb-2 flex flex-row items-center gap-2  font-semibold text-yellow-100"
-                          href={`/pages/bandProfile?id=${(event as BandEvent).band_id}`}
-                        >
-                          <p className="mb-2 text-md font-semibold text-yellow-100">
-                            {bandName ?? "Unknown band"}
-                          </p>
-                          <ExternalLink className="mb-2 text-xs text-neutral-400" />
-                        </Link>
-                      ) : (
-                        <p className="mb-2 flex items-center gap-2 text-md font-semibold text-blue-300">
-                          Private event
-                        </p>
-                      )}
-
-                      <EventCard
-                        event={event}
-                        canManage={isOwnProfile && !isBandEvent}
-                        onEdit={() =>
-                          openEditPrivateEvent(event as PrivateEvent)
-                        }
-                        onDelete={() => handleDeletePrivateEvent(event.id)}
-                      />
-                    </div>
+                      event={event}
+                      origin={originForEvent(event)}
+                      canManage={isOwnProfile && !isBandEvent}
+                      onOpen={() => setSelectedEvent(event)}
+                      onEdit={() => openEditPrivateEvent(event as PrivateEvent)}
+                      onDelete={() => void handleDeletePrivateEvent(event.id)}
+                    />
                   );
                 })
               )}
@@ -615,6 +613,17 @@ function UserProfileContent() {
           </section>
         </div>
       </section>
+
+      {selectedEvent && (
+        <EventDetailsModal
+          event={selectedEvent}
+          origin={originForEvent(selectedEvent)}
+          canManage={isOwnProfile && selectedEvent.source !== "band"}
+          onClose={() => setSelectedEvent(null)}
+          onEdit={() => openEditPrivateEvent(selectedEvent as PrivateEvent)}
+          onDelete={() => void deletePrivateEventFromDetails(selectedEvent.id)}
+        />
+      )}
 
       {isOwnProfile && showPrivateEventForm && (
         <Modal

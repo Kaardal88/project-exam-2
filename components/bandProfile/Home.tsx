@@ -5,6 +5,7 @@ import { Modal } from "@/components/Modal";
 import { BandCalendar } from "@/components/calendar/BandCalendar";
 import { EventForm, EventFormEvent } from "@/components/calendar/EventForm";
 import { EventCard } from "@/components/calendar/EventCard";
+import { EventDetailsModal } from "@/components/calendar/EventDetailsModal";
 import { BandEvent } from "@/components/calendar/BandCalendar";
 type HomeEvent = BandEvent & {
   band_id?: {
@@ -37,6 +38,7 @@ export function HomeNav({
     null,
   );
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<HomeEvent | null>(null);
 
   const canManageEvents = role === "band_leader";
 
@@ -46,6 +48,7 @@ export function HomeNav({
   }
 
   function openEditForm(event: HomeEvent) {
+    setSelectedEvent(null);
     setEditingEvent({
       id: event.id,
       title: event.title,
@@ -57,11 +60,11 @@ export function HomeNav({
   }
 
   async function handleDelete(eventId: string) {
-    if (!canManageEvents) return;
-    if (!window.confirm("Delete this event?")) return;
+    if (!canManageEvents) return false;
+    if (!window.confirm("Delete this event?")) return false;
 
     const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!token) return false;
 
     setDeletingId(eventId);
 
@@ -75,13 +78,19 @@ export function HomeNav({
 
       if (!response.ok) {
         console.error("Failed to delete event", await response.text());
-        return;
+        return false;
       }
 
       await onEventsChanged?.();
+      return true;
     } finally {
       setDeletingId(null);
     }
+  }
+
+  async function deleteFromDetails(event: HomeEvent) {
+    const deleted = await handleDelete(event.id);
+    if (deleted) setSelectedEvent(null);
   }
 
   return (
@@ -99,8 +108,9 @@ export function HomeNav({
                 key={event.id}
                 event={event}
                 canManage={canManageEvents}
+                onOpen={() => setSelectedEvent(event)}
                 onEdit={() => openEditForm(event)}
-                onDelete={() => handleDelete(event.id)}
+                onDelete={() => void handleDelete(event.id)}
               />
             ))
           ) : (
@@ -136,6 +146,16 @@ export function HomeNav({
           )}
         </div>
       </div>
+
+      {selectedEvent && (
+        <EventDetailsModal
+          event={selectedEvent}
+          canManage={canManageEvents}
+          onClose={() => setSelectedEvent(null)}
+          onEdit={() => openEditForm(selectedEvent)}
+          onDelete={() => void deleteFromDetails(selectedEvent)}
+        />
+      )}
 
       {showEventForm && (
         <Modal isOpen={showEventForm} onClose={() => setShowEventForm(false)}>
