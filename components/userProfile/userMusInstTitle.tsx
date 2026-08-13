@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, ChevronsUpDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { userTags, userTagMap } from "@/lib/userTags";
 
 import {
   Command,
@@ -17,16 +18,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-const defaultTags = [
-  { value: "drummer", label: "Drummer", icon: "🥁" },
-  { value: "singer", label: "Singer", icon: "🎤" },
-  { value: "guitarist", label: "Guitarist", icon: "🎸" },
-  { value: "producer", label: "Producer", icon: "🎛️" },
-  { value: "mixing-engineer", label: "Mixing Engineer", icon: "🎚️" },
-  { value: "mastering-engineer", label: "Mastering Engineer", icon: "💿" },
-  { value: "manager", label: "Manager", icon: "📋" },
-];
-
 export function TagCombobox({
   value,
   onChange,
@@ -37,24 +28,12 @@ export function TagCombobox({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  const normalizedSearch = search.trim().toLowerCase().replaceAll(" ", "-");
-
-  const tagExists = defaultTags.some((tag) => tag.value === normalizedSearch);
-
   function toggleTag(tag: string) {
     if (value.includes(tag)) {
       onChange(value.filter((item) => item !== tag));
     } else {
       onChange([...value, tag]);
     }
-  }
-
-  function createTag() {
-    if (!normalizedSearch) return;
-    if (!value.includes(normalizedSearch)) {
-      onChange([...value, normalizedSearch]);
-    }
-    setSearch("");
   }
 
   return (
@@ -66,7 +45,7 @@ export function TagCombobox({
             role="combobox"
             className="w-full px-3 py-6 justify-between border border-neutral-700 text-yellow-100"
           >
-            Choose from list or create role
+            Choose from list
             <ChevronsUpDown className="ml-2 h-4 w-4 opacity-60" />
           </Button>
         </PopoverTrigger>
@@ -74,23 +53,15 @@ export function TagCombobox({
         <PopoverContent className="w-[320px] p-0 ">
           <Command>
             <CommandInput
-              placeholder="Search or create role..."
+              placeholder="Search roles..."
               value={search}
               onValueChange={setSearch}
             />
 
-            <CommandEmpty>
-              <button
-                type="button"
-                onClick={createTag}
-                className="w-full px-3 py-2 text-left text-sm"
-              >
-                Create “{search}”
-              </button>
-            </CommandEmpty>
+            <CommandEmpty>No matching role.</CommandEmpty>
 
             <CommandGroup>
-              {defaultTags.map((tag) => (
+              {userTags.map((tag) => (
                 <CommandItem
                   key={tag.value}
                   value={tag.value}
@@ -105,12 +76,6 @@ export function TagCombobox({
                   {tag.label}
                 </CommandItem>
               ))}
-
-              {search && !tagExists && (
-                <CommandItem onSelect={createTag}>
-                  Create “{search}”
-                </CommandItem>
-              )}
             </CommandGroup>
           </Command>
         </PopoverContent>
@@ -118,7 +83,7 @@ export function TagCombobox({
 
       <div className="flex flex-wrap gap-2">
         {value.map((tag) => {
-          const defaultTag = defaultTags.find((item) => item.value === tag);
+          const defaultTag = userTagMap[tag];
 
           return (
             <span

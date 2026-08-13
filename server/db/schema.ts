@@ -55,7 +55,9 @@ export const bands = pgTable("bands", {
     .notNull()
     .unique(),
 
-  created_by: uuid("created_by").references(() => users.id),
+  created_by: uuid("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
 
   created_at: timestamp("created_at").defaultNow(),
   country: text("country"),
@@ -77,17 +79,19 @@ export const band_members = pgTable(
 
     band_id: uuid("band_id")
       .notNull()
-      .references(() => bands.id),
+      .references(() => bands.id, { onDelete: "cascade" }),
 
     user_id: uuid("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
 
     role: varchar("role", {
       length: 255,
     }).notNull(),
 
-    invited_by: uuid("invited_by").references(() => users.id),
+    invited_by: uuid("invited_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
 
     invited_at: timestamp("invited_at").defaultNow(),
 
@@ -125,11 +129,13 @@ export const band_events = pgTable("band_events", {
 
   band_id: uuid("band_id")
     .notNull()
-    .references(() => bands.id),
+    .references(() => bands.id, { onDelete: "cascade" }),
 
-  user_id: uuid("user_id")
-    .notNull()
-    .references(() => users.id),
+  // Nullable so a band's calendar survives the member who created an event
+  // deleting their account. Rendered as "Deleted user" in the UI.
+  user_id: uuid("user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
 
   title: varchar("title", {
     length: 255,
@@ -138,7 +144,9 @@ export const band_events = pgTable("band_events", {
   description: text("description"),
   start_date: timestamp("start_date").notNull(),
   end_date: timestamp("end_date"),
-  created_by: uuid("created_by").references(() => users.id),
+  created_by: uuid("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
 
   created_at: timestamp("created_at").defaultNow(),
 });
@@ -148,7 +156,7 @@ export const user_events = pgTable("user_events", {
 
   user_id: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
 
   title: varchar("title", {
     length: 255,
@@ -173,7 +181,7 @@ export const projects = pgTable("projects", {
 
   band_id: uuid("band_id")
     .notNull()
-    .references(() => bands.id),
+    .references(() => bands.id, { onDelete: "cascade" }),
 
   type: varchar("type", {
     length: 20,
@@ -187,7 +195,9 @@ export const projects = pgTable("projects", {
 
   cover_image_url: text("cover_image_url"),
 
-  created_by: uuid("created_by").references(() => users.id),
+  created_by: uuid("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
 
   created_at: timestamp("created_at").defaultNow(),
 });
@@ -197,7 +207,7 @@ export const songs = pgTable("songs", {
 
   project_id: uuid("project_id")
     .notNull()
-    .references(() => projects.id),
+    .references(() => projects.id, { onDelete: "cascade" }),
 
   title: varchar("title", {
     length: 255,
@@ -221,7 +231,9 @@ export const songs = pgTable("songs", {
 
   artwork_url: text("artwork_url"),
 
-  created_by: uuid("created_by").references(() => users.id),
+  created_by: uuid("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
 
   created_at: timestamp("created_at").defaultNow(),
 
@@ -235,15 +247,19 @@ export const song_comments = pgTable("song_comments", {
     .notNull()
     .references(() => songs.id, { onDelete: "cascade" }),
 
-  author_id: uuid("author_id")
-    .notNull()
-    .references(() => users.id),
+  // Nullable so a band keeps its feedback history when an author deletes
+  // their account. Rendered as "Deleted user" in the UI.
+  author_id: uuid("author_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
 
   timestamp_seconds: integer("timestamp_seconds").notNull(),
 
   body: text("body").notNull(),
 
-  assignee_id: uuid("assignee_id").references(() => users.id),
+  assignee_id: uuid("assignee_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
 
   status: varchar("status", { length: 20 }).notNull().default("open"),
 
@@ -261,7 +277,9 @@ export const song_tasks = pgTable("song_tasks", {
 
   title: varchar("title", { length: 255 }).notNull(),
 
-  assignee_id: uuid("assignee_id").references(() => users.id),
+  assignee_id: uuid("assignee_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
 
   due_date: timestamp("due_date"),
 
@@ -283,9 +301,13 @@ export const song_notes = pgTable("song_notes", {
 
   kind: varchar("kind", { length: 20 }).notNull().default("note"),
 
-  published_by: uuid("published_by").references(() => users.id),
+  published_by: uuid("published_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
 
-  updated_by: uuid("updated_by").references(() => users.id),
+  updated_by: uuid("updated_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
 
   created_at: timestamp("created_at").defaultNow(),
 
@@ -305,7 +327,9 @@ export const song_files = pgTable("song_files", {
 
   file_url: text("file_url"),
 
-  uploaded_by: uuid("uploaded_by").references(() => users.id),
+  uploaded_by: uuid("uploaded_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
 
   created_at: timestamp("created_at").defaultNow(),
 });
@@ -368,9 +392,10 @@ export const song_comment_events = pgTable("song_comment_events", {
     .notNull()
     .references(() => song_comments.id, { onDelete: "cascade" }),
 
-  actor_id: uuid("actor_id")
-    .notNull()
-    .references(() => users.id),
+  // Nullable so the comment timeline survives the actor deleting their account.
+  actor_id: uuid("actor_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
 
   event_type: varchar("event_type", { length: 20 }).notNull(),
 

@@ -28,15 +28,14 @@ function AccountMenuItems({
       >
         Profile
       </Link>
-      <button
-        type="button"
+      <Link
+        href="/pages/settings"
         role="menuitem"
-        disabled
-        title="Coming soon"
-        className="block w-full px-4 py-2 text-left text-sm text-neutral-500 cursor-not-allowed"
+        onClick={onClose}
+        className="block px-4 py-2 text-sm text-yellow-100 hover:bg-neutral-800"
       >
         Settings
-      </button>
+      </Link>
       <button
         type="button"
         role="menuitem"

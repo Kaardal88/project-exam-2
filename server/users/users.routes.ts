@@ -1,9 +1,24 @@
 import { Hono } from "hono";
-import { updateUser, deleteUser } from "@/server/users/users.service";
+import { zValidator } from "@hono/zod-validator";
+import {
+  updateUser,
+  deleteUser,
+  getAccountDeletionPlan,
+} from "@/server/users/users.service";
+import {
+  updateUserSchema,
+  deleteAccountSchema,
+} from "@/server/users/users.schemas";
 import { requireAuth } from "../auth/auth.middleware";
+import { verifyPassword } from "../auth/password";
 import { db } from "../db";
 import { and, eq, inArray, asc } from "drizzle-orm";
-import { band_members, band_events, user_events } from "@/server/db/schema";
+import {
+  users,
+  band_members,
+  band_events,
+  user_events,
+} from "@/server/db/schema";
 
 type Variables = {
   userId: string;
@@ -54,38 +69,72 @@ usersRoutes.get("/:id", requireAuth, async (c) => {
   return c.json({ user, bandMembers });
 });
 
-usersRoutes.put("/:id", requireAuth, async (c) => {
-  const id = c.req.param("id");
+usersRoutes.put(
+  "/:id",
+  requireAuth,
+  zValidator("json", updateUserSchema),
+  async (c) => {
+    const id = c.req.param("id");
+    const userId = c.get("userId");
+
+    const { username, image_url, header_image_url, tags } = c.req.valid("json");
+
+    if (userId !== id) {
+      return c.json({ error: "Users can only update their own account" }, 403);
+    }
+
+    const updatedUser = await updateUser(id, {
+      username,
+      image_url,
+      header_image_url,
+      tags,
+    });
+
+    return c.json({ user: updatedUser });
+  },
+);
+
+usersRoutes.get("/me/deletion-preview", requireAuth, async (c) => {
   const userId = c.get("userId");
 
-  const { username, image_url, header_image_url, tags } = await c.req.json();
-
-  if (userId !== id) {
-    return c.json({ error: "Users can only update their own account" }, 403);
-  }
-
-  const updatedUser = await updateUser(id, {
-    username,
-    image_url,
-    header_image_url,
-    tags,
-  });
-
-  return c.json({ user: updatedUser });
+  return c.json({ bands: await getAccountDeletionPlan(userId) });
 });
 
-usersRoutes.delete("/:id", requireAuth, async (c) => {
-  const userId = c.req.param("id");
-  const loggedInUserId = c.get("userId");
+usersRoutes.delete(
+  "/:id",
+  requireAuth,
+  zValidator("json", deleteAccountSchema),
+  async (c) => {
+    const userId = c.req.param("id");
+    const loggedInUserId = c.get("userId");
+    const { username, password } = c.req.valid("json");
 
-  if (loggedInUserId !== userId) {
-    return c.json({ error: "Users can only delete their own account" }, 403);
-  }
+    if (loggedInUserId !== userId) {
+      return c.json({ error: "Users can only delete their own account" }, 403);
+    }
 
-  const deletedUser = await deleteUser(userId);
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
 
-  return c.json(deletedUser);
-});
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    // Typing the username is UI friction; the password is the actual check.
+    if (username !== user.username) {
+      return c.json({ error: "Username does not match" }, 400);
+    }
+
+    if (!(await verifyPassword(password, user.password_hash))) {
+      return c.json({ error: "Incorrect password" }, 401);
+    }
+
+    const bands = await deleteUser(userId);
+
+    return c.json({ success: true, bands });
+  },
+);
 
 usersRoutes.get("/me/events", requireAuth, async (c) => {
   const userId = c.get("userId");

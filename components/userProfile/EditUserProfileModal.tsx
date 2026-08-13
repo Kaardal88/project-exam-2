@@ -1,6 +1,7 @@
 "use client";
 
 import { SuccessMessage } from "@/components/SuccessMessage";
+import { TagCombobox } from "@/components/userProfile/userMusInstTitle";
 
 type EditUserProfileModalProps = {
   isOpen: boolean;
@@ -95,17 +96,8 @@ export function EditUserProfileModal({
             />
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-yellow-100">
-              Tags
-            </label>
-
-            <input
-              type="text"
-              value={tags}
-              onChange={(e) => setTags(e.target.value.split(","))}
-              className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
-            />
+          <div className="text-yellow-100">
+            <TagCombobox value={tags} onChange={setTags} />
           </div>
           {/* Buttons */}
           <div className="flex  justify-end gap-3 pt-4">

@@ -14,6 +14,7 @@ import { EditUserProfileModal } from "@/components/userProfile/EditUserProfileMo
 import { Suspense } from "react";
 import { PersonStanding } from "lucide-react";
 import AmpLoader from "@/components/AmpLoader";
+import { userTagMap } from "@/lib/userTags";
 
 type User = {
   id: string;
@@ -58,16 +59,6 @@ type ProfileEvent = (BandEvent | PrivateEvent) & {
   source: "band" | "private";
 };
 
-const defaultTags = [
-  { value: "drummer", label: "Drummer", icon: "🥁" },
-  { value: "singer", label: "Singer", icon: "🎤" },
-  { value: "guitarist", label: "Guitarist", icon: "🎸" },
-  { value: "producer", label: "Producer", icon: "🎛️" },
-  { value: "mixing-engineer", label: "Mixing Engineer", icon: "🎚️" },
-  { value: "mastering-engineer", label: "Mastering Engineer", icon: "💿" },
-  { value: "manager", label: "Manager", icon: "📋" },
-];
-
 function UserProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -100,7 +91,6 @@ function UserProfileContent() {
     useState<EventFormEvent | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<ProfileEvent | null>(null);
   const [tags, setTags] = useState<string[]>([]);
-  const tagMap = Object.fromEntries(defaultTags.map((tag) => [tag.value, tag]));
 
   useEffect(() => {
     async function loadUser() {
@@ -406,7 +396,7 @@ function UserProfileContent() {
           {user?.tags && user.tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
               {user.tags.map((tag) => {
-                const tagInfo = tagMap[tag];
+                const tagInfo = userTagMap[tag];
 
                 return (
                   <span
