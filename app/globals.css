@@ -239,6 +239,31 @@ input {
   border-color: rgba(252, 165, 165, 0.5);
 }
 
+.auth-form .password-field {
+  position: relative;
+}
+
+/* Room for the toggle button so it never overlaps the typed password. */
+.auth-form .password-field input {
+  padding-right: 3rem;
+}
+
+.auth-form .password-field button {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  transform: translateY(-50%);
+  display: flex;
+  padding: 0.25rem;
+  color: rgba(245, 240, 216, 0.6);
+  cursor: pointer;
+  transition: color 150ms;
+}
+
+.auth-form .password-field button:hover {
+  color: #f3e7b6;
+}
+
 .auth-switch {
   margin-top: 1.5rem;
   font-size: 0.9rem;

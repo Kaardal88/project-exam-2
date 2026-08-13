@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { loginSchema } from "@/server/auth/auth.schemas";
 
 // Shown for any failed login attempt, regardless of whether the email
@@ -15,6 +16,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -75,17 +77,27 @@ export default function LoginPage() {
 
           <label>
             Password
-            <input
-              value={password}
-              onChange={(event) => {
-                setPassword(event.target.value);
-                if (passwordError) setPasswordError("");
-              }}
-              type="password"
-              placeholder="••••••••"
-              aria-invalid={passwordError ? "true" : undefined}
-              required
-            />
+            <div className="password-field">
+              <input
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  if (passwordError) setPasswordError("");
+                }}
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                aria-invalid={passwordError ? "true" : undefined}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             {passwordError && (
               <span className="text-sm text-red-300">{passwordError}</span>
             )}
