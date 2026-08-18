@@ -23,7 +23,7 @@ export function SongSidebar({ band, onOpenSettings }: SongSidebarProps) {
     <aside className="hidden md:flex md:w-[220px] md:shrink-0 md:flex-col md:justify-between md:self-start md:sticky md:top-4 md:border-r md:border-neutral-800/60 md:px-4 md:py-2 md:h-[calc(100vh-2rem)]">
       <div>
         <Link
-          href={`/band/${band.slug}`}
+          href={`/band/${band.slug ?? band.id}`}
           className="mb-6 flex items-center gap-3 rounded-md border border-neutral-800 bg-neutral-900/60 p-2 transition hover:border-yellow-200"
         >
           {band.image_url ? (
@@ -62,7 +62,7 @@ export function SongSidebar({ band, onOpenSettings }: SongSidebarProps) {
         {flyoutOpen && (
           <div className="absolute bottom-full left-0 mb-2 w-full rounded-md border border-neutral-700 bg-neutral-900 p-2 shadow-2xl">
             <Link
-              href={`/band/${band.slug}`}
+              href={`/band/${band.slug ?? band.id}`}
               className="block rounded-md px-3 py-2 text-sm text-neutral-300 transition hover:bg-neutral-800 hover:text-yellow-100"
               onClick={() => setFlyoutOpen(false)}
             >
