@@ -1,7 +1,7 @@
 import { mockSong, mockTasks, mockNotes } from "./data/mockData";
 
 // Compact stand-in for the song dashboard — "the heart of the app".
-// Mirrors app/pages/songDashboard/page.tsx's title/status/chip header
+// Mirrors app/songs/page.tsx's title/status/chip header
 // plus condensed Tasks/Notes preview cards, with fake data.
 export function SongDashboardMock() {
   return (

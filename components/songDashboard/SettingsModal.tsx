@@ -46,7 +46,7 @@ export function SettingsModal({
       return;
     }
 
-    router.push(`/pages/projectDetails/${projectId}`);
+    router.push(`/projects/${projectId}`);
   }
 
   return (

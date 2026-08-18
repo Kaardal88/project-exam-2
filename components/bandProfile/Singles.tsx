@@ -25,7 +25,7 @@ export function Singles({
           {projects.map((project) => (
             <Link
               key={project.id}
-              href={`/pages/projectDetails/${project.id}`}
+              href={`/projects/${project.id}`}
               className="flex flex-col items-center rounded-md border border-neutral-700 bg-neutral-950/60 p-4 text-center transition hover:border-yellow-200"
             >
               {project.cover_image_url ? (

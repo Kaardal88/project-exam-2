@@ -26,7 +26,7 @@ export default function SettingsPage() {
       const token = localStorage.getItem("token");
 
       if (!token) {
-        router.push("/pages/auth/login");
+        router.push("/login");
         return;
       }
 

@@ -660,7 +660,7 @@ function BandProfileContent() {
                     {members.slice(0, 4).map((member) => (
                       <Link
                         key={member.user_id}
-                        href={`/pages/userProfile?id=${member.user_id}`}
+                        href={`/user?id=${member.user_id}`}
                         className="flex flex-col items-center gap-1"
                       >
                         {member.user.image_url ? (
@@ -757,7 +757,7 @@ function BandProfileContent() {
                           className="flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-950/60 p-4"
                         >
                           <Link
-                            href={`/pages/userProfile?id=${member.user_id}`}
+                            href={`/user?id=${member.user_id}`}
                             className="flex items-center gap-3"
                           >
                             {member.user.image_url ? (
@@ -862,7 +862,7 @@ function BandProfileContent() {
                         key={user.id}
                         className="flex flex-col items-center rounded-md  p-4 text-center shadow-xl"
                       >
-                        <Link href={`/pages/userProfile?id=${user.id}`}>
+                        <Link href={`/user?id=${user.id}`}>
                           {user.image_url ? (
                             <img
                               src={user.image_url}

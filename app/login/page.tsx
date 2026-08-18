@@ -48,7 +48,7 @@ export default function LoginPage() {
 
     const data = await response.json();
     localStorage.setItem("token", data.token);
-    router.push(`/pages/userProfile`);
+    router.push(`/user`);
   }
 
   return (
@@ -119,7 +119,7 @@ export default function LoginPage() {
         )}
 
         <p className="auth-switch">
-          No account? <Link href="/pages/auth/register">Create one</Link>
+          No account? <Link href="/register">Create one</Link>
         </p>
       </section>
     </main>
