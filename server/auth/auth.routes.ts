@@ -5,6 +5,7 @@ import { verifyPassword } from "./password";
 import { loginSchema, registerSchema } from "./auth.schemas";
 import { hashPassword } from "./password";
 import { requireAuth } from "./auth.middleware";
+import { createUser } from "@/server/users/users.service";
 
 import { db } from "@/server/db";
 import { users, band_members } from "@/server/db/schema";
@@ -37,15 +38,12 @@ authRoutes.post("/register", zValidator("json", registerSchema), async (c) => {
     return c.json({ error: "Email is already in use" }, 409);
   }
 
-  const [newUser] = await db
-    .insert(users)
-    .values({
-      username: data.username,
-      email: data.email,
-      password_hash,
-      tags: data.tags ?? [],
-    })
-    .returning();
+  const newUser = await createUser({
+    username: data.username,
+    email: data.email,
+    password_hash,
+    tags: data.tags ?? [],
+  });
 
   return c.json({
     message: "User registered",
@@ -94,6 +92,7 @@ authRoutes.get("/me", requireAuth, async (c) => {
     where: eq(users.id, userId),
     columns: {
       id: true,
+      handle: true,
       username: true,
       email: true,
       image_url: true,
@@ -131,6 +130,7 @@ authRoutes.get("/users/:userId", async (c) => {
     where: eq(users.id, userId),
     columns: {
       id: true,
+      handle: true,
       username: true,
       email: true,
       image_url: true,

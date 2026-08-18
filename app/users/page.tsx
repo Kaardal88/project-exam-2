@@ -8,6 +8,7 @@ import AmpLoader from "@/components/AmpLoader";
 
 type User = {
   id: string;
+  handle: string | null;
   username: string;
   email: string;
   image_url?: string | null;
@@ -84,7 +85,7 @@ export default function UsersPage() {
             <Link
               className="flex flex-col items-center gap-2 rounded-md border border-neutral-700 bg-neutral-800/50 p-4 transition hover:bg-neutral-800/80"
               key={user.id}
-              href={`/user?id=${user.id}`}
+              href={`/user/${user.handle ?? user.id}`}
             >
               <img
                 src={user.image_url || "/default-avatar.png"}

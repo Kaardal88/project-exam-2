@@ -17,6 +17,20 @@ export const users = pgTable("users", {
     length: 255,
   }).notNull(),
 
+  /**
+   * URL identifier, e.g. /user/adrian-2. Deliberately separate from username:
+   * two musicians are allowed to both be called "Adrian", but only one of them
+   * can own /user/adrian. Display names collide; addresses must not.
+   *
+   * Nullable because it was added to a table that already had rows -- a UNIQUE
+   * NOT NULL column cannot be added with a default. Backfilled by
+   * scripts/backfill-user-handles.ts and always set on registration, and the
+   * UI falls back to the user id the same way band links fall back to band id.
+   */
+  handle: varchar("handle", {
+    length: 255,
+  }).unique(),
+
   email: varchar("email", {
     length: 255,
   })
