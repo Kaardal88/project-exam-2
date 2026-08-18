@@ -49,6 +49,7 @@ type Song = {
 
 type Band = {
   id: string;
+  slug: string;
   band_name: string;
   image_url: string | null;
 };
@@ -159,7 +160,7 @@ function SongDashboardPageContent() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      router.push("/pages/auth/login");
+      router.push("/login");
       return;
     }
 
@@ -412,7 +413,7 @@ function SongDashboardPageContent() {
     contributorIds.has(member.user.id),
   );
 
-  const backHref = `/pages/projectDetails/${song.project.id}`;
+  const backHref = `/projects/${song.project.id}`;
 
   return (
     <main className="w-full min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
@@ -491,7 +492,7 @@ function SongDashboardPageContent() {
 
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-neutral-400">
                   <Link
-                    href={`/pages/projectDetails/${song.project.id}`}
+                    href={`/projects/${song.project.id}`}
                     className="transition hover:text-yellow-100"
                   >
                     {song.project.type === "album" ? "Album" : "Single"}:{" "}

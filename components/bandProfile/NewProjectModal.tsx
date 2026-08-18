@@ -60,7 +60,7 @@ export function NewProjectModal({
 
     const project = await response.json();
     onClose();
-    router.push(`/pages/projectDetails/${project.id}`);
+    router.push(`/projects/${project.id}`);
   }
 
   return (

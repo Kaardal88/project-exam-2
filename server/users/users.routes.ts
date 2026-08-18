@@ -60,6 +60,7 @@ usersRoutes.get("/:id", requireAuth, async (c) => {
       band: {
         columns: {
           id: true,
+          slug: true,
           band_name: true,
           image_url: true,
         },

@@ -1,6 +1,6 @@
 import { mockBand } from "./data/mockData";
 
-// Compact stand-in for app/pages/bandProfile/page.tsx's "Home" section —
+// Compact stand-in for app/band/page.tsx's "Home" section —
 // header strip, overlapping avatar, textured screwed members panel and
 // an upcoming-event row, all reusing the real page's class patterns.
 export function BandProfileMock() {

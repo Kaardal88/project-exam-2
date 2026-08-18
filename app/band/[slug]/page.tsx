@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { Modal } from "@/components/Modal";
 import Link from "next/link";
 import { ExternalLink, Home, Plus } from "lucide-react";
@@ -106,9 +106,13 @@ type Project = {
 
 function BandProfileContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const bandId = searchParams.get("id");
+  const params = useParams<{ slug: string }>();
+  const slug = params.slug;
 
+  // The URL addresses the band by slug, but every other endpoint
+  // (events, projects, members) is keyed on the band's UUID, so the id is
+  // captured from the profile response and used for all follow-up calls.
+  const [bandId, setBandId] = useState<string | null>(null);
   const [band, setBand] = useState<Band | null>(null);
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [publicBand, setPublicBand] = useState<PublicBand | null>(null);
@@ -176,7 +180,7 @@ function BandProfileContent() {
       const token = localStorage.getItem("token");
 
       try {
-        const response = await fetch(`/api/bands/${bandId}`, {
+        const response = await fetch(`/api/bands/${slug}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
 
@@ -188,6 +192,7 @@ function BandProfileContent() {
 
         const data = await response.json();
         setAuthenticated(data.authenticated);
+        setBandId(data.band?.id ?? null);
 
         if (!data.authenticated) {
           setPublicBand(data.band);
@@ -220,7 +225,7 @@ function BandProfileContent() {
     }
 
     loadBand();
-  }, [router, bandId]);
+  }, [router, slug]);
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -234,7 +239,7 @@ function BandProfileContent() {
     setActionError(null);
     setSavingBand(true);
 
-    const response = await fetch(`/api/bands/${bandId} `, {
+    const response = await fetch(`/api/bands/${bandId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -516,7 +521,7 @@ function BandProfileContent() {
     );
   }
 
-  if (!bandId) {
+  if (!slug) {
     return <p>Band not found</p>;
   }
 
@@ -660,7 +665,7 @@ function BandProfileContent() {
                     {members.slice(0, 4).map((member) => (
                       <Link
                         key={member.user_id}
-                        href={`/pages/userProfile?id=${member.user_id}`}
+                        href={`/user?id=${member.user_id}`}
                         className="flex flex-col items-center gap-1"
                       >
                         {member.user.image_url ? (
@@ -757,7 +762,7 @@ function BandProfileContent() {
                           className="flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-950/60 p-4"
                         >
                           <Link
-                            href={`/pages/userProfile?id=${member.user_id}`}
+                            href={`/user?id=${member.user_id}`}
                             className="flex items-center gap-3"
                           >
                             {member.user.image_url ? (
@@ -862,7 +867,7 @@ function BandProfileContent() {
                         key={user.id}
                         className="flex flex-col items-center rounded-md  p-4 text-center shadow-xl"
                       >
-                        <Link href={`/pages/userProfile?id=${user.id}`}>
+                        <Link href={`/user?id=${user.id}`}>
                           {user.image_url ? (
                             <img
                               src={user.image_url}
@@ -906,7 +911,7 @@ function BandProfileContent() {
 
           <section className="mt-6 mb-24 w-full">
             <div className="rounded-lg  shadow-2xl ">
-              {activeSection === "Home" && (
+              {activeSection === "Home" && bandId && (
                 <HomeNav
                   events={upComingEvents}
                   bandId={bandId}
@@ -935,7 +940,7 @@ function BandProfileContent() {
 
       {/* Main content */}
 
-      {newProjectModalOpen && (
+      {newProjectModalOpen && bandId && (
         <NewProjectModal
           isOpen={newProjectModalOpen}
           onClose={() => setNewProjectModalOpen(false)}

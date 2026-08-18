@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 export function BackButton({
   className,
-  fallbackHref = "/pages/userProfile",
+  fallbackHref = "/user",
   children = "Back",
 }: {
   className?: string;

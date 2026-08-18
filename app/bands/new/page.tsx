@@ -80,7 +80,7 @@ export default function RegisterPage() {
 
     setSuccess(true);
     setTimeout(() => {
-      router.push(`/pages/bandProfile?id=${data.id}`);
+      router.push(`/band/${data.slug ?? data.id}`);
     }, 1000);
   }
 
@@ -218,7 +218,7 @@ export default function RegisterPage() {
         <p className="mt-4">
           <Link
             className="  rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2  text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
-            href="/pages/userProfile"
+            href="/user"
           >
             Back to profile
           </Link>

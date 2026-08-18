@@ -1,6 +1,6 @@
 import { mockUser } from "./data/mockData";
 
-// Compact stand-in for app/pages/userProfile/page.tsx — same header
+// Compact stand-in for app/user/page.tsx — same header
 // strip / overlapping avatar / tag chip / band chip patterns, fake data.
 export function UserProfileMock() {
   return (

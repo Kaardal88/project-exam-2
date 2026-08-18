@@ -33,6 +33,7 @@ type BandMember = {
   joined_at: string | null;
   band: {
     id: string;
+    slug: string;
     band_name: string;
     image_url: string | null;
   };
@@ -97,7 +98,7 @@ function UserProfileContent() {
       const token = localStorage.getItem("token");
 
       if (!token) {
-        router.push("/pages/auth/login");
+        router.push("/login");
         return;
       }
 
@@ -137,7 +138,7 @@ function UserProfileContent() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      router.push("/pages/auth/login");
+      router.push("/login");
       return;
     }
 
@@ -163,7 +164,7 @@ function UserProfileContent() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      router.push("/pages/auth/login");
+      router.push("/login");
       return;
     }
 
@@ -228,14 +229,12 @@ function UserProfileContent() {
     if (event.source !== "band") return { type: "private" };
 
     const bandId = (event as BandEvent).band_id;
-    const bandName = members.find(
-      (member) => member.band_id === bandId,
-    )?.band.band_name;
+    const band = members.find((member) => member.band_id === bandId)?.band;
 
     return {
       type: "band",
-      bandName: bandName ?? "Unknown band",
-      bandHref: `/pages/bandProfile?id=${bandId}`,
+      bandName: band?.band_name ?? "Unknown band",
+      bandHref: `/band/${band?.slug ?? bandId}`,
     };
   }
 
@@ -288,7 +287,7 @@ function UserProfileContent() {
     }
 
     if (!token) {
-      router.push("/pages/auth/login");
+      router.push("/login");
       return;
     }
 
@@ -347,7 +346,7 @@ function UserProfileContent() {
           </p>
           <button
             className="btn"
-            onClick={() => router.push("/pages/auth/login")}
+            onClick={() => router.push("/login")}
           >
             Log in
           </button>
@@ -429,7 +428,7 @@ function UserProfileContent() {
             <>
               <button
                 className="  rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
-                onClick={() => router.push("/pages/auth/createBand")}
+                onClick={() => router.push("/bands/new")}
               >
                 <p className="text-xs md:text-sm lg:text-base">
                   Create artist{" "}
@@ -468,7 +467,7 @@ function UserProfileContent() {
                   {members.map((member) => (
                     <Link
                       key={member.band_id}
-                      href={`/pages/bandProfile?id=${member.band_id}`}
+                      href={`/band/${member.band.slug ?? member.band_id}`}
                       style={{ backgroundImage: "url('/bg-components.jpg')" }}
                       className="relative flex w-full flex-col items-center overflow-hidden rounded-md border border-neutral-600/70 bg-cover bg-center p-4 text-center shadow-[inset_0_4px_6px_rgba(255,255,255,0.01),0_8px_16px_rgba(0,0,0,0.4)] transition-transform duration-200 hover:scale-[1.03] hover:border-yellow-200/60"
                     >

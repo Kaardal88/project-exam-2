@@ -49,7 +49,7 @@ export default function RegisterPage() {
 
     setSuccess(true);
     setTimeout(() => {
-      router.push("/pages/auth/login");
+      router.push("/login");
     }, 1000);
   }
 
@@ -133,7 +133,7 @@ export default function RegisterPage() {
         )}
 
         <p className="auth-switch">
-          Already have an account? <Link href="/pages/auth/login">Log in</Link>
+          Already have an account? <Link href="/login">Log in</Link>
         </p>
       </section>
     </main>

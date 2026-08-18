@@ -84,7 +84,7 @@ export default function UsersPage() {
             <Link
               className="flex flex-col items-center gap-2 rounded-md border border-neutral-700 bg-neutral-800/50 p-4 transition hover:bg-neutral-800/80"
               key={user.id}
-              href={`/pages/userProfile?id=${user.id}`}
+              href={`/user?id=${user.id}`}
             >
               <img
                 src={user.image_url || "/default-avatar.png"}

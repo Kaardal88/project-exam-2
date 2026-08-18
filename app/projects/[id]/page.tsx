@@ -18,6 +18,7 @@ type Song = {
 type Project = {
   id: string;
   band_id: string;
+  band_slug: string | null;
   type: "album" | "single";
   title: string;
   description: string | null;
@@ -40,7 +41,7 @@ export default function ProjectDetailsPage() {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      router.push("/pages/auth/login");
+      router.push("/login");
       return;
     }
 
@@ -97,7 +98,7 @@ export default function ProjectDetailsPage() {
       <NavBar />
 
       <Link
-        href={`/pages/bandProfile?id=${project.band_id}`}
+        href={`/band/${project.band_slug ?? project.band_id}`}
         className="flex items-center gap-2 ml-4 mt-4 w-fit rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
       >
         Back
@@ -156,7 +157,7 @@ export default function ProjectDetailsPage() {
               {project.songs.map((song) => (
                 <Link
                   key={song.id}
-                  href={`/pages/songDashboard?songId=${song.id}&bandId=${project.band_id}`}
+                  href={`/songs?songId=${song.id}&bandId=${project.band_id}`}
                   className="flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-950/60 p-4 transition hover:border-yellow-200"
                 >
                   <span className="text-sm font-semibold text-yellow-100">

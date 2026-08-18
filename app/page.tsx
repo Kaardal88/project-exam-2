@@ -8,6 +8,7 @@ import { LandingNav } from "@/components/landing/LandingNav";
 
 type Band = {
   id: string;
+  slug: string;
   band_name: string;
   bio?: string;
   image_url?: string | null;
@@ -75,14 +76,14 @@ export default function HomePage() {
 
           <div className="mt-6 flex w-full max-w-xs items-center justify-center gap-3 sm:max-w-none sm:mt-8 sm:gap-6">
             <Link
-              href="/pages/auth/login"
+              href="/login"
               className="inline-flex min-h-10 items-center justify-center rounded-md border border-[#4b432d] bg-neutral-900 px-4 py-2 text-sm font-semibold text-[#f5f0d8] transition hover:bg-neutral-800 sm:min-h-12 sm:px-5 sm:py-3 sm:text-base"
             >
               Log in
             </Link>
 
             <Link
-              href="/pages/auth/register"
+              href="/register"
               className="inline-flex min-h-10 items-center justify-center rounded-md border border-[#4b432d] bg-yellow-100 px-4 py-2 text-sm font-bold !text-black transition duration-300 ease-in-out hover:-translate-y-1 hover:scale-105 hover:bg-yellow-200 sm:min-h-12 sm:px-5 sm:py-3 sm:text-base"
             >
               Create account
@@ -105,7 +106,7 @@ export default function HomePage() {
             {featuredBands.map((band) => (
               <Link
                 key={band.id}
-                href={`/pages/bandProfile?id=${band.id}`}
+                href={`/band/${band.slug ?? band.id}`}
                 className="flex flex-col items-center rounded-md border border-neutral-700 p-3 text-center shadow-xl sm:p-5"
               >
                 {band.image_url ? (
@@ -133,7 +134,7 @@ export default function HomePage() {
               bands
             </p>
             <Link
-              href="/pages/allBandsPage"
+              href="/bands"
               className="flex flex-row ml-auto min-h-10 w-fit items-center  rounded-md border border-[#4b432d]  px-4 py-2 text-sm font-semibold transition hover:bg-yellow-100 hover:text-neutral-900"
             >
               See all bands

@@ -21,7 +21,7 @@ function AccountMenuItems({
   return (
     <>
       <Link
-        href="/pages/userProfile"
+        href="/user"
         role="menuitem"
         onClick={onClose}
         className="block px-4 py-2 text-sm text-yellow-100 hover:bg-neutral-800"
@@ -29,7 +29,7 @@ function AccountMenuItems({
         Profile
       </Link>
       <Link
-        href="/pages/settings"
+        href="/settings"
         role="menuitem"
         onClick={onClose}
         className="block px-4 py-2 text-sm text-yellow-100 hover:bg-neutral-800"
@@ -156,7 +156,7 @@ function MobileMenu({
           className="absolute right-0 top-full z-20 mt-2 w-48 rounded-md border border-neutral-700 bg-neutral-950/95 shadow-xl backdrop-blur-sm"
         >
           <Link
-            href="/pages/allBandsPage"
+            href="/bands"
             role="menuitem"
             onClick={() => setOpen(false)}
             className="flex items-center gap-2 px-4 py-2 text-sm text-yellow-100 hover:bg-neutral-800"
@@ -168,7 +168,7 @@ function MobileMenu({
           {user && (
             <>
               <Link
-                href="/pages/usersPage"
+                href="/users"
                 role="menuitem"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2 px-4 py-2 text-sm text-yellow-100 hover:bg-neutral-800"
@@ -235,7 +235,7 @@ export function NavBar() {
       <div className="relative z-10 flex h-24 md:h-26 items-center justify-between px-4 sm:px-6 lg:px-10 text-white">
         {/* Logo */}
         <div className="flex w-max justify-center bg-[#f3e7b6] text-neutral-950 px-8 sm:px-10 py-3 font-black shadow-[0_8px_25px_rgba(0,0,0,0.45)] -rotate-3 [clip-path:polygon(6%_0%,94%_0%,98%_8%,95%_18%,99%_28%,94%_42%,97%_56%,93%_72%,98%_88%,95%_100%,6%_100%,2%_92%,5%_80%,1%_68%,6%_54%,2%_38%,5%_22%,1%_10%)]">
-          <Link href={user ? "/pages/userProfile" : "/"}>
+          <Link href={user ? "/user" : "/"}>
             <span className="text-3xl md:text-4xl font-black tracking-tight hover:opacity-90 transition font-[family-name:var(--font-marker)]">
               Vardo
             </span>
@@ -245,7 +245,7 @@ export function NavBar() {
         {/* Desktop right side */}
         <div className="hidden md:flex items-center gap-4">
           <Link
-            href="/pages/allBandsPage"
+            href="/bands"
             className="flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-950/60 px-4 py-2 text-sm font-semibold text-yellow-200 transition hover:border-yellow-200/60 hover:bg-neutral-800"
           >
             <Music className="h-4 w-4" />
@@ -254,7 +254,7 @@ export function NavBar() {
 
           {user && (
             <Link
-              href="/pages/usersPage"
+              href="/users"
               className="flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-950/60 px-4 py-2 text-sm font-semibold text-yellow-200 transition hover:border-yellow-200/60 hover:bg-neutral-800"
             >
               <Users className="h-4 w-4" />
