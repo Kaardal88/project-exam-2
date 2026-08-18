@@ -3,7 +3,12 @@ import { and, eq, asc } from "drizzle-orm";
 import { requireAuth, optionalAuth } from "@/server/auth/auth.middleware";
 import { db } from "@/server/db";
 import { band_members, band_events, projects, songs } from "@/server/db/schema";
-import { updateBand, createBand, getBandByIdOrSlug } from "@/server/bands/bands.service";
+import {
+  updateBand,
+  createBand,
+  getBandByIdOrSlug,
+} from "@/server/bands/bands.service";
+import { isBandVisibility, bandVisibilityValues } from "@/lib/bandVisibility";
 
 type BandsVariables = {
   userId: string;
@@ -26,8 +31,10 @@ type BandsVariables = {
 export const bandsRoutes = new Hono<{ Variables: BandsVariables }>();
 
 bandsRoutes.get("/public", async (c) => {
-  console.log("Fetching all bands");
   const allBands = await db.query.bands.findMany({
+    // unlisted and private bands are reachable by link / membership, but must
+    // never appear in the public directory
+    where: (bands, { eq }) => eq(bands.visibility, "public"),
     columns: {
       id: true,
       slug: true,
@@ -110,6 +117,14 @@ bandsRoutes.get("/:id", optionalAuth, async (c) => {
           ),
       })
     : null;
+
+  // A private band must be indistinguishable from one that does not exist.
+  // Returning 403 here would confirm the band is real, which is exactly the
+  // fact a private band is trying to withhold -- and slugs make band URLs
+  // guessable, so that confirmation is cheap to farm.
+  if (!membership && band.visibility === "private") {
+    return c.json({ error: "Band not found" }, 404);
+  }
 
   // Guest, or a logged-in user who isn't a member of this specific band:
   // public-safe fields only, no error.
@@ -251,8 +266,16 @@ bandsRoutes.put("/:id", requireAuth, async (c) => {
     return c.json({ error: "Only band leaders can edit the band profile" }, 403);
   }
 
+  if (body.visibility !== undefined && !isBandVisibility(body.visibility)) {
+    return c.json(
+      { error: `visibility must be one of: ${bandVisibilityValues.join(", ")}` },
+      400,
+    );
+  }
+
   const updatedBand = await updateBand(bandId, {
     band_name: body.band_name,
+    visibility: body.visibility,
     bio: body.bio,
     image_url: body.image_url,
     header_image_url: body.header_image_url,

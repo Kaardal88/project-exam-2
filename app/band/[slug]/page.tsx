@@ -20,6 +20,10 @@ import { Suspense } from "react";
 import { BandProfileNav } from "@/components/bandProfile/BandProfileNav";
 import { BackButton } from "@/components/BackButton";
 import { SuccessMessage } from "@/components/SuccessMessage";
+import {
+  DEFAULT_BAND_VISIBILITY,
+  type BandVisibility,
+} from "@/lib/bandVisibility";
 
 import countries from "world-countries";
 import ReactCountryFlag from "react-country-flag";
@@ -45,6 +49,7 @@ export type Band = {
   image_url: string | null;
   header_image_url: string | null;
   slug: string;
+  visibility: BandVisibility;
   created_by: string;
   created_at: string | null;
   country: string | null;
@@ -131,6 +136,9 @@ function BandProfileContent() {
   const [bandSaveSuccess, setBandSaveSuccess] = useState(false);
   const [memberAddSuccess, setMemberAddSuccess] = useState(false);
   const [band_name, setBandName] = useState("");
+  const [visibility, setVisibility] = useState<BandVisibility>(
+    DEFAULT_BAND_VISIBILITY,
+  );
   const [bio, setBio] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [headerImageUrl, setHeaderImageUrl] = useState("");
@@ -204,6 +212,7 @@ function BandProfileContent() {
         setBand(data.band);
         setRole(data.role);
         setBandName(data.band?.band_name ?? "");
+        setVisibility(data.band?.visibility ?? DEFAULT_BAND_VISIBILITY);
         setBio(data.band?.bio ?? "");
         setImageUrl(data.band?.image_url ?? "");
         setHeaderImageUrl(data.band?.header_image_url ?? "");
@@ -247,6 +256,7 @@ function BandProfileContent() {
       },
       body: JSON.stringify({
         band_name,
+        visibility,
         bio,
         image_url: imageUrl,
         header_image_url: headerImageUrl,
@@ -273,6 +283,7 @@ function BandProfileContent() {
     setBand(data.band ?? "");
 
     setBandName(data.band?.band_name ?? "");
+    setVisibility(data.band?.visibility ?? DEFAULT_BAND_VISIBILITY);
     setBio(data.band?.bio ?? "");
     setImageUrl(data.band?.image_url ?? "");
     setHeaderImageUrl(data.band?.header_image_url ?? "");
@@ -808,6 +819,8 @@ function BandProfileContent() {
                   success={bandSaveSuccess}
                   bandName={band_name}
                   setBandName={setBandName}
+                  visibility={visibility}
+                  setVisibility={setVisibility}
                   bio={bio}
                   setBio={setBio}
                   imageUrl={imageUrl}

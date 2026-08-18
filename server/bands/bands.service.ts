@@ -124,6 +124,7 @@ export async function updateBand(
     image_url?: string;
     header_image_url?: string;
     slug?: string;
+    visibility?: string;
     country?: string;
     spotify_url?: string;
     bandcamp_url?: string;
@@ -143,6 +144,7 @@ export async function updateBand(
       image_url: data.image_url,
       header_image_url: data.header_image_url,
       slug: data.slug,
+      visibility: data.visibility,
       country: data.country,
       spotify_url: data.spotify_url,
       bandcamp_url: data.bandcamp_url,

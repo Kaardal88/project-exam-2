@@ -1,6 +1,10 @@
 "use client";
 
 import { SuccessMessage } from "@/components/SuccessMessage";
+import {
+  bandVisibilityOptions,
+  type BandVisibility,
+} from "@/lib/bandVisibility";
 
 type EditBandProfileModalProps = {
   isOpen: boolean;
@@ -12,6 +16,9 @@ type EditBandProfileModalProps = {
 
   bandName: string;
   setBandName: (value: string) => void;
+
+  visibility: BandVisibility;
+  setVisibility: (value: BandVisibility) => void;
 
   bio: string;
   setBio: (value: string) => void;
@@ -56,6 +63,8 @@ export function EditBandProfileModal({
   success = false,
   bandName,
   setBandName,
+  visibility,
+  setVisibility,
   bio,
   setBio,
   imageUrl,
@@ -115,6 +124,32 @@ export function EditBandProfileModal({
               onChange={(e) => setBandName(e.target.value)}
               className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
             />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-yellow-100">
+              Visibility
+            </label>
+
+            <select
+              value={visibility}
+              onChange={(e) => setVisibility(e.target.value as BandVisibility)}
+              className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            >
+              {bandVisibilityOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <p className="mt-2 text-xs text-neutral-400">
+              {
+                bandVisibilityOptions.find(
+                  (option) => option.value === visibility,
+                )?.description
+              }
+            </p>
           </div>
 
           <div>

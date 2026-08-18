@@ -59,6 +59,13 @@ export const bands = pgTable("bands", {
     onDelete: "set null",
   }),
 
+  // "public" | "unlisted" | "private" -- see lib/bandVisibility.ts.
+  // Defaults to public so existing rows keep the behaviour they had before
+  // this column existed.
+  visibility: varchar("visibility", { length: 20 })
+    .notNull()
+    .default("public"),
+
   created_at: timestamp("created_at").defaultNow(),
   country: text("country"),
   genre: text("genre"),
