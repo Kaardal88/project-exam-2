@@ -1,6 +1,7 @@
 import { db } from "@/server/db";
-import { bands } from "@/server/db/schema";
+import { bands, band_slug_history } from "@/server/db/schema";
 import { eq, or, like } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
 import { slugify, isReservedSlug, isUuid } from "@/lib/slug";
 
 export async function getBands() {
@@ -25,9 +26,62 @@ export async function getBandBySlug(slug: string) {
  * lowercase, so /band/Nordlys resolves the same as /band/nordlys.
  */
 export async function getBandByIdOrSlug(idOrSlug: string) {
-  return isUuid(idOrSlug)
-    ? getBandById(idOrSlug)
-    : getBandBySlug(idOrSlug.toLowerCase());
+  if (isUuid(idOrSlug)) return getBandById(idOrSlug);
+
+  const slug = idOrSlug.toLowerCase();
+  const current = await getBandBySlug(slug);
+
+  if (current) return current;
+
+  // Fall back to a retired slug so links shared before a rename still land on
+  // the band. The caller compares band.slug with what was requested to decide
+  // whether to canonicalise the URL.
+  const retired = await db.query.band_slug_history.findFirst({
+    columns: { band_id: true },
+    where: eq(band_slug_history.slug, slug),
+  });
+
+  return retired ? getBandById(retired.band_id) : undefined;
+}
+
+/**
+ * Changes a band's slug and files the old one in history.
+ *
+ * Both writes go through db.batch() so a rename cannot half-apply and leave a
+ * slug that resolves to nothing. The neon-http driver has no interactive
+ * transactions, but Neon runs a batch as one -- the same constraint the
+ * account-deletion work ran into.
+ */
+export async function renameBandSlug(bandId: string, requestedSlug: string) {
+  const band = await getBandById(bandId);
+
+  if (!band) return undefined;
+
+  const slug = await ensureUniqueSlug(requestedSlug, bandId);
+
+  if (slug === band.slug) return band;
+
+  const alreadyRetired = await db.query.band_slug_history.findFirst({
+    columns: { id: true },
+    where: eq(band_slug_history.slug, band.slug),
+  });
+
+  const writes = [
+    db.update(bands).set({ slug }).where(eq(bands.id, bandId)),
+    // the band may be reclaiming a slug it used before, in which case the row
+    // is already there and re-inserting would break the unique constraint
+    ...(alreadyRetired
+      ? []
+      : [
+          db
+            .insert(band_slug_history)
+            .values({ band_id: bandId, slug: band.slug }),
+        ]),
+  ] as [BatchItem<"pg">, ...BatchItem<"pg">[]];
+
+  await db.batch(writes);
+
+  return getBandById(bandId);
 }
 
 /** Postgres unique_violation. */
@@ -61,11 +115,25 @@ export async function ensureUniqueSlug(name: string, excludeBandId?: string) {
     where: or(eq(bands.slug, base), like(bands.slug, `${base}-%`)),
   });
 
-  const taken = new Set(
-    conflicting
+  // Retired slugs count as taken. If band A renames away from "nordlys" and
+  // band B is then allowed to claim it, every old link to A silently starts
+  // resolving to B -- a worse outcome than a dead link.
+  const retired = await db.query.band_slug_history.findMany({
+    columns: { band_id: true, slug: true },
+    where: or(
+      eq(band_slug_history.slug, base),
+      like(band_slug_history.slug, `${base}-%`),
+    ),
+  });
+
+  const taken = new Set([
+    ...conflicting
       .filter((band) => band.id !== excludeBandId)
       .map((band) => band.slug),
-  );
+    ...retired
+      .filter((entry) => entry.band_id !== excludeBandId)
+      .map((entry) => entry.slug),
+  ]);
 
   if (isReservedSlug(base)) {
     taken.add(base);
@@ -124,6 +192,7 @@ export async function updateBand(
     image_url?: string;
     header_image_url?: string;
     slug?: string;
+    visibility?: string;
     country?: string;
     spotify_url?: string;
     bandcamp_url?: string;
@@ -143,6 +212,7 @@ export async function updateBand(
       image_url: data.image_url,
       header_image_url: data.header_image_url,
       slug: data.slug,
+      visibility: data.visibility,
       country: data.country,
       spotify_url: data.spotify_url,
       bandcamp_url: data.bandcamp_url,

@@ -17,6 +17,20 @@ export const users = pgTable("users", {
     length: 255,
   }).notNull(),
 
+  /**
+   * URL identifier, e.g. /user/adrian-2. Deliberately separate from username:
+   * two musicians are allowed to both be called "Adrian", but only one of them
+   * can own /user/adrian. Display names collide; addresses must not.
+   *
+   * Nullable because it was added to a table that already had rows -- a UNIQUE
+   * NOT NULL column cannot be added with a default. Backfilled by
+   * scripts/backfill-user-handles.ts and always set on registration, and the
+   * UI falls back to the user id the same way band links fall back to band id.
+   */
+  handle: varchar("handle", {
+    length: 255,
+  }).unique(),
+
   email: varchar("email", {
     length: 255,
   })
@@ -59,6 +73,13 @@ export const bands = pgTable("bands", {
     onDelete: "set null",
   }),
 
+  // "public" | "unlisted" | "private" -- see lib/bandVisibility.ts.
+  // Defaults to public so existing rows keep the behaviour they had before
+  // this column existed.
+  visibility: varchar("visibility", { length: 20 })
+    .notNull()
+    .default("public"),
+
   created_at: timestamp("created_at").defaultNow(),
   country: text("country"),
   genre: text("genre"),
@@ -71,6 +92,36 @@ export const bands = pgTable("bands", {
   tiktok_url: text("tiktok_url"),
   website_url: text("website_url"),
 });
+
+/**
+ * Slugs a band used to have, so renaming does not break shared links.
+ *
+ * The slug column is UNIQUE here as well as on bands, which is what stops a
+ * retired slug from being handed to a different band later: an old link must
+ * never quietly start resolving to someone else. ensureUniqueSlug() checks
+ * this table too.
+ */
+export const band_slug_history = pgTable("band_slug_history", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  band_id: uuid("band_id")
+    .notNull()
+    .references(() => bands.id, { onDelete: "cascade" }),
+
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const band_slug_historyRelations = relations(
+  band_slug_history,
+  ({ one }) => ({
+    band: one(bands, {
+      fields: [band_slug_history.band_id],
+      references: [bands.id],
+    }),
+  }),
+);
 
 export const band_members = pgTable(
   "band_members",

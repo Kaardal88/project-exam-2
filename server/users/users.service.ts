@@ -1,6 +1,7 @@
 import { db } from "@/server/db";
 import { users, bands, band_members } from "@/server/db/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or, like } from "drizzle-orm";
+import { slugify, isReservedSlug, isUuid } from "@/lib/slug";
 import type { BatchItem } from "drizzle-orm/batch";
 
 export async function getUsers() {
@@ -175,4 +176,92 @@ export async function deleteUser(id: string) {
   await db.batch(statements as [BatchItem<"pg">, ...BatchItem<"pg">[]]);
 
   return plan;
+}
+
+/**
+ * Finds the first free handle for a display name: "adrian", then "adrian-2".
+ *
+ * Same shape as ensureUniqueSlug() for bands, and for the same reason -- two
+ * users may legitimately share a display name, so the collision is expected
+ * rather than an error to reject.
+ */
+export async function ensureUniqueHandle(username: string, excludeUserId?: string) {
+  const base = slugify(username);
+
+  const conflicting = await db.query.users.findMany({
+    columns: { id: true, handle: true },
+    where: or(eq(users.handle, base), like(users.handle, `${base}-%`)),
+  });
+
+  const taken = new Set(
+    conflicting
+      .filter((user) => user.id !== excludeUserId)
+      .map((user) => user.handle)
+      .filter((handle): handle is string => Boolean(handle)),
+  );
+
+  if (isReservedSlug(base)) taken.add(base);
+
+  if (!taken.has(base)) return base;
+
+  let suffix = 2;
+  while (taken.has(`${base}-${suffix}`)) suffix++;
+
+  return `${base}-${suffix}`;
+}
+
+/** Resolves the profile route parameter, which accepts a handle or a UUID. */
+export async function getUserByIdOrHandle(idOrHandle: string) {
+  if (isUuid(idOrHandle)) {
+    return db.query.users.findFirst({ where: eq(users.id, idOrHandle) });
+  }
+
+  return db.query.users.findFirst({
+    where: eq(users.handle, idOrHandle.toLowerCase()),
+  });
+}
+
+/** Postgres unique_violation. */
+const UNIQUE_VIOLATION = "23505";
+
+function isUniqueViolation(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+
+  const candidate = error as { code?: unknown; cause?: unknown };
+
+  if (candidate.code === UNIQUE_VIOLATION) return true;
+
+  const cause = candidate.cause as { code?: unknown } | undefined;
+  return Boolean(cause && cause.code === UNIQUE_VIOLATION);
+}
+
+type NewUser = typeof users.$inferInsert;
+
+/**
+ * Registers a user, deriving a unique handle from the display name.
+ *
+ * Mirrors createBand(): ensureUniqueHandle() is a read-then-write check, so
+ * two people registering the same display name at once can both compute
+ * "adrian-2". The loser gets a unique violation and recomputes.
+ */
+export async function createUser(
+  values: Omit<NewUser, "handle">,
+  maxAttempts = 5,
+) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const handle = await ensureUniqueHandle(values.username);
+
+    try {
+      const [user] = await db
+        .insert(users)
+        .values({ ...values, handle })
+        .returning();
+
+      return user;
+    } catch (error) {
+      if (!isUniqueViolation(error) || attempt === maxAttempts) throw error;
+    }
+  }
+
+  throw new Error("Could not generate a unique handle for the user");
 }

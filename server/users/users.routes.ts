@@ -4,6 +4,7 @@ import {
   updateUser,
   deleteUser,
   getAccountDeletionPlan,
+  getUserByIdOrHandle,
 } from "@/server/users/users.service";
 import {
   updateUserSchema,
@@ -30,6 +31,7 @@ usersRoutes.get("/", requireAuth, async (c) => {
   const users = await db.query.users.findMany({
     columns: {
       id: true,
+      handle: true,
       username: true,
       email: true,
       image_url: true,
@@ -41,11 +43,21 @@ usersRoutes.get("/", requireAuth, async (c) => {
 });
 
 usersRoutes.get("/:id", requireAuth, async (c) => {
-  const id = c.req.param("id");
+  // accepts a handle or a UUID, so /user/adrian and older id-based links both
+  // resolve; everything below works off the resolved user.id
+  const resolved = await getUserByIdOrHandle(c.req.param("id"));
+
+  if (!resolved) {
+    return c.json({ error: "User not found" }, 404);
+  }
+
+  const id = resolved.id;
+
   const user = await db.query.users.findFirst({
     where: (users, { eq }) => eq(users.id, id),
     columns: {
       id: true,
+      handle: true,
       username: true,
       email: true,
       image_url: true,
