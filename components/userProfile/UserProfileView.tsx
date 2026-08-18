@@ -68,7 +68,12 @@ export function UserProfileView({
   const router = useRouter();
 
   const profileUserId = profileIdentifier;
-  const isOwnProfile = !profileUserId;
+
+  // Derived from identity, not from whether the URL carries an identifier.
+  // /user canonicalises to /user/<your handle>, so "the URL has no id" stops
+  // meaning "this is mine" the moment that redirect fires.
+  const [isOwnProfile, setIsOwnProfile] = useState(!profileIdentifier);
+
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,22 +110,33 @@ export function UserProfileView({
         return;
       }
 
-      const endpoint = profileUserId
-        ? `/api/users/${profileUserId}`
-        : "/api/auth/me";
+      const headers = { Authorization: `Bearer ${token}` };
 
-      const response = await fetch(endpoint, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // Always establish who is signed in, so ownership can be decided by
+      // comparing ids rather than by inspecting the URL.
+      const meResponse = await fetch("/api/auth/me", { headers });
+      const me = meResponse.ok ? await meResponse.json() : null;
 
-      const data = await response.json();
+      const response = profileUserId
+        ? await fetch(`/api/users/${profileUserId}`, { headers })
+        : meResponse;
 
-      if (!response.ok) {
-        setError(data.error || "Could not load profile");
+      const data = profileUserId ? await response.json() : me;
+
+      if (!response.ok || !data?.user) {
+        setError(data?.error || "Could not load profile");
         setLoading(false);
         return;
+      }
+
+      setIsOwnProfile(me?.user?.id === data.user.id);
+
+      // Park the address bar on a link that works for anyone. Visiting /user
+      // resolves from the reader's own token, so a shared /user link shows the
+      // recipient their own profile instead of this one -- silently wrong
+      // rather than broken, which is worse.
+      if (!profileUserId && data.user.handle) {
+        router.replace(`/user/${data.user.handle}`);
       }
 
       setUsername(data.user.username ?? "");
