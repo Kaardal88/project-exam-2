@@ -7,6 +7,7 @@ import {
   updateBand,
   createBand,
   getBandByIdOrSlug,
+  renameBandSlug,
 } from "@/server/bands/bands.service";
 import { isBandVisibility, bandVisibilityValues } from "@/lib/bandVisibility";
 
@@ -147,6 +148,9 @@ bandsRoutes.get("/:id", optionalAuth, async (c) => {
         authenticated: false,
         band: {
           id: band.id,
+          // needed so the page can canonicalise the URL when a guest arrives
+          // via a retired slug or a UUID
+          slug: band.slug,
           band_name: band.band_name,
           bio: band.bio,
           image_url: band.image_url,
@@ -271,6 +275,16 @@ bandsRoutes.put("/:id", requireAuth, async (c) => {
       { error: `visibility must be one of: ${bandVisibilityValues.join(", ")}` },
       400,
     );
+  }
+
+  // Slug is edited on its own, never derived from the band name on rename: a
+  // typo fix in the name should not silently retire a shared URL.
+  if (typeof body.slug === "string" && body.slug.trim() !== "") {
+    const renamed = await renameBandSlug(bandId, body.slug);
+
+    if (!renamed) {
+      return c.json({ error: "Band not found" }, 404);
+    }
   }
 
   const updatedBand = await updateBand(bandId, {

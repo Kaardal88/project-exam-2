@@ -139,6 +139,7 @@ function BandProfileContent() {
   const [visibility, setVisibility] = useState<BandVisibility>(
     DEFAULT_BAND_VISIBILITY,
   );
+  const [bandSlug, setBandSlug] = useState("");
   const [bio, setBio] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [headerImageUrl, setHeaderImageUrl] = useState("");
@@ -202,6 +203,15 @@ function BandProfileContent() {
         setAuthenticated(data.authenticated);
         setBandId(data.band?.id ?? null);
 
+        // The band resolves from a retired slug or a UUID too, so point the
+        // address bar at the canonical slug rather than leaving whatever the
+        // visitor arrived with. replace(), not push(), so Back still leaves
+        // the page instead of bouncing through the old address.
+        const canonicalSlug = data.band?.slug;
+        if (canonicalSlug && canonicalSlug !== slug) {
+          router.replace(`/band/${canonicalSlug}`);
+        }
+
         if (!data.authenticated) {
           setPublicBand(data.band);
           setPublicMembers(data.members ?? []);
@@ -213,6 +223,11 @@ function BandProfileContent() {
         setRole(data.role);
         setBandName(data.band?.band_name ?? "");
         setVisibility(data.band?.visibility ?? DEFAULT_BAND_VISIBILITY);
+        setBandSlug(data.band?.slug ?? "");
+
+    if (data.band?.slug && data.band.slug !== slug) {
+      router.replace(`/band/${data.band.slug}`);
+    }
         setBio(data.band?.bio ?? "");
         setImageUrl(data.band?.image_url ?? "");
         setHeaderImageUrl(data.band?.header_image_url ?? "");
@@ -257,6 +272,7 @@ function BandProfileContent() {
       body: JSON.stringify({
         band_name,
         visibility,
+        slug: bandSlug,
         bio,
         image_url: imageUrl,
         header_image_url: headerImageUrl,
@@ -284,6 +300,7 @@ function BandProfileContent() {
 
     setBandName(data.band?.band_name ?? "");
     setVisibility(data.band?.visibility ?? DEFAULT_BAND_VISIBILITY);
+    setBandSlug(data.band?.slug ?? "");
     setBio(data.band?.bio ?? "");
     setImageUrl(data.band?.image_url ?? "");
     setHeaderImageUrl(data.band?.header_image_url ?? "");
@@ -821,6 +838,8 @@ function BandProfileContent() {
                   setBandName={setBandName}
                   visibility={visibility}
                   setVisibility={setVisibility}
+                  slug={bandSlug}
+                  setSlug={setBandSlug}
                   bio={bio}
                   setBio={setBio}
                   imageUrl={imageUrl}

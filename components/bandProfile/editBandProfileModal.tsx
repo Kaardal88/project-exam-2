@@ -20,6 +20,9 @@ type EditBandProfileModalProps = {
   visibility: BandVisibility;
   setVisibility: (value: BandVisibility) => void;
 
+  slug: string;
+  setSlug: (value: string) => void;
+
   bio: string;
   setBio: (value: string) => void;
 
@@ -65,6 +68,8 @@ export function EditBandProfileModal({
   setBandName,
   visibility,
   setVisibility,
+  slug,
+  setSlug,
   bio,
   setBio,
   imageUrl,
@@ -124,6 +129,27 @@ export function EditBandProfileModal({
               onChange={(e) => setBandName(e.target.value)}
               className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
             />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-yellow-100">
+              Profile URL
+            </label>
+
+            <div className="flex items-center border border-neutral-700 bg-neutral-950 focus-within:border-yellow-200">
+              <span className="pl-4 text-sm text-neutral-500">/band/</span>
+              <input
+                type="text"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                className="w-full bg-transparent px-1 py-3 text-sm text-yellow-100 outline-none"
+              />
+            </div>
+
+            <p className="mt-2 text-xs text-neutral-400">
+              Changing this keeps the old address working — it will redirect
+              here. Letters, numbers and hyphens only.
+            </p>
           </div>
 
           <div>

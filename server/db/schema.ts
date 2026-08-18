@@ -79,6 +79,36 @@ export const bands = pgTable("bands", {
   website_url: text("website_url"),
 });
 
+/**
+ * Slugs a band used to have, so renaming does not break shared links.
+ *
+ * The slug column is UNIQUE here as well as on bands, which is what stops a
+ * retired slug from being handed to a different band later: an old link must
+ * never quietly start resolving to someone else. ensureUniqueSlug() checks
+ * this table too.
+ */
+export const band_slug_history = pgTable("band_slug_history", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  band_id: uuid("band_id")
+    .notNull()
+    .references(() => bands.id, { onDelete: "cascade" }),
+
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const band_slug_historyRelations = relations(
+  band_slug_history,
+  ({ one }) => ({
+    band: one(bands, {
+      fields: [band_slug_history.band_id],
+      references: [bands.id],
+    }),
+  }),
+);
+
 export const band_members = pgTable(
   "band_members",
   {
