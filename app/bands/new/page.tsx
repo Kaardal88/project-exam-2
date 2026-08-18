@@ -80,7 +80,7 @@ export default function RegisterPage() {
 
     setSuccess(true);
     setTimeout(() => {
-      router.push(`/band?id=${data.id}`);
+      router.push(`/band/${data.slug}`);
     }, 1000);
   }
 

@@ -8,6 +8,7 @@ import { LandingNav } from "@/components/landing/LandingNav";
 
 type Band = {
   id: string;
+  slug: string;
   band_name: string;
   bio?: string;
   image_url?: string | null;
@@ -105,7 +106,7 @@ export default function HomePage() {
             {featuredBands.map((band) => (
               <Link
                 key={band.id}
-                href={`/band?id=${band.id}`}
+                href={`/band/${band.slug}`}
                 className="flex flex-col items-center rounded-md border border-neutral-700 p-3 text-center shadow-xl sm:p-5"
               >
                 {band.image_url ? (

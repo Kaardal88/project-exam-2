@@ -33,6 +33,7 @@ type BandMember = {
   joined_at: string | null;
   band: {
     id: string;
+    slug: string;
     band_name: string;
     image_url: string | null;
   };
@@ -228,14 +229,12 @@ function UserProfileContent() {
     if (event.source !== "band") return { type: "private" };
 
     const bandId = (event as BandEvent).band_id;
-    const bandName = members.find(
-      (member) => member.band_id === bandId,
-    )?.band.band_name;
+    const band = members.find((member) => member.band_id === bandId)?.band;
 
     return {
       type: "band",
-      bandName: bandName ?? "Unknown band",
-      bandHref: `/band?id=${bandId}`,
+      bandName: band?.band_name ?? "Unknown band",
+      bandHref: `/band/${band?.slug ?? bandId}`,
     };
   }
 
@@ -468,7 +467,7 @@ function UserProfileContent() {
                   {members.map((member) => (
                     <Link
                       key={member.band_id}
-                      href={`/band?id=${member.band_id}`}
+                      href={`/band/${member.band.slug}`}
                       style={{ backgroundImage: "url('/bg-components.jpg')" }}
                       className="relative flex w-full flex-col items-center overflow-hidden rounded-md border border-neutral-600/70 bg-cover bg-center p-4 text-center shadow-[inset_0_4px_6px_rgba(255,255,255,0.01),0_8px_16px_rgba(0,0,0,0.4)] transition-transform duration-200 hover:scale-[1.03] hover:border-yellow-200/60"
                     >

@@ -40,7 +40,21 @@ projectsRoutes.get("/:id", requireAuth, async (c) => {
     orderBy: asc(songs.track_number),
   });
 
-  return c.json({ ...project, songs: projectSongs, role: membership.role }, 200);
+  // the page links back to the band profile, which is addressed by slug
+  const band = await db.query.bands.findFirst({
+    where: (bands, { eq }) => eq(bands.id, project.band_id),
+    columns: { slug: true },
+  });
+
+  return c.json(
+    {
+      ...project,
+      band_slug: band?.slug ?? null,
+      songs: projectSongs,
+      role: membership.role,
+    },
+    200,
+  );
 });
 
 projectsRoutes.put("/:id", requireAuth, async (c) => {

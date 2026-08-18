@@ -10,6 +10,7 @@ import AmpLoader from "@/components/AmpLoader";
 
 type Band = {
   id: string;
+  slug: string;
   band_name: string;
   bio?: string;
   image_url?: string | null;
@@ -72,7 +73,7 @@ export default function BandsPage() {
             return (
               <Link
                 key={band.id}
-                href={`/band?id=${band.id}`}
+                href={`/band/${band.slug}`}
                 style={{ backgroundImage: "url('/bg-components.jpg')" }}
                 className="relative flex flex-col items-center overflow-hidden rounded-md border border-neutral-600/70 bg-cover bg-center p-6 text-center shadow-[inset_0_4px_6px_rgba(255,255,255,0.01),0_8px_16px_rgba(0,0,0,0.4)] transition-transform duration-200 hover:scale-[1.03] hover:border-yellow-200/60"
               >

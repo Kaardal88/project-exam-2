@@ -49,6 +49,7 @@ type Song = {
 
 type Band = {
   id: string;
+  slug: string;
   band_name: string;
   image_url: string | null;
 };

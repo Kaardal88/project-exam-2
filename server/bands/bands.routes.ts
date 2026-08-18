@@ -2,8 +2,8 @@ import { Hono } from "hono";
 import { and, eq, asc } from "drizzle-orm";
 import { requireAuth, optionalAuth } from "@/server/auth/auth.middleware";
 import { db } from "@/server/db";
-import { bands, band_members, band_events, projects, songs } from "@/server/db/schema";
-import { updateBand } from "@/server/bands/bands.service";
+import { band_members, band_events, projects, songs } from "@/server/db/schema";
+import { updateBand, createBand, getBandByIdOrSlug } from "@/server/bands/bands.service";
 
 type BandsVariables = {
   userId: string;
@@ -30,6 +30,7 @@ bandsRoutes.get("/public", async (c) => {
   const allBands = await db.query.bands.findMany({
     columns: {
       id: true,
+      slug: true,
       band_name: true,
       bio: true,
       image_url: true,
@@ -53,27 +54,27 @@ bandsRoutes.post("/", requireAuth, async (c) => {
   const userId = c.get("userId");
   const body = await c.req.json();
 
-  const [band] = await db
-    .insert(bands)
-    .values({
-      band_name: body.bandname,
-      slug: body.bandname.toLowerCase().replace(/\s+/g, "-"),
-      created_by: userId,
-      bio: body.bio,
-      image_url: body.image_url,
-      header_image_url: body.header_image_url,
-      country: body.country,
-      genre: body.genre,
-      spotify_url: body.spotify_url,
-      bandcamp_url: body.bandcamp_url,
-      youtube_url: body.youtube_url,
-      tidal_url: body.tidal_url,
-      instagram_url: body.instagram_url,
-      facebook_url: body.facebook_url,
-      tiktok_url: body.tiktok_url,
-      website_url: body.website_url,
-    })
-    .returning();
+  if (typeof body.bandname !== "string" || body.bandname.trim() === "") {
+    return c.json({ error: "bandname is required" }, 400);
+  }
+
+  const band = await createBand({
+    band_name: body.bandname,
+    created_by: userId,
+    bio: body.bio,
+    image_url: body.image_url,
+    header_image_url: body.header_image_url,
+    country: body.country,
+    genre: body.genre,
+    spotify_url: body.spotify_url,
+    bandcamp_url: body.bandcamp_url,
+    youtube_url: body.youtube_url,
+    tidal_url: body.tidal_url,
+    instagram_url: body.instagram_url,
+    facebook_url: body.facebook_url,
+    tiktok_url: body.tiktok_url,
+    website_url: body.website_url,
+  });
 
   await db
     .insert(band_members)
@@ -88,16 +89,17 @@ bandsRoutes.post("/", requireAuth, async (c) => {
 });
 
 bandsRoutes.get("/:id", optionalAuth, async (c) => {
-  const bandId = c.req.param("id");
   const userId = c.get("userId") as string | undefined;
 
-  const band = await db.query.bands.findFirst({
-    where: (bands, { eq }) => eq(bands.id, bandId),
-  });
+  // accepts a slug or a UUID; everything below this point works off band.id so
+  // membership, events and projects are unaffected by how the band was found
+  const band = await getBandByIdOrSlug(c.req.param("id"));
 
   if (!band) {
     return c.json({ error: "Band not found" }, 404);
   }
+
+  const bandId = band.id;
 
   const membership = userId
     ? await db.query.band_members.findFirst({
