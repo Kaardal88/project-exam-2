@@ -13,6 +13,7 @@ import {
 import { isBandVisibility, bandVisibilityValues } from "@/lib/bandVisibility";
 import { getMembership, getMembershipRow, isLastLeader } from "@/server/bands/membership";
 import { ACCEPTED, PENDING } from "@/lib/inviteStatus";
+import { getBandCollaborators } from "@/server/projects/access";
 import { isBandRole, bandRoleValues } from "@/lib/bandRoles";
 import { verifyPassword } from "@/server/auth/password";
 
@@ -182,8 +183,19 @@ bandsRoutes.get("/:id", optionalAuth, async (c) => {
     },
   });
 
+  // Guests belong to a project, not the band, so they are not in `members`.
+  // The band still needs one place that says who is working with them --
+  // otherwise a collaborator is invisible until they leave a comment.
+  const collaborators = await getBandCollaborators(bandId);
+
   return c.json(
-    { authenticated: true, band, role: membership.role, members },
+    {
+      authenticated: true,
+      band,
+      role: membership.role,
+      members,
+      collaborators,
+    },
     200,
   );
 });

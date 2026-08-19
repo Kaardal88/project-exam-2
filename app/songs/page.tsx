@@ -13,6 +13,8 @@ import { Upload } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
 import AmpLoader from "@/components/AmpLoader";
 import { SongSidebar } from "@/components/songDashboard/SongSidebar";
+import { type Collaborator } from "@/components/collaborators/CollaboratorList";
+import { collaboratorRoleLabel } from "@/lib/collaboratorRoles";
 import { SettingsModal } from "@/components/songDashboard/SettingsModal";
 import { SongTabs, type SongTab } from "@/components/songDashboard/SongTabs";
 import { PlaceholderTab } from "@/components/songDashboard/PlaceholderTab";
@@ -124,6 +126,7 @@ function SongDashboardPageContent() {
   const [band, setBand] = useState<Band | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [members, setMembers] = useState<BandMember[]>([]);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -203,7 +206,7 @@ function SongDashboardPageContent() {
 
       const [bandRes, commentsRes, tasksRes, notesRes, filesRes, meRes] =
         await Promise.all([
-          fetch(`/api/bands/${song.project.band_id}`, { headers }),
+          fetch(`/api/projects/${song.project.id}`, { headers }),
           fetch(`/api/songs/${song.id}/comments`, { headers }),
           fetch(`/api/songs/${song.id}/tasks`, { headers }),
           fetch(`/api/songs/${song.id}/notes`, { headers }),
@@ -211,11 +214,15 @@ function SongDashboardPageContent() {
           fetch(`/api/auth/me`, { headers }),
         ]);
 
+      // Context comes from the project, not the band: a collaborator is not a
+      // band member, so /api/bands/:id would 404 for them on a private band
+      // and leave this page without a sidebar or a role.
       if (bandRes.ok) {
-        const bandData = await bandRes.json();
-        setBand(bandData.band);
-        setRole(bandData.role);
-        setMembers(bandData.members);
+        const projectData = await bandRes.json();
+        setBand(projectData.band);
+        setRole(projectData.role);
+        setMembers(projectData.members ?? []);
+        setCollaborators(projectData.collaborators ?? []);
       }
 
       if (commentsRes.ok) setComments(await commentsRes.json());
@@ -567,6 +574,24 @@ function SongDashboardPageContent() {
                         : "—"}
                     </dd>
                   </div>
+
+                  {/* Guests are not band members, so they never appear in
+                      Contributors until they have actually left something
+                      behind. Naming them here means the band can see who is
+                      in the room. */}
+                  {collaborators.length > 0 && (
+                    <div className="flex justify-between gap-4">
+                      <dt className="shrink-0 text-neutral-500">Guests</dt>
+                      <dd className="text-right text-yellow-100">
+                        {collaborators
+                          .map(
+                            (collaborator) =>
+                              `${collaborator.user.username} (${collaboratorRoleLabel(collaborator.role)})`,
+                          )
+                          .join(", ")}
+                      </dd>
+                    </div>
+                  )}
                 </dl>
               </div>
             </div>

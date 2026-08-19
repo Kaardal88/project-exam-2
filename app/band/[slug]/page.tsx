@@ -16,6 +16,10 @@ import { EditBandProfileModal } from "@/components/bandProfile/editBandProfileMo
 import { NewProjectModal } from "@/components/bandProfile/NewProjectModal";
 import { DeleteBandModal } from "@/components/bandProfile/DeleteBandModal";
 import { bandRoles } from "@/lib/bandRoles";
+import {
+  CollaboratorList,
+  type Collaborator,
+} from "@/components/collaborators/CollaboratorList";
 import { EventCard } from "@/components/calendar/EventCard";
 import { UserPlus, UserX, LucidePanelBottomOpen } from "lucide-react";
 import { Suspense } from "react";
@@ -136,6 +140,7 @@ function BandProfileContent() {
   const [users, setUsers] = useState<User[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [members, setMembers] = useState<BandMember[]>([]);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [editBandModalOpen, setEditBandModalOpen] = useState(false);
   const [savingBand, setSavingBand] = useState(false);
   const [bandSaveSuccess, setBandSaveSuccess] = useState(false);
@@ -253,6 +258,7 @@ function BandProfileContent() {
         setWebsiteUrl(data.band?.website_url ?? "");
 
         setMembers(data.members);
+        setCollaborators(data.collaborators ?? []);
         setLoading(false);
       } catch (error) {
         setError("Failed to load band");
@@ -907,6 +913,19 @@ function BandProfileContent() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Guests are invited per project and are deliberately not
+                        band members, so this is the only place the band sees
+                        who else is currently working with them. */}
+                    <h3 className="mb-2 mt-8 text-lg font-bold text-yellow-100">
+                      Collaborators
+                    </h3>
+
+                    <CollaboratorList
+                      collaborators={collaborators}
+                      showProject
+                      emptyText="No guests on any project right now."
+                    />
                   </div>
                 </Modal>
               )}

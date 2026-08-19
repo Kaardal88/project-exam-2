@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/server/db";
-import { project_collaborators } from "@/server/db/schema";
+import { project_collaborators, projects } from "@/server/db/schema";
 import { getMembership } from "@/server/bands/membership";
 import { ACCEPTED } from "@/lib/inviteStatus";
 
@@ -95,6 +95,37 @@ export async function getCollabProjectsForUser(userId: string) {
           },
         },
       },
+    },
+  });
+}
+
+/**
+ * Every collaborator across a band's projects, for the band-level overview.
+ *
+ * Guests are invited per project, but the band still wants one place that says
+ * who is currently working with them -- otherwise a guest is invisible until
+ * they happen to leave a comment.
+ */
+export async function getBandCollaborators(bandId: string) {
+  const bandProjects = await db.query.projects.findMany({
+    where: eq(projects.band_id, bandId),
+    columns: { id: true },
+  });
+
+  const projectIds = bandProjects.map((project) => project.id);
+
+  if (projectIds.length === 0) return [];
+
+  return db.query.project_collaborators.findMany({
+    where: and(
+      inArray(project_collaborators.project_id, projectIds),
+      eq(project_collaborators.status, ACCEPTED),
+    ),
+    with: {
+      user: {
+        columns: { id: true, handle: true, username: true, image_url: true },
+      },
+      project: { columns: { id: true, title: true, type: true } },
     },
   });
 }

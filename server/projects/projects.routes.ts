@@ -2,7 +2,12 @@ import { Hono } from "hono";
 import { and, eq, asc } from "drizzle-orm";
 import { requireAuth } from "@/server/auth/auth.middleware";
 import { db } from "@/server/db";
-import { projects, songs, project_collaborators } from "@/server/db/schema";
+import {
+  projects,
+  songs,
+  project_collaborators,
+  band_members,
+} from "@/server/db/schema";
 import {
   getProjectAccess,
   getProjectCollaborators,
@@ -45,18 +50,39 @@ projectsRoutes.get("/:id", requireAuth, async (c) => {
     orderBy: asc(songs.track_number),
   });
 
-  // the page links back to the band profile, which is addressed by slug
+  // The song dashboard used to read all of this from /api/bands/:id, which a
+  // collaborator cannot reach -- they are not in the band. Serving it from the
+  // project instead means a guest gets the same working page a member does.
   const band = await db.query.bands.findFirst({
     where: (bands, { eq }) => eq(bands.id, project.band_id),
-    columns: { slug: true },
+    columns: { id: true, slug: true, band_name: true, image_url: true },
+  });
+
+  const members = await db.query.band_members.findMany({
+    where: (band_members, { eq, and }) =>
+      and(
+        eq(band_members.band_id, project.band_id),
+        eq(band_members.status, ACCEPTED),
+      ),
+    with: {
+      user: {
+        columns: { id: true, handle: true, username: true, image_url: true },
+      },
+    },
   });
 
   return c.json(
     {
       ...project,
       band_slug: band?.slug ?? null,
+      band: band ?? null,
+      members,
+      collaborators: await getProjectCollaborators(projectId),
       songs: projectSongs,
       role: access.role,
+      // "band" or "collaborator" -- the page needs it to know where Back
+      // should lead, since a guest has no band to go back to
+      access_source: access.source,
     },
     200,
   );
