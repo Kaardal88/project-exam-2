@@ -8,9 +8,12 @@ import {
   createBand,
   getBandByIdOrSlug,
   renameBandSlug,
+  deleteBand,
 } from "@/server/bands/bands.service";
 import { isBandVisibility, bandVisibilityValues } from "@/lib/bandVisibility";
-import { getMembership } from "@/server/bands/membership";
+import { getMembership, isLastLeader } from "@/server/bands/membership";
+import { isBandRole, bandRoleValues } from "@/lib/bandRoles";
+import { verifyPassword } from "@/server/auth/password";
 
 type BandsVariables = {
   userId: string;
@@ -206,6 +209,70 @@ bandsRoutes.post("/:id/members", requireAuth, async (c) => {
   return c.json(newMember, 201);
 });
 
+bandsRoutes.put("/:id/members/:userId/role", requireAuth, async (c) => {
+  const bandId = c.req.param("id");
+  const userId = c.get("userId");
+  const targetUserId = c.req.param("userId");
+  const body = await c.req.json();
+
+  const membership = await getMembership(bandId, userId);
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (membership.role !== "band_leader") {
+    return c.json({ error: "Only band leaders can change roles" }, 403);
+  }
+
+  if (!isBandRole(body.role)) {
+    return c.json(
+      { error: `role must be one of: ${bandRoleValues.join(", ")}` },
+      400,
+    );
+  }
+
+  const target = await getMembership(bandId, targetUserId);
+
+  if (!target) {
+    return c.json({ error: "Member not found" }, 404);
+  }
+
+  if (target.role === body.role) {
+    return c.json(target, 200);
+  }
+
+  // Demoting the only leader would leave the band with nobody who can appoint
+  // one, since every management route is gated on band_leader. Promote someone
+  // else first. This applies to a leader demoting themselves too, which is the
+  // likely way to hit it.
+  if (
+    body.role !== "band_leader" &&
+    (await isLastLeader(bandId, targetUserId))
+  ) {
+    return c.json(
+      {
+        error:
+          "This is the band's only leader. Promote another member before changing this role.",
+      },
+      409,
+    );
+  }
+
+  const [updated] = await db
+    .update(band_members)
+    .set({ role: body.role })
+    .where(
+      and(
+        eq(band_members.band_id, bandId),
+        eq(band_members.user_id, targetUserId),
+      ),
+    )
+    .returning();
+
+  return c.json(updated, 200);
+});
+
 bandsRoutes.delete("/:id/members/:userId", requireAuth, async (c) => {
   const bandId = c.req.param("id");
   const userId = c.get("userId");
@@ -221,20 +288,35 @@ bandsRoutes.delete("/:id/members/:userId", requireAuth, async (c) => {
     return c.json({ error: "Only band leaders can remove members" }, 403);
   }
 
+  const target = await getMembership(bandId, memberId);
+
+  if (!target) {
+    return c.json({ error: "Member not found" }, 404);
+  }
+
+  // These two checks used to run *after* the delete, so the row was already
+  // gone by the time the error came back -- a leader removing themselves got
+  // a 400 and lost their membership anyway.
+  if (memberId === userId) {
+    return c.json({ error: "Band leaders cannot remove themselves" }, 400);
+  }
+
+  if (await isLastLeader(bandId, memberId)) {
+    return c.json(
+      {
+        error:
+          "This is the band's only leader. Promote another member before removing them.",
+      },
+      409,
+    );
+  }
+
   const [deletedMember] = await db
     .delete(band_members)
     .where(
       and(eq(band_members.band_id, bandId), eq(band_members.user_id, memberId)),
     )
     .returning();
-
-  if (!deletedMember) {
-    return c.json({ error: "Member not found" }, 404);
-  }
-
-  if (memberId === userId) {
-    return c.json({ error: "Band leaders cannot remove themselves" }, 400);
-  }
 
   return c.json(deletedMember, 200);
 });
@@ -295,6 +377,55 @@ bandsRoutes.put("/:id", requireAuth, async (c) => {
   }
 
   return c.json({ band: updatedBand }, 200);
+});
+
+bandsRoutes.delete("/:id", requireAuth, async (c) => {
+  const userId = c.get("userId");
+
+  const band = await getBandByIdOrSlug(c.req.param("id"));
+
+  if (!band) {
+    return c.json({ error: "Band not found" }, 404);
+  }
+
+  const membership = await getMembership(band.id, userId);
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  if (membership.role !== "band_leader") {
+    return c.json({ error: "Only band leaders can delete a band" }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+
+  // Same confirmation strength as account deletion: typing the name proves
+  // intent, but the password is the real check, because the JWT sits in
+  // localStorage and UI friction alone protects nothing on an unlocked laptop.
+  if (body.band_name !== band.band_name) {
+    return c.json({ error: "Band name does not match" }, 400);
+  }
+
+  if (typeof body.password !== "string" || body.password === "") {
+    return c.json({ error: "Password is required" }, 400);
+  }
+
+  const user = await db.query.users.findFirst({
+    where: (users, { eq }) => eq(users.id, userId),
+    columns: { password_hash: true },
+  });
+
+  if (!user || !(await verifyPassword(body.password, user.password_hash))) {
+    return c.json({ error: "Incorrect password" }, 401);
+  }
+
+  // Everything below the band cascades: band_members, band_events, projects and
+  // band_slug_history go with it, projects take their songs, and songs already
+  // took their comments, tasks, notes and files. One delete tears down the tree.
+  await deleteBand(band.id);
+
+  return c.json({ success: true, band_name: band.band_name }, 200);
 });
 
 bandsRoutes.get("/:id/events", requireAuth, async (c) => {

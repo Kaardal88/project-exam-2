@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { band_members } from "@/server/db/schema";
+import { BAND_LEADER } from "@/lib/bandRoles";
 
 /**
  * The single place that answers "does this user have access to this band, and
@@ -28,4 +29,33 @@ export async function getMembership(bandId: string, userId: string) {
 export async function isBandLeader(bandId: string, userId: string) {
   const membership = await getMembership(bandId, userId);
   return membership?.role === "band_leader";
+}
+
+/** Everyone holding band_leader in a band. */
+export async function getLeaders(bandId: string) {
+  return db.query.band_members.findMany({
+    where: and(
+      eq(band_members.band_id, bandId),
+      eq(band_members.role, BAND_LEADER),
+    ),
+    columns: { user_id: true },
+  });
+}
+
+/**
+ * True when removing or demoting this member would leave the band with no
+ * leader at all.
+ *
+ * A leaderless band is unrecoverable through the UI: only a band_leader can
+ * edit the profile, manage members or change roles, so there would be nobody
+ * left who could appoint one. Account deletion already avoids this by
+ * auto-promoting the longest-serving member; this is the same guard for the
+ * paths where a human is making the choice.
+ */
+export async function isLastLeader(bandId: string, userId: string) {
+  const leaders = await getLeaders(bandId);
+
+  return (
+    leaders.length === 1 && leaders[0].user_id === userId
+  );
 }
