@@ -24,7 +24,7 @@ import {
   ARTWORK_DOWNLOAD_TTL_SECONDS,
   FILE_DOWNLOAD_TTL_SECONDS,
 } from "@/server/r2";
-import { getMembership } from "@/server/bands/membership";
+import { getProjectAccess } from "@/server/projects/access";
 
 const TICKET_STATUSES = ["open", "wip", "done"] as const;
 const NOTE_KINDS = ["note", "lyrics"] as const;
@@ -75,9 +75,13 @@ songsRoutes.get("/:id", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -95,9 +99,13 @@ songsRoutes.put("/:id", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -145,13 +153,17 @@ songsRoutes.delete("/:id", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  if (membership.role !== "band_leader") {
+  if (!access.isLeader) {
     return c.json({ error: "Only band leaders can delete songs" }, 403);
   }
 
@@ -173,9 +185,13 @@ songsRoutes.get("/:id/comments", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -206,9 +222,13 @@ songsRoutes.post("/:id/comments", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -247,9 +267,13 @@ songsRoutes.put("/:id/comments/:commentId", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -262,7 +286,7 @@ songsRoutes.put("/:id/comments/:commentId", requireAuth, async (c) => {
     return c.json({ error: "Comment not found" }, 404);
   }
 
-  const isLeader = membership.role === "band_leader";
+  const isLeader = access.isLeader;
   const isAssignee = comment.assignee_id === userId;
 
   const wantsStatusChange =
@@ -351,9 +375,13 @@ songsRoutes.get("/:id/comments/:commentId/history", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -390,9 +418,13 @@ songsRoutes.get("/:id/tasks", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -421,9 +453,13 @@ songsRoutes.get("/:id/notes", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -451,9 +487,13 @@ songsRoutes.post("/:id/notes", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -496,9 +536,13 @@ songsRoutes.put("/:id/notes/:noteId", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -535,9 +579,13 @@ songsRoutes.get("/:id/files", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -565,9 +613,13 @@ songsRoutes.post("/:id/files", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -607,9 +659,13 @@ songsRoutes.delete("/:id/files/:fileId", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -623,7 +679,7 @@ songsRoutes.delete("/:id/files/:fileId", requireAuth, async (c) => {
   }
 
   const isUploader = file.uploaded_by === userId;
-  const isLeader = membership.role === "band_leader";
+  const isLeader = access.isLeader;
 
   if (!isUploader && !isLeader) {
     return c.json(
@@ -662,9 +718,13 @@ songsRoutes.post("/:id/presign-upload", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -758,9 +818,13 @@ songsRoutes.get("/:id/audio-url", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -783,9 +847,13 @@ songsRoutes.get("/:id/artwork-url", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -812,9 +880,13 @@ songsRoutes.get("/:id/files/:fileId/download-url", requireAuth, async (c) => {
     return c.json({ error: "Song not found" }, 404);
   }
 
-  const membership = await getMembership(context.project.band_id, userId);
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
 
-  if (!membership) {
+  if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 

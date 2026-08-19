@@ -12,14 +12,16 @@ import {
 } from "@/server/users/users.schemas";
 import { requireAuth } from "../auth/auth.middleware";
 import { ACCEPTED, PENDING, DECLINED } from "@/lib/inviteStatus";
+import { getCollabProjectsForUser } from "@/server/projects/access";
 import { verifyPassword } from "../auth/password";
 import { db } from "../db";
-import { and, eq, inArray, asc, desc } from "drizzle-orm";
+import { and, eq, inArray, asc } from "drizzle-orm";
 import {
   users,
   band_members,
   band_events,
   user_events,
+  project_collaborators,
 } from "@/server/db/schema";
 
 type Variables = {
@@ -259,26 +261,64 @@ export default usersRoutes;
 usersRoutes.get("/me/invitations", requireAuth, async (c) => {
   const userId = c.get("userId");
 
-  const invitations = await db.query.band_members.findMany({
-    where: and(
-      eq(band_members.user_id, userId),
-      eq(band_members.status, PENDING),
-    ),
-    columns: { id: true, band_id: true, role: true, invited_at: true },
-    with: {
-      band: {
-        // visibility so the page knows whether previewing the band before
-        // accepting will actually work: a private band 404s to a non-member
-        columns: {
-          id: true,
-          slug: true,
-          band_name: true,
-          image_url: true,
-          visibility: true,
+  const [bandInvites, projectInvites] = await Promise.all([
+    db.query.band_members.findMany({
+      where: and(
+        eq(band_members.user_id, userId),
+        eq(band_members.status, PENDING),
+      ),
+      columns: { id: true, band_id: true, role: true, invited_at: true },
+      with: {
+        band: {
+          // visibility so the page knows whether previewing the band before
+          // accepting will actually work: a private band 404s to a non-member
+          columns: {
+            id: true,
+            slug: true,
+            band_name: true,
+            image_url: true,
+            visibility: true,
+          },
         },
       },
-    },
-    orderBy: desc(band_members.invited_at),
+    }),
+    db.query.project_collaborators.findMany({
+      where: and(
+        eq(project_collaborators.user_id, userId),
+        eq(project_collaborators.status, PENDING),
+      ),
+      columns: { id: true, project_id: true, role: true, invited_at: true },
+      with: {
+        project: {
+          columns: { id: true, title: true, type: true, cover_image_url: true },
+          with: {
+            band: {
+              columns: {
+                id: true,
+                slug: true,
+                band_name: true,
+                image_url: true,
+                visibility: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+  ]);
+
+  // One inbox for both. A reader does not care which table an invitation came
+  // out of, so the kind is a field rather than a second list.
+  const invitations = [
+    ...bandInvites.map((invite) => ({ kind: "band" as const, ...invite })),
+    ...projectInvites.map((invite) => ({
+      kind: "project" as const,
+      ...invite,
+    })),
+  ].sort((a, b) => {
+    const left = a.invited_at ? new Date(a.invited_at).getTime() : 0;
+    const right = b.invited_at ? new Date(b.invited_at).getTime() : 0;
+    return right - left;
   });
 
   return c.json({ invitations }, 200);
@@ -293,13 +333,49 @@ usersRoutes.post("/me/invitations/:id/respond", requireAuth, async (c) => {
     return c.json({ error: "answer must be 'accept' or 'decline'" }, 400);
   }
 
-  // Scoped to the signed-in user, so nobody can answer someone else's
-  // invitation by guessing its id.
-  const invitation = await db.query.band_members.findFirst({
+  if (body.kind !== "band" && body.kind !== "project") {
+    return c.json({ error: "kind must be 'band' or 'project'" }, 400);
+  }
+
+  const accepted = body.answer === "accept";
+
+  // joined_at is what "longest-serving member" sorts on when leadership is
+  // handed over, so it has to mean the moment they actually joined, not the
+  // moment they were asked.
+  const answer = {
+    status: accepted ? ACCEPTED : DECLINED,
+    ...(accepted ? { joined_at: new Date() } : {}),
+  };
+
+  // Both lookups are scoped to the signed-in user, so nobody can answer
+  // someone else's invitation by guessing its id.
+  if (body.kind === "band") {
+    const invitation = await db.query.band_members.findFirst({
+      where: and(
+        eq(band_members.id, inviteId),
+        eq(band_members.user_id, userId),
+        eq(band_members.status, PENDING),
+      ),
+    });
+
+    if (!invitation) {
+      return c.json({ error: "Invitation not found" }, 404);
+    }
+
+    const [updated] = await db
+      .update(band_members)
+      .set(answer)
+      .where(eq(band_members.id, inviteId))
+      .returning();
+
+    return c.json(updated, 200);
+  }
+
+  const invitation = await db.query.project_collaborators.findFirst({
     where: and(
-      eq(band_members.id, inviteId),
-      eq(band_members.user_id, userId),
-      eq(band_members.status, PENDING),
+      eq(project_collaborators.id, inviteId),
+      eq(project_collaborators.user_id, userId),
+      eq(project_collaborators.status, PENDING),
     ),
   });
 
@@ -307,19 +383,18 @@ usersRoutes.post("/me/invitations/:id/respond", requireAuth, async (c) => {
     return c.json({ error: "Invitation not found" }, 404);
   }
 
-  const accepted = body.answer === "accept";
-
   const [updated] = await db
-    .update(band_members)
-    .set({
-      status: accepted ? ACCEPTED : DECLINED,
-      // joined_at is what "longest-serving member" sorts on when leadership is
-      // handed over, so it has to mean the moment they actually joined, not
-      // the moment they were asked
-      ...(accepted ? { joined_at: new Date() } : {}),
-    })
-    .where(eq(band_members.id, inviteId))
+    .update(project_collaborators)
+    .set(answer)
+    .where(eq(project_collaborators.id, inviteId))
     .returning();
 
   return c.json(updated, 200);
+});
+
+/** Projects this user is a guest on, for the "Collab projects" section. */
+usersRoutes.get("/me/collab-projects", requireAuth, async (c) => {
+  const userId = c.get("userId");
+
+  return c.json({ projects: await getCollabProjectsForUser(userId) }, 200);
 });

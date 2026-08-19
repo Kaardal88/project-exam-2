@@ -7,6 +7,12 @@ import { Plus } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
 import AmpLoader from "@/components/AmpLoader";
 import { AddSongModal } from "@/components/projectDetails/AddSongModal";
+import { InviteCollaboratorModal } from "@/components/projectDetails/InviteCollaboratorModal";
+import { UserPlus } from "lucide-react";
+import {
+  CollaboratorList,
+  type Collaborator,
+} from "@/components/collaborators/CollaboratorList";
 
 type Song = {
   id: string;
@@ -19,6 +25,7 @@ type Project = {
   id: string;
   band_id: string;
   band_slug: string | null;
+  access_source: "band" | "collaborator";
   type: "album" | "single";
   title: string;
   description: string | null;
@@ -36,6 +43,8 @@ export default function ProjectDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addSongOpen, setAddSongOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
 
   const fetchProject = useCallback(async () => {
     const token = localStorage.getItem("token");
@@ -61,11 +70,38 @@ export default function ProjectDetailsPage() {
       const data = await response.json();
       setProject(data);
       setLoading(false);
+
+      const collaboratorsResponse = await fetch(
+        `/api/projects/${projectId}/collaborators`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (collaboratorsResponse.ok) {
+        setCollaborators(await collaboratorsResponse.json());
+      }
     } catch (error) {
       setError("Failed to load project");
       setLoading(false);
     }
   }, [projectId, router]);
+
+  async function removeCollaborator(collaborator: Collaborator) {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const response = await fetch(
+      `/api/projects/${projectId}/collaborators/${collaborator.user.id}`,
+      { method: "DELETE", headers: { Authorization: `Bearer ${token}` } },
+    );
+
+    if (response.ok) {
+      // their comments, notes and files stay with the project; only the
+      // access goes away
+      setCollaborators((current) =>
+        current.filter((entry) => entry.id !== collaborator.id),
+      );
+    }
+  }
 
   useEffect(() => {
     async function loadProject() {
@@ -93,12 +129,20 @@ export default function ProjectDetailsPage() {
     );
   }
 
+  // A collaborator is not in the band, so sending them "back" to the band
+  // profile lands them on a guest card at best and a 404 if it is private.
+  // Their way in was their own profile, so that is where back goes.
+  const backHref =
+    project.access_source === "collaborator"
+      ? "/user"
+      : `/band/${project.band_slug ?? project.band_id}`;
+
   return (
     <main className="w-full min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
       <NavBar />
 
       <Link
-        href={`/band/${project.band_slug ?? project.band_id}`}
+        href={backHref}
         className="flex items-center gap-2 ml-4 mt-4 w-fit rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
       >
         Back
@@ -135,15 +179,27 @@ export default function ProjectDetailsPage() {
               </div>
             </div>
 
-            {project.type === "album" && (
-              <button
-                onClick={() => setAddSongOpen(true)}
-                className="flex items-center justify-center gap-2 rounded-full border border-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-50 hover:text-black!"
-              >
-                <Plus className="h-4 w-4" />
-                Add song
-              </button>
-            )}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              {project.role === "band_leader" && (
+                <button
+                  onClick={() => setInviteOpen(true)}
+                  className="flex items-center justify-center gap-2 rounded-full border border-neutral-600 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Invite collaborator
+                </button>
+              )}
+
+              {project.type === "album" && (
+                <button
+                  onClick={() => setAddSongOpen(true)}
+                  className="flex items-center justify-center gap-2 rounded-full border border-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-50 hover:text-black!"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add song
+                </button>
+              )}
+            </div>
           </div>
         </section>
 
@@ -178,7 +234,35 @@ export default function ProjectDetailsPage() {
             </div>
           )}
         </section>
+
+        <section className="mt-6 rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl">
+          <h2 className="mb-1 text-lg font-bold text-yellow-100">
+            Collaborators
+          </h2>
+
+          <p className="mb-4 text-xs text-neutral-400">
+            Guests with access to this project only.
+          </p>
+
+          <CollaboratorList
+            collaborators={collaborators}
+            onRemove={
+              project.role === "band_leader" ? removeCollaborator : undefined
+            }
+            emptyText="Nobody outside the band is working on this yet."
+          />
+        </section>
       </div>
+
+      {inviteOpen && (
+        <InviteCollaboratorModal
+          isOpen={inviteOpen}
+          onClose={() => setInviteOpen(false)}
+          projectId={project.id}
+          projectTitle={project.title}
+          onInvited={() => void fetchProject()}
+        />
+      )}
 
       {addSongOpen && (
         <AddSongModal

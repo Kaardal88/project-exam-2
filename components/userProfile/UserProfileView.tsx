@@ -14,6 +14,7 @@ import { EditUserProfileModal } from "@/components/userProfile/EditUserProfileMo
 import { PersonStanding } from "lucide-react";
 import AmpLoader from "@/components/AmpLoader";
 import { userTagMap } from "@/lib/userTags";
+import { CollabProjects } from "@/components/userProfile/CollabProjects";
 
 type User = {
   id: string;
@@ -473,6 +474,8 @@ export function UserProfileView({
           )}
         </div>
       </section>
+      {isOwnProfile && <CollabProjects />}
+
       <section className="mx-auto mt-6  mb-10 w-full max-w-7xl md:w-3/4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-1 lg:grid-cols-3">
           <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl lg:col-span-4">

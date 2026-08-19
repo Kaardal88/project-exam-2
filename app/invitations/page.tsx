@@ -6,22 +6,50 @@ import Link from "next/link";
 import { Mail } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
 import AmpLoader from "@/components/AmpLoader";
+import { collaboratorRoleLabel } from "@/lib/collaboratorRoles";
 
-type Invitation = {
+type Band = {
+  id: string;
+  slug: string | null;
+  band_name: string;
+  image_url: string | null;
+  visibility: string;
+};
+
+type BandInvitation = {
+  kind: "band";
   id: string;
   band_id: string;
   role: string;
   invited_at: string | null;
-  band: {
+  band: Band;
+};
+
+type ProjectInvitation = {
+  kind: "project";
+  id: string;
+  project_id: string;
+  role: string;
+  invited_at: string | null;
+  project: {
     id: string;
-    slug: string | null;
-    band_name: string;
-    image_url: string | null;
-    visibility: string;
+    title: string;
+    type: string;
+    cover_image_url: string | null;
+    band: Band;
   };
 };
 
-function BandAvatar({ band }: { band: Invitation["band"] }) {
+/** One inbox, two sources -- the reader does not care which table it came from. */
+type Invitation = BandInvitation | ProjectInvitation;
+
+function bandOf(invitation: Invitation): Band {
+  return invitation.kind === "band"
+    ? invitation.band
+    : invitation.project.band;
+}
+
+function BandAvatar({ band }: { band: Band }) {
   if (band.image_url) {
     return (
       <img
@@ -47,7 +75,7 @@ function BandAvatar({ band }: { band: Invitation["band"] }) {
  * people are. A private band 404s to a non-member, so following the link would
  * dump the reader on an error page instead of explaining anything.
  */
-function BandIdentity({
+function InvitationIdentity({
   invitation,
   blocked,
   onBlockedClick,
@@ -56,27 +84,49 @@ function BandIdentity({
   blocked: boolean;
   onBlockedClick: () => void;
 }) {
-  const { band } = invitation;
+  const band = bandOf(invitation);
   const isPrivate = band.visibility === "private";
+
+  const title =
+    invitation.kind === "band"
+      ? band.band_name
+      : `${band.band_name} — ${invitation.project.title}`;
+
+  const subtitle =
+    invitation.kind === "band"
+      ? "invited you to join"
+      : `invited you to collaborate on this ${invitation.project.type}`;
 
   const identity = (
     <>
       <BandAvatar band={band} />
 
       <div className="text-left">
-        <p className="font-semibold text-yellow-100">{band.band_name}</p>
-        <p className="text-xs text-neutral-400">invited you to join</p>
+        <p className="font-semibold text-yellow-100">{title}</p>
+        <p className="text-xs text-neutral-400">{subtitle}</p>
+
+        {/* the role only says something useful for a collaborator; a band
+            invitation is always "member" */}
+        {invitation.kind === "project" && (
+          <p className="mt-1 text-xs text-neutral-500">
+            as {collaboratorRoleLabel(invitation.role)}
+          </p>
+        )}
 
         {blocked && (
           <p className="mt-1 text-xs text-yellow-200">
-            This band is private. Accept the invitation to open it.
+            {invitation.kind === "project"
+              ? "Accept the invitation to open this project."
+              : "This band is private. Accept the invitation to open it."}
           </p>
         )}
       </div>
     </>
   );
 
-  if (isPrivate) {
+  // A project invitation never links out: the project page is members-only
+  // regardless of the band's visibility, so there is nothing to preview yet.
+  if (isPrivate || invitation.kind === "project") {
     return (
       <button
         type="button"
@@ -90,7 +140,7 @@ function BandIdentity({
 
   return (
     <Link
-      href={`/band/${band.slug ?? invitation.band_id}`}
+      href={`/band/${band.slug ?? band.id}`}
       className="flex items-center gap-4"
     >
       {identity}
@@ -142,7 +192,11 @@ export default function InvitationsPage() {
     load();
   }, [router]);
 
-  async function respond(id: string, answer: "accept" | "decline") {
+  async function respond(
+    invitation: Invitation,
+    answer: "accept" | "decline",
+  ) {
+    const id = invitation.id;
     const token = localStorage.getItem("token");
 
     if (!token) return;
@@ -157,7 +211,7 @@ export default function InvitationsPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ answer }),
+        body: JSON.stringify({ answer, kind: invitation.kind }),
       });
 
       if (!response.ok) {
@@ -167,13 +221,18 @@ export default function InvitationsPage() {
         return;
       }
 
-      // drop it from the list either way; accepting sends you to the band
-      const accepted = invitations.find((invite) => invite.id === id);
+      // drop it from the list either way; accepting takes you to what you
+      // just gained access to
       setInvitations((current) => current.filter((invite) => invite.id !== id));
       setAnswering(null);
 
-      if (answer === "accept" && accepted) {
-        router.push(`/band/${accepted.band.slug ?? accepted.band_id}`);
+      if (answer === "accept") {
+        if (invitation.kind === "band") {
+          const band = invitation.band;
+          router.push(`/band/${band.slug ?? band.id}`);
+        } else {
+          router.push(`/projects/${invitation.project_id}`);
+        }
       }
     } catch {
       setError("Could not answer invitation");
@@ -219,7 +278,7 @@ export default function InvitationsPage() {
                 key={invitation.id}
                 className="flex flex-col gap-4 rounded-md border border-neutral-700 bg-neutral-900/80 p-4 sm:flex-row sm:items-center sm:justify-between"
               >
-                <BandIdentity
+                <InvitationIdentity
                   invitation={invitation}
                   blocked={blockedPreview === invitation.id}
                   onBlockedClick={() => setBlockedPreview(invitation.id)}
@@ -229,7 +288,7 @@ export default function InvitationsPage() {
                   <button
                     type="button"
                     disabled={answering === invitation.id}
-                    onClick={() => respond(invitation.id, "decline")}
+                    onClick={() => respond(invitation, "decline")}
                     className="rounded-full border border-neutral-600 px-4 py-2 text-sm font-semibold text-neutral-300 transition hover:border-red-900/60 hover:text-red-300 disabled:opacity-40"
                   >
                     Decline
@@ -238,7 +297,7 @@ export default function InvitationsPage() {
                   <button
                     type="button"
                     disabled={answering === invitation.id}
-                    onClick={() => respond(invitation.id, "accept")}
+                    onClick={() => respond(invitation, "accept")}
                     className="rounded-full border border-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:bg-yellow-100 hover:text-black disabled:opacity-40"
                   >
                     Accept

@@ -271,6 +271,69 @@ export const projects = pgTable("projects", {
   created_at: timestamp("created_at").defaultNow(),
 });
 
+/**
+ * People invited to work on a single project without joining the band.
+ *
+ * Deliberately a separate table from band_members rather than a nullable
+ * project column on it. A guest belongs to an album or a single, not to the
+ * whole band, so they must not turn up in the band's line-up -- and keeping
+ * them out of band_members means that takes no filtering at all. It also keeps
+ * (band_id, user_id) unique on band_members meaningful, which a guest working
+ * on two projects for the same band would otherwise break.
+ *
+ * Access is resolved in server/projects/access.ts, which accepts either a band
+ * membership or a row here.
+ */
+export const project_collaborators = pgTable(
+  "project_collaborators",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    project_id: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    /**
+     * What they are here as -- see lib/collaboratorRoles.ts. A label for now,
+     * not a permission: a collaborator has the same rights as a band member
+     * inside songDashboard until there is a reason to narrow them.
+     */
+    role: varchar("role", { length: 40 }).notNull(),
+
+    /** Same vocabulary as band_members.status -- see lib/inviteStatus.ts. */
+    status: varchar("status", { length: 20 }).notNull().default("pending"),
+
+    invited_by: uuid("invited_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+
+    invited_at: timestamp("invited_at").defaultNow(),
+
+    joined_at: timestamp("joined_at"),
+  },
+  (table) => ({
+    uniqueProjectUser: unique().on(table.project_id, table.user_id),
+  }),
+);
+
+export const project_collaboratorsRelations = relations(
+  project_collaborators,
+  ({ one }) => ({
+    project: one(projects, {
+      fields: [project_collaborators.project_id],
+      references: [projects.id],
+    }),
+    user: one(users, {
+      fields: [project_collaborators.user_id],
+      references: [users.id],
+    }),
+  }),
+);
+
 export const songs = pgTable("songs", {
   id: uuid("id").defaultRandom().primaryKey(),
 
@@ -409,6 +472,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     references: [bands.id],
   }),
   songs: many(songs),
+  collaborators: many(project_collaborators),
 }));
 
 export const songsRelations = relations(songs, ({ one }) => ({
