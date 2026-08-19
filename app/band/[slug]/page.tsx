@@ -14,6 +14,8 @@ import { EventForm } from "@/components/calendar/EventForm";
 
 import { EditBandProfileModal } from "@/components/bandProfile/editBandProfileModal";
 import { NewProjectModal } from "@/components/bandProfile/NewProjectModal";
+import { DeleteBandModal } from "@/components/bandProfile/DeleteBandModal";
+import { bandRoles } from "@/lib/bandRoles";
 import { EventCard } from "@/components/calendar/EventCard";
 import { UserPlus, UserX, LucidePanelBottomOpen } from "lucide-react";
 import { Suspense } from "react";
@@ -75,6 +77,7 @@ type BandMember = {
   band_id: string;
   user_id: string;
   role: string;
+  status: string;
   joined_at: string | null;
   band: {
     id: string;
@@ -153,6 +156,7 @@ function BandProfileContent() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [membersOpen, setMembersOpen] = useState(false);
   const [newProjectModalOpen, setNewProjectModalOpen] = useState(false);
+  const [deleteBandModalOpen, setDeleteBandModalOpen] = useState(false);
   const [spotifyUrl, setSpotifyUrl] = useState("");
   const [bandcampUrl, setBandcampUrl] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
@@ -185,6 +189,12 @@ function BandProfileContent() {
   );
 
   const visibleUsers = filteredUsers.slice(0, visibleCount);
+
+  // the avatar strip is the band line-up, so people who have been asked but
+  // have not answered do not belong in it
+  const acceptedMembers = members.filter(
+    (member) => member.status === "accepted",
+  );
 
   useEffect(() => {
     async function loadBand() {
@@ -389,6 +399,50 @@ function BandProfileContent() {
       }, 900);
     } catch (error) {
       setActionError("Failed to add member");
+    }
+  }
+
+  async function handleChangeRole(memberUserId: string, nextRole: string) {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      setActionError("Unauthorized");
+      return;
+    }
+
+    setActionError(null);
+
+    try {
+      const response = await fetch(
+        `/api/bands/${bandId}/members/${memberUserId}/role`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ role: nextRole }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // the server refuses to leave a band without a leader; surface its
+        // wording rather than a generic failure so the fix is obvious
+        setActionError(data.error || "Could not change role");
+        return;
+      }
+
+      setMembers((current) =>
+        current.map((member) =>
+          member.user_id === memberUserId
+            ? { ...member, role: nextRole }
+            : member,
+        ),
+      );
+    } catch {
+      setActionError("Could not change role");
     }
   }
 
@@ -692,7 +746,7 @@ function BandProfileContent() {
                   </h3>
 
                   <div className="relative z-10 grid grid-cols-4 gap-2">
-                    {members.slice(0, 4).map((member) => (
+                    {acceptedMembers.slice(0, 4).map((member) => (
                       <Link
                         key={member.user_id}
                         href={`/user/${member.user.handle ?? member.user_id}`}
@@ -718,7 +772,7 @@ function BandProfileContent() {
                   </div>
 
                   <div className="relative z-10 mt-3 flex flex-wrap items-center justify-between gap-2">
-                    {members.length > 0 && (
+                    {acceptedMembers.length > 0 && (
                       <button
                         type="button"
                         onClick={() => setMembersOpen(true)}
@@ -810,16 +864,45 @@ function BandProfileContent() {
                             <span className="text-sm font-semibold text-yellow-100">
                               {member.user.username}
                             </span>
+
+                            {member.status !== "accepted" && (
+                              <span className="rounded-full border border-neutral-600 px-2 py-0.5 text-[10px] uppercase tracking-wide text-neutral-400">
+                                {member.status === "pending"
+                                  ? "Invited"
+                                  : "Declined"}
+                              </span>
+                            )}
                           </Link>
 
                           {role === "band_leader" && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveMember(member.user_id)}
-                              className="text-xs text-neutral-400 hover:text-red-300"
-                            >
-                              Remove
-                            </button>
+                            <div className="flex flex-col items-end gap-2">
+                              <select
+                                value={member.role}
+                                onChange={(e) =>
+                                  handleChangeRole(
+                                    member.user_id,
+                                    e.target.value,
+                                  )
+                                }
+                                className="rounded-md border border-neutral-700 bg-neutral-950 px-2 py-1 text-xs text-yellow-100 outline-none focus:border-yellow-200"
+                              >
+                                {bandRoles.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleRemoveMember(member.user_id)
+                                }
+                                className="text-xs text-neutral-400 hover:text-red-300"
+                              >
+                                Remove
+                              </button>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -842,6 +925,10 @@ function BandProfileContent() {
                   setVisibility={setVisibility}
                   slug={bandSlug}
                   setSlug={setBandSlug}
+                  onRequestDelete={() => {
+                    setEditBandModalOpen(false);
+                    setDeleteBandModalOpen(true);
+                  }}
                   bio={bio}
                   setBio={setBio}
                   imageUrl={imageUrl}
@@ -881,7 +968,7 @@ function BandProfileContent() {
                   )}
 
                   {memberAddSuccess && (
-                    <SuccessMessage message="Member added" className="mb-4" />
+                    <SuccessMessage message="Invitation sent" className="mb-4" />
                   )}
 
                   <input
@@ -979,6 +1066,16 @@ function BandProfileContent() {
           isOpen={newProjectModalOpen}
           onClose={() => setNewProjectModalOpen(false)}
           bandId={bandId}
+        />
+      )}
+
+      {deleteBandModalOpen && bandId && band && (
+        <DeleteBandModal
+          isOpen={deleteBandModalOpen}
+          onClose={() => setDeleteBandModalOpen(false)}
+          bandId={bandId}
+          bandName={band.band_name}
+          projectCount={projects.length}
         />
       )}
     </main>

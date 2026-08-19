@@ -23,6 +23,8 @@ type EditBandProfileModalProps = {
   slug: string;
   setSlug: (value: string) => void;
 
+  onRequestDelete: () => void;
+
   bio: string;
   setBio: (value: string) => void;
 
@@ -70,6 +72,7 @@ export function EditBandProfileModal({
   setVisibility,
   slug,
   setSlug,
+  onRequestDelete,
   bio,
   setBio,
   imageUrl,
@@ -342,6 +345,25 @@ export function EditBandProfileModal({
               ) : (
                 "Save changes"
               )}
+            </button>
+          </div>
+
+          <div className="mt-8 rounded-md border border-red-900/60 bg-red-950/20 p-4">
+            <h3 className="mb-1 text-sm font-semibold text-red-300">
+              Danger zone
+            </h3>
+
+            <p className="mb-3 text-xs text-neutral-400">
+              Deleting the band removes every project, song, comment and file
+              with it. This cannot be undone.
+            </p>
+
+            <button
+              type="button"
+              onClick={onRequestDelete}
+              className="rounded-full border border-red-900/60 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-950/40"
+            >
+              Delete this band
             </button>
           </div>
         </form>

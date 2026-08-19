@@ -3,6 +3,7 @@ import { eq, asc } from "drizzle-orm";
 import { requireAuth } from "@/server/auth/auth.middleware";
 import { db } from "@/server/db";
 import { projects, songs } from "@/server/db/schema";
+import { getMembership } from "@/server/bands/membership";
 
 type Variables = {
   userId: string;
@@ -10,12 +11,7 @@ type Variables = {
 
 export const projectsRoutes = new Hono<{ Variables: Variables }>();
 
-async function getMembership(bandId: string, userId: string) {
-  return db.query.band_members.findFirst({
-    where: (band_members, { eq, and }) =>
-      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
-  });
-}
+
 
 projectsRoutes.get("/:id", requireAuth, async (c) => {
   const projectId = c.req.param("id");

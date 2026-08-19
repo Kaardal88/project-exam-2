@@ -2,6 +2,7 @@ import { db } from "@/server/db";
 import { users, bands, band_members } from "@/server/db/schema";
 import { and, eq, inArray, or, like } from "drizzle-orm";
 import { slugify, isReservedSlug, isUuid } from "@/lib/slug";
+import { ACCEPTED } from "@/lib/inviteStatus";
 import type { BatchItem } from "drizzle-orm/batch";
 
 export async function getUsers() {
@@ -69,7 +70,12 @@ export async function getAccountDeletionPlan(
   userId: string,
 ): Promise<BandDeletionOutcome[]> {
   const memberships = await db.query.band_members.findMany({
-    where: eq(band_members.user_id, userId),
+    // a pending invitation is not a membership, so it must not make the user
+    // look like a band's only member and get that band deleted with them
+    where: and(
+      eq(band_members.user_id, userId),
+      eq(band_members.status, ACCEPTED),
+    ),
     columns: { band_id: true },
   });
 
@@ -80,7 +86,10 @@ export async function getAccountDeletionPlan(
   }
 
   const allMembers = await db.query.band_members.findMany({
-    where: inArray(band_members.band_id, bandIds),
+    where: and(
+      inArray(band_members.band_id, bandIds),
+      eq(band_members.status, ACCEPTED),
+    ),
     columns: { band_id: true, user_id: true, role: true, joined_at: true },
     with: {
       band: { columns: { band_name: true } },

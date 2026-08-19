@@ -24,6 +24,7 @@ import {
   ARTWORK_DOWNLOAD_TTL_SECONDS,
   FILE_DOWNLOAD_TTL_SECONDS,
 } from "@/server/r2";
+import { getMembership } from "@/server/bands/membership";
 
 const TICKET_STATUSES = ["open", "wip", "done"] as const;
 const NOTE_KINDS = ["note", "lyrics"] as const;
@@ -46,12 +47,7 @@ type Variables = {
 
 export const songsRoutes = new Hono<{ Variables: Variables }>();
 
-async function getMembership(bandId: string, userId: string) {
-  return db.query.band_members.findFirst({
-    where: (band_members, { eq, and }) =>
-      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
-  });
-}
+
 
 async function getSongContext(songId: string) {
   const song = await db.query.songs.findFirst({
