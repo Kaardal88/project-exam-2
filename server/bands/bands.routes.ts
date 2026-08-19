@@ -10,6 +10,7 @@ import {
   renameBandSlug,
 } from "@/server/bands/bands.service";
 import { isBandVisibility, bandVisibilityValues } from "@/lib/bandVisibility";
+import { getMembership } from "@/server/bands/membership";
 
 type BandsVariables = {
   userId: string;
@@ -110,13 +111,7 @@ bandsRoutes.get("/:id", optionalAuth, async (c) => {
   const bandId = band.id;
 
   const membership = userId
-    ? await db.query.band_members.findFirst({
-        where: (band_members, { eq, and }) =>
-          and(
-            eq(band_members.band_id, bandId),
-            eq(band_members.user_id, userId),
-          ),
-      })
+    ? await getMembership(bandId, userId)
     : null;
 
   // A private band must be indistinguishable from one that does not exist.
@@ -189,10 +184,7 @@ bandsRoutes.post("/:id/members", requireAuth, async (c) => {
   const userId = c.get("userId");
   const body = await c.req.json();
 
-  const membership = await db.query.band_members.findFirst({
-    where: (band_members, { eq, and }) =>
-      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
-  });
+  const membership = await getMembership(bandId, userId);
 
   if (!membership) {
     return c.json({ error: "Unauthorized" }, 401);
@@ -219,10 +211,7 @@ bandsRoutes.delete("/:id/members/:userId", requireAuth, async (c) => {
   const userId = c.get("userId");
   const memberId = c.req.param("userId");
 
-  const membership = await db.query.band_members.findFirst({
-    where: (band_members, { eq, and }) =>
-      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
-  });
+  const membership = await getMembership(bandId, userId);
 
   if (!membership) {
     return c.json({ error: "Unauthorized" }, 401);
@@ -257,10 +246,7 @@ bandsRoutes.put("/:id", requireAuth, async (c) => {
 
   const userId = c.get("userId");
 
-  const membership = await db.query.band_members.findFirst({
-    where: (band_members, { eq, and }) =>
-      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
-  });
+  const membership = await getMembership(bandId, userId);
 
   if (!membership) {
     return c.json({ error: "Unauthorized" }, 401);
@@ -315,10 +301,7 @@ bandsRoutes.get("/:id/events", requireAuth, async (c) => {
   const bandId = c.req.param("id");
   const userId = c.get("userId");
 
-  const membership = await db.query.band_members.findFirst({
-    where: (band_members, { eq, and }) =>
-      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
-  });
+  const membership = await getMembership(bandId, userId);
 
   if (!membership) {
     return c.json({ error: "Unauthorized" }, 401);
@@ -335,10 +318,7 @@ bandsRoutes.post("/:id/events", requireAuth, async (c) => {
   const bandId = c.req.param("id");
   const userId = c.get("userId");
 
-  const membership = await db.query.band_members.findFirst({
-    where: (band_members, { eq, and }) =>
-      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
-  });
+  const membership = await getMembership(bandId, userId);
 
   if (!membership) {
     return c.json({ error: "Unauthorized" }, 401);
@@ -375,10 +355,7 @@ bandsRoutes.put("/:id/events/:eventId", requireAuth, async (c) => {
   const eventId = c.req.param("eventId");
   const userId = c.get("userId");
 
-  const membership = await db.query.band_members.findFirst({
-    where: (band_members, { eq, and }) =>
-      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
-  });
+  const membership = await getMembership(bandId, userId);
 
   if (!membership) {
     return c.json({ error: "Unauthorized" }, 401);
@@ -417,10 +394,7 @@ bandsRoutes.delete("/:id/events/:eventId", requireAuth, async (c) => {
   const eventId = c.req.param("eventId");
   const userId = c.get("userId");
 
-  const membership = await db.query.band_members.findFirst({
-    where: (band_members, { eq, and }) =>
-      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
-  });
+  const membership = await getMembership(bandId, userId);
 
   if (!membership) {
     return c.json({ error: "Unauthorized" }, 401);
@@ -446,10 +420,7 @@ bandsRoutes.get("/:id/projects", requireAuth, async (c) => {
   const bandId = c.req.param("id");
   const userId = c.get("userId");
 
-  const membership = await db.query.band_members.findFirst({
-    where: (band_members, { eq, and }) =>
-      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
-  });
+  const membership = await getMembership(bandId, userId);
 
   if (!membership) {
     return c.json({ error: "Unauthorized" }, 401);
@@ -468,10 +439,7 @@ bandsRoutes.post("/:id/projects", requireAuth, async (c) => {
   const userId = c.get("userId");
   const body = await c.req.json();
 
-  const membership = await db.query.band_members.findFirst({
-    where: (band_members, { eq, and }) =>
-      and(eq(band_members.band_id, bandId), eq(band_members.user_id, userId)),
-  });
+  const membership = await getMembership(bandId, userId);
 
   if (!membership) {
     return c.json({ error: "Unauthorized" }, 401);
