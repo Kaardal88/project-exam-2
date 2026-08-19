@@ -6,10 +6,11 @@ import { loginSchema, registerSchema } from "./auth.schemas";
 import { hashPassword } from "./password";
 import { requireAuth } from "./auth.middleware";
 import { createUser } from "@/server/users/users.service";
+import { ACCEPTED } from "@/lib/inviteStatus";
 
 import { db } from "@/server/db";
 import { users, band_members } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 type AuthVariables = {
   userId: string;
@@ -106,7 +107,7 @@ authRoutes.get("/me", requireAuth, async (c) => {
   }
 
   const bandMembers = await db.query.band_members.findMany({
-    where: eq(band_members.user_id, userId),
+    where: and(eq(band_members.user_id, userId), eq(band_members.status, ACCEPTED)),
     columns: { band_id: true, role: true, joined_at: true },
     with: {
       band: {
@@ -144,7 +145,7 @@ authRoutes.get("/users/:userId", async (c) => {
   }
 
   const bandMembers = await db.query.band_members.findMany({
-    where: eq(band_members.user_id, userId),
+    where: and(eq(band_members.user_id, userId), eq(band_members.status, ACCEPTED)),
     columns: { band_id: true, role: true, joined_at: true },
     with: {
       band: {

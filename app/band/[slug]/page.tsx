@@ -77,6 +77,7 @@ type BandMember = {
   band_id: string;
   user_id: string;
   role: string;
+  status: string;
   joined_at: string | null;
   band: {
     id: string;
@@ -188,6 +189,12 @@ function BandProfileContent() {
   );
 
   const visibleUsers = filteredUsers.slice(0, visibleCount);
+
+  // the avatar strip is the band line-up, so people who have been asked but
+  // have not answered do not belong in it
+  const acceptedMembers = members.filter(
+    (member) => member.status === "accepted",
+  );
 
   useEffect(() => {
     async function loadBand() {
@@ -739,7 +746,7 @@ function BandProfileContent() {
                   </h3>
 
                   <div className="relative z-10 grid grid-cols-4 gap-2">
-                    {members.slice(0, 4).map((member) => (
+                    {acceptedMembers.slice(0, 4).map((member) => (
                       <Link
                         key={member.user_id}
                         href={`/user/${member.user.handle ?? member.user_id}`}
@@ -765,7 +772,7 @@ function BandProfileContent() {
                   </div>
 
                   <div className="relative z-10 mt-3 flex flex-wrap items-center justify-between gap-2">
-                    {members.length > 0 && (
+                    {acceptedMembers.length > 0 && (
                       <button
                         type="button"
                         onClick={() => setMembersOpen(true)}
@@ -857,6 +864,14 @@ function BandProfileContent() {
                             <span className="text-sm font-semibold text-yellow-100">
                               {member.user.username}
                             </span>
+
+                            {member.status !== "accepted" && (
+                              <span className="rounded-full border border-neutral-600 px-2 py-0.5 text-[10px] uppercase tracking-wide text-neutral-400">
+                                {member.status === "pending"
+                                  ? "Invited"
+                                  : "Declined"}
+                              </span>
+                            )}
                           </Link>
 
                           {role === "band_leader" && (
@@ -953,7 +968,7 @@ function BandProfileContent() {
                   )}
 
                   {memberAddSuccess && (
-                    <SuccessMessage message="Member added" className="mb-4" />
+                    <SuccessMessage message="Invitation sent" className="mb-4" />
                   )}
 
                   <input

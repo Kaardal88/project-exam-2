@@ -140,6 +140,24 @@ export const band_members = pgTable(
       length: 255,
     }).notNull(),
 
+    /**
+     * "pending" | "accepted" | "declined" -- see lib/inviteStatus.ts.
+     *
+     * Defaults to "accepted", not "pending", so that adding this column left
+     * every existing membership working exactly as before with no backfill
+     * step. The invite route sets "pending" explicitly, and band creation sets
+     * "accepted" explicitly, so nothing relies on the default being right.
+     *
+     * getMembership() filters on this. A declined row is kept rather than
+     * deleted, so a leader can see the answer and re-invite by flipping it
+     * back to pending.
+     */
+    status: varchar("status", {
+      length: 20,
+    })
+      .notNull()
+      .default("accepted"),
+
     invited_by: uuid("invited_by").references(() => users.id, {
       onDelete: "set null",
     }),

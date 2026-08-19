@@ -14,12 +14,27 @@ type User = {
 function AccountMenuItems({
   onClose,
   onLogout,
+  inviteCount = 0,
 }: {
   onClose: () => void;
   onLogout: () => void;
+  inviteCount?: number;
 }) {
   return (
     <>
+      <Link
+        href="/invitations"
+        role="menuitem"
+        onClick={onClose}
+        className="flex items-center justify-between px-4 py-2 text-sm text-yellow-100 hover:bg-neutral-800"
+      >
+        Invitations
+        {inviteCount > 0 && (
+          <span className="ml-2 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-bold text-neutral-950">
+            {inviteCount}
+          </span>
+        )}
+      </Link>
       <Link
         href="/user"
         role="menuitem"
@@ -52,7 +67,15 @@ function AccountMenuItems({
   );
 }
 
-function ProfileMenu({ user, onLogout }: { user: User; onLogout: () => void }) {
+function ProfileMenu({
+  user,
+  onLogout,
+  inviteCount,
+}: {
+  user: User;
+  onLogout: () => void;
+  inviteCount: number;
+}) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -72,7 +95,7 @@ function ProfileMenu({ user, onLogout }: { user: User; onLogout: () => void }) {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="group flex items-center hover:cursor-pointer"
+        className="group relative flex items-center hover:cursor-pointer"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Open profile menu"
@@ -88,6 +111,17 @@ function ProfileMenu({ user, onLogout }: { user: User; onLogout: () => void }) {
             {user.username.charAt(0).toUpperCase()}
           </div>
         )}
+
+        {/* the menu is closed by default, so the count needs to be visible
+            from the outside or an invitation goes unnoticed */}
+        {inviteCount > 0 && (
+          <span
+            aria-label={`${inviteCount} pending invitation${inviteCount === 1 ? "" : "s"}`}
+            className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-neutral-900 bg-yellow-100 text-[10px] font-bold text-neutral-950"
+          >
+            {inviteCount}
+          </span>
+        )}
       </button>
 
       {open && (
@@ -95,7 +129,11 @@ function ProfileMenu({ user, onLogout }: { user: User; onLogout: () => void }) {
           role="menu"
           className="absolute right-0 top-full z-20 mt-2 w-44 rounded-md border border-neutral-700 bg-neutral-950/95 shadow-xl backdrop-blur-sm"
         >
-          <AccountMenuItems onClose={() => setOpen(false)} onLogout={onLogout} />
+          <AccountMenuItems
+            onClose={() => setOpen(false)}
+            onLogout={onLogout}
+            inviteCount={inviteCount}
+          />
         </div>
       )}
     </div>
@@ -105,9 +143,11 @@ function ProfileMenu({ user, onLogout }: { user: User; onLogout: () => void }) {
 function MobileMenu({
   user,
   onLogout,
+  inviteCount,
 }: {
   user: User | null;
   onLogout: () => void;
+  inviteCount: number;
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -182,6 +222,7 @@ function MobileMenu({
               <AccountMenuItems
                 onClose={() => setOpen(false)}
                 onLogout={onLogout}
+                inviteCount={inviteCount}
               />
             </>
           )}
@@ -193,6 +234,7 @@ function MobileMenu({
 
 export function NavBar() {
   const [user, setUser] = useState<User | null>(null);
+  const [inviteCount, setInviteCount] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -200,16 +242,23 @@ export function NavBar() {
       const token = localStorage.getItem("token");
       if (!token) return;
 
-      const response = await fetch("/api/auth/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const headers = { Authorization: `Bearer ${token}` };
 
-      const data = await response.json();
+      const [meResponse, invitesResponse] = await Promise.all([
+        fetch("/api/auth/me", { headers }),
+        fetch("/api/users/me/invitations", { headers }),
+      ]);
 
-      if (response.ok) {
+      const data = await meResponse.json();
+
+      if (meResponse.ok) {
         setUser(data.user);
+      }
+
+      // a failure here should never keep the nav from rendering
+      if (invitesResponse.ok) {
+        const invites = await invitesResponse.json();
+        setInviteCount(invites.invitations?.length ?? 0);
       }
     }
 
@@ -262,11 +311,21 @@ export function NavBar() {
             </Link>
           )}
 
-          {user && <ProfileMenu user={user} onLogout={handleLogout} />}
+          {user && (
+            <ProfileMenu
+              user={user}
+              onLogout={handleLogout}
+              inviteCount={inviteCount}
+            />
+          )}
         </div>
 
         {/* Mobile */}
-        <MobileMenu user={user} onLogout={handleLogout} />
+        <MobileMenu
+          user={user}
+          onLogout={handleLogout}
+          inviteCount={inviteCount}
+        />
       </div>
     </nav>
   );

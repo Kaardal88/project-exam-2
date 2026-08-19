@@ -11,7 +11,8 @@ import {
   deleteBand,
 } from "@/server/bands/bands.service";
 import { isBandVisibility, bandVisibilityValues } from "@/lib/bandVisibility";
-import { getMembership, isLastLeader } from "@/server/bands/membership";
+import { getMembership, getMembershipRow, isLastLeader } from "@/server/bands/membership";
+import { ACCEPTED, PENDING } from "@/lib/inviteStatus";
 import { isBandRole, bandRoleValues } from "@/lib/bandRoles";
 import { verifyPassword } from "@/server/auth/password";
 
@@ -129,7 +130,12 @@ bandsRoutes.get("/:id", optionalAuth, async (c) => {
   // public-safe fields only, no error.
   if (!membership) {
     const members = await db.query.band_members.findMany({
-      where: (band_members, { eq }) => eq(band_members.band_id, bandId),
+      // guests see the line-up, not who has been asked to join
+      where: (band_members, { eq, and }) =>
+        and(
+          eq(band_members.band_id, bandId),
+          eq(band_members.status, ACCEPTED),
+        ),
       with: {
         user: {
           columns: {
@@ -197,16 +203,42 @@ bandsRoutes.post("/:id/members", requireAuth, async (c) => {
     return c.json({ error: "Only band leaders can add members" }, 403);
   }
 
-  const [newMember] = await db
+  const existing = await getMembershipRow(bandId, body.user_id);
+
+  if (existing?.status === ACCEPTED) {
+    return c.json({ error: "Already a member of this band" }, 409);
+  }
+
+  if (existing?.status === PENDING) {
+    return c.json({ error: "Already invited, waiting for an answer" }, 409);
+  }
+
+  // A declined row is kept so the leader can see the answer, so re-inviting
+  // flips it back to pending rather than inserting a second row -- which the
+  // (band_id, user_id) unique constraint would reject anyway.
+  if (existing) {
+    const [reinvited] = await db
+      .update(band_members)
+      .set({ status: PENDING, invited_by: userId, invited_at: new Date() })
+      .where(eq(band_members.id, existing.id))
+      .returning();
+
+    return c.json(reinvited, 200);
+  }
+
+  const [invited] = await db
     .insert(band_members)
     .values({
       band_id: bandId,
       user_id: body.user_id,
       role: "member",
+      status: PENDING,
+      invited_by: userId,
+      invited_at: new Date(),
     })
     .returning();
 
-  return c.json(newMember, 201);
+  return c.json(invited, 201);
 });
 
 bandsRoutes.put("/:id/members/:userId/role", requireAuth, async (c) => {

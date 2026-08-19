@@ -11,9 +11,10 @@ import {
   deleteAccountSchema,
 } from "@/server/users/users.schemas";
 import { requireAuth } from "../auth/auth.middleware";
+import { ACCEPTED, PENDING, DECLINED } from "@/lib/inviteStatus";
 import { verifyPassword } from "../auth/password";
 import { db } from "../db";
-import { and, eq, inArray, asc } from "drizzle-orm";
+import { and, eq, inArray, asc, desc } from "drizzle-orm";
 import {
   users,
   band_members,
@@ -66,7 +67,8 @@ usersRoutes.get("/:id", requireAuth, async (c) => {
     },
   });
   const bandMembers = await db.query.band_members.findMany({
-    where: (band_members, { eq }) => eq(band_members.user_id, id),
+    where: (band_members, { eq, and }) =>
+      and(eq(band_members.user_id, id), eq(band_members.status, ACCEPTED)),
     columns: { band_id: true, role: true, joined_at: true },
     with: {
       band: {
@@ -153,7 +155,7 @@ usersRoutes.get("/me/events", requireAuth, async (c) => {
   const userId = c.get("userId");
 
   const memberships = await db.query.band_members.findMany({
-    where: eq(band_members.user_id, userId),
+    where: and(eq(band_members.user_id, userId), eq(band_members.status, ACCEPTED)),
   });
 
   const bandIds = memberships.map((member) => member.band_id);
@@ -247,3 +249,69 @@ usersRoutes.delete("/me/private-events/:eventId", requireAuth, async (c) => {
 });
 
 export default usersRoutes;
+
+/**
+ * Invitations waiting for an answer.
+ *
+ * Kept on the user rather than the band: this is the reader's inbox, and it
+ * spans every band that has asked for them.
+ */
+usersRoutes.get("/me/invitations", requireAuth, async (c) => {
+  const userId = c.get("userId");
+
+  const invitations = await db.query.band_members.findMany({
+    where: and(
+      eq(band_members.user_id, userId),
+      eq(band_members.status, PENDING),
+    ),
+    columns: { id: true, band_id: true, role: true, invited_at: true },
+    with: {
+      band: {
+        columns: { id: true, slug: true, band_name: true, image_url: true },
+      },
+    },
+    orderBy: desc(band_members.invited_at),
+  });
+
+  return c.json({ invitations }, 200);
+});
+
+usersRoutes.post("/me/invitations/:id/respond", requireAuth, async (c) => {
+  const userId = c.get("userId");
+  const inviteId = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+
+  if (body.answer !== "accept" && body.answer !== "decline") {
+    return c.json({ error: "answer must be 'accept' or 'decline'" }, 400);
+  }
+
+  // Scoped to the signed-in user, so nobody can answer someone else's
+  // invitation by guessing its id.
+  const invitation = await db.query.band_members.findFirst({
+    where: and(
+      eq(band_members.id, inviteId),
+      eq(band_members.user_id, userId),
+      eq(band_members.status, PENDING),
+    ),
+  });
+
+  if (!invitation) {
+    return c.json({ error: "Invitation not found" }, 404);
+  }
+
+  const accepted = body.answer === "accept";
+
+  const [updated] = await db
+    .update(band_members)
+    .set({
+      status: accepted ? ACCEPTED : DECLINED,
+      // joined_at is what "longest-serving member" sorts on when leadership is
+      // handed over, so it has to mean the moment they actually joined, not
+      // the moment they were asked
+      ...(accepted ? { joined_at: new Date() } : {}),
+    })
+    .where(eq(band_members.id, inviteId))
+    .returning();
+
+  return c.json(updated, 200);
+});

@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { band_members } from "@/server/db/schema";
 import { BAND_LEADER } from "@/lib/bandRoles";
+import { ACCEPTED } from "@/lib/inviteStatus";
 
 /**
  * The single place that answers "does this user have access to this band, and
@@ -17,6 +18,19 @@ import { BAND_LEADER } from "@/lib/bandRoles";
  * treat as unauthorised.
  */
 export async function getMembership(bandId: string, userId: string) {
+  return db.query.band_members.findFirst({
+    where: and(
+      eq(band_members.band_id, bandId),
+      eq(band_members.user_id, userId),
+      // A pending invitation is an offer, not access. This is the line the
+      // consolidation above existed to make possible.
+      eq(band_members.status, ACCEPTED),
+    ),
+  });
+}
+
+/** The membership row regardless of status, for invite handling itself. */
+export async function getMembershipRow(bandId: string, userId: string) {
   return db.query.band_members.findFirst({
     where: and(
       eq(band_members.band_id, bandId),
@@ -37,6 +51,7 @@ export async function getLeaders(bandId: string) {
     where: and(
       eq(band_members.band_id, bandId),
       eq(band_members.role, BAND_LEADER),
+      eq(band_members.status, ACCEPTED),
     ),
     columns: { user_id: true },
   });
