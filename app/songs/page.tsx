@@ -127,6 +127,8 @@ function SongDashboardPageContent() {
   const [role, setRole] = useState<string | null>(null);
   const [members, setMembers] = useState<BandMember[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  // "band" or "collaborator" -- a guest has no band profile to open
+  const [accessSource, setAccessSource] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -223,6 +225,7 @@ function SongDashboardPageContent() {
         setRole(projectData.role);
         setMembers(projectData.members ?? []);
         setCollaborators(projectData.collaborators ?? []);
+        setAccessSource(projectData.access_source ?? null);
       }
 
       if (commentsRes.ok) setComments(await commentsRes.json());
@@ -429,6 +432,7 @@ function SongDashboardPageContent() {
           <SongSidebar
             band={band}
             onOpenSettings={() => setSettingsOpen(true)}
+            canOpenBand={accessSource !== "collaborator"}
           />
         )}
 
