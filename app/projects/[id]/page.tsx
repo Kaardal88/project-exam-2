@@ -7,6 +7,8 @@ import { Plus } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
 import AmpLoader from "@/components/AmpLoader";
 import { AddSongModal } from "@/components/projectDetails/AddSongModal";
+import { InviteCollaboratorModal } from "@/components/projectDetails/InviteCollaboratorModal";
+import { UserPlus } from "lucide-react";
 
 type Song = {
   id: string;
@@ -36,6 +38,7 @@ export default function ProjectDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addSongOpen, setAddSongOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const fetchProject = useCallback(async () => {
     const token = localStorage.getItem("token");
@@ -135,15 +138,27 @@ export default function ProjectDetailsPage() {
               </div>
             </div>
 
-            {project.type === "album" && (
-              <button
-                onClick={() => setAddSongOpen(true)}
-                className="flex items-center justify-center gap-2 rounded-full border border-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-50 hover:text-black!"
-              >
-                <Plus className="h-4 w-4" />
-                Add song
-              </button>
-            )}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              {project.role === "band_leader" && (
+                <button
+                  onClick={() => setInviteOpen(true)}
+                  className="flex items-center justify-center gap-2 rounded-full border border-neutral-600 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Invite collaborator
+                </button>
+              )}
+
+              {project.type === "album" && (
+                <button
+                  onClick={() => setAddSongOpen(true)}
+                  className="flex items-center justify-center gap-2 rounded-full border border-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-50 hover:text-black!"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add song
+                </button>
+              )}
+            </div>
           </div>
         </section>
 
@@ -179,6 +194,16 @@ export default function ProjectDetailsPage() {
           )}
         </section>
       </div>
+
+      {inviteOpen && (
+        <InviteCollaboratorModal
+          isOpen={inviteOpen}
+          onClose={() => setInviteOpen(false)}
+          projectId={project.id}
+          projectTitle={project.title}
+          onInvited={() => void fetchProject()}
+        />
+      )}
 
       {addSongOpen && (
         <AddSongModal
