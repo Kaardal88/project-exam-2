@@ -17,8 +17,86 @@ type Invitation = {
     slug: string | null;
     band_name: string;
     image_url: string | null;
+    visibility: string;
   };
 };
+
+function BandAvatar({ band }: { band: Invitation["band"] }) {
+  if (band.image_url) {
+    return (
+      <img
+        src={band.image_url}
+        alt={band.band_name}
+        className="h-14 w-14 rounded-full border border-neutral-600 object-cover"
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-neutral-600 bg-neutral-950 text-xl font-bold text-yellow-100">
+      {band.band_name.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+/**
+ * The band you have been invited to, linked when the link would actually work.
+ *
+ * A public or unlisted band renders its guest card to anyone, so previewing it
+ * before answering is useful -- that is exactly when you want to see who these
+ * people are. A private band 404s to a non-member, so following the link would
+ * dump the reader on an error page instead of explaining anything.
+ */
+function BandIdentity({
+  invitation,
+  blocked,
+  onBlockedClick,
+}: {
+  invitation: Invitation;
+  blocked: boolean;
+  onBlockedClick: () => void;
+}) {
+  const { band } = invitation;
+  const isPrivate = band.visibility === "private";
+
+  const identity = (
+    <>
+      <BandAvatar band={band} />
+
+      <div className="text-left">
+        <p className="font-semibold text-yellow-100">{band.band_name}</p>
+        <p className="text-xs text-neutral-400">invited you to join</p>
+
+        {blocked && (
+          <p className="mt-1 text-xs text-yellow-200">
+            This band is private. Accept the invitation to open it.
+          </p>
+        )}
+      </div>
+    </>
+  );
+
+  if (isPrivate) {
+    return (
+      <button
+        type="button"
+        onClick={onBlockedClick}
+        className="flex items-center gap-4 text-left"
+      >
+        {identity}
+      </button>
+    );
+  }
+
+  return (
+    <Link
+      href={`/band/${band.slug ?? invitation.band_id}`}
+      className="flex items-center gap-4"
+    >
+      {identity}
+    </Link>
+  );
+}
 
 export default function InvitationsPage() {
   const router = useRouter();
@@ -27,6 +105,9 @@ export default function InvitationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [answering, setAnswering] = useState<string | null>(null);
+
+  // which private band the reader just tried to open before accepting
+  const [blockedPreview, setBlockedPreview] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -138,31 +219,11 @@ export default function InvitationsPage() {
                 key={invitation.id}
                 className="flex flex-col gap-4 rounded-md border border-neutral-700 bg-neutral-900/80 p-4 sm:flex-row sm:items-center sm:justify-between"
               >
-                <Link
-                  href={`/band/${invitation.band.slug ?? invitation.band_id}`}
-                  className="flex items-center gap-4"
-                >
-                  {invitation.band.image_url ? (
-                    <img
-                      src={invitation.band.image_url}
-                      alt={invitation.band.band_name}
-                      className="h-14 w-14 rounded-full border border-neutral-600 object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-neutral-600 bg-neutral-950 text-xl font-bold text-yellow-100">
-                      {invitation.band.band_name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-
-                  <div>
-                    <p className="font-semibold text-yellow-100">
-                      {invitation.band.band_name}
-                    </p>
-                    <p className="text-xs text-neutral-400">
-                      invited you to join
-                    </p>
-                  </div>
-                </Link>
+                <BandIdentity
+                  invitation={invitation}
+                  blocked={blockedPreview === invitation.id}
+                  onBlockedClick={() => setBlockedPreview(invitation.id)}
+                />
 
                 <div className="flex gap-2">
                   <button

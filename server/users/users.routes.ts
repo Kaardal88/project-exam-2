@@ -267,7 +267,15 @@ usersRoutes.get("/me/invitations", requireAuth, async (c) => {
     columns: { id: true, band_id: true, role: true, invited_at: true },
     with: {
       band: {
-        columns: { id: true, slug: true, band_name: true, image_url: true },
+        // visibility so the page knows whether previewing the band before
+        // accepting will actually work: a private band 404s to a non-member
+        columns: {
+          id: true,
+          slug: true,
+          band_name: true,
+          image_url: true,
+          visibility: true,
+        },
       },
     },
     orderBy: desc(band_members.invited_at),
