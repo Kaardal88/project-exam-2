@@ -30,13 +30,16 @@ type Variables = {
 
 export const usersRoutes = new Hono<{ Variables: Variables }>();
 
+// The people directory. Email is deliberately absent: this route hands every
+// signed-in user the whole table, and nothing in the UI shows anyone's address
+// but your own -- which comes from /auth/me. Listing it here would have made
+// one test account enough to harvest every tester's email.
 usersRoutes.get("/", requireAuth, async (c) => {
   const users = await db.query.users.findMany({
     columns: {
       id: true,
       handle: true,
       username: true,
-      email: true,
       image_url: true,
       header_image_url: true,
       tags: true,
@@ -56,13 +59,13 @@ usersRoutes.get("/:id", requireAuth, async (c) => {
 
   const id = resolved.id;
 
+  // No email here either -- a public profile page is not the place for it.
   const user = await db.query.users.findFirst({
     where: (users, { eq }) => eq(users.id, id),
     columns: {
       id: true,
       handle: true,
       username: true,
-      email: true,
       image_url: true,
       header_image_url: true,
       tags: true,

@@ -15,6 +15,7 @@ import {
   getDownloadUrl,
   deleteObject,
   isLegacyPastedUrl,
+  isKeyForSong,
   MP3_MAX_BYTES,
   IMAGE_MAX_BYTES,
   FILE_MAX_BYTES,
@@ -107,6 +108,19 @@ songsRoutes.put("/:id", requireAuth, async (c) => {
 
   if (!access) {
     return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  // Both of these end up in getDownloadUrl and, on replace, deleteObject.
+  // Access to *this* song is not access to an arbitrary key in the bucket.
+  if (body.audio_url != null && !isKeyForSong(body.audio_url, songId)) {
+    return c.json({ error: "audio_url must be a key uploaded for this song" }, 400);
+  }
+
+  if (body.artwork_url != null && !isKeyForSong(body.artwork_url, songId)) {
+    return c.json(
+      { error: "artwork_url must be a key uploaded for this song" },
+      400,
+    );
   }
 
   const [updatedSong] = await db
@@ -632,6 +646,13 @@ songsRoutes.post("/:id/files", requireAuth, async (c) => {
       { error: "category must be one of: " + FILE_CATEGORIES.join(", ") },
       400,
     );
+  }
+
+  // Same rule as audio and artwork: the download route signs this key, so it
+  // has to be one this song's presign route issued. Legacy pasted URLs are
+  // still read back on existing rows, but no new one may be created.
+  if (body.file_url != null && !isKeyForSong(body.file_url, songId)) {
+    return c.json({ error: "file_url must be a key uploaded for this song" }, 400);
   }
 
   const [file] = await db

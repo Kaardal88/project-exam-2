@@ -124,43 +124,10 @@ authRoutes.get("/me", requireAuth, async (c) => {
   return c.json({ user, bandMembers }, 200);
 });
 
-authRoutes.get("/users/:userId", async (c) => {
-  const { userId } = c.req.param();
-
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, userId),
-    columns: {
-      id: true,
-      handle: true,
-      username: true,
-      email: true,
-      image_url: true,
-      header_image_url: true,
-      tags: true,
-    },
-  });
-
-  if (!user) {
-    return c.json({ error: "User not found" }, 404);
-  }
-
-  const bandMembers = await db.query.band_members.findMany({
-    where: and(eq(band_members.user_id, userId), eq(band_members.status, ACCEPTED)),
-    columns: { band_id: true, role: true, joined_at: true },
-    with: {
-      band: {
-        columns: {
-          id: true,
-          slug: true,
-          band_name: true,
-          image_url: true,
-        },
-      },
-    },
-  });
-
-  return c.json({ user, bandMembers }, 200);
-});
+// GET /auth/users/:userId used to live here: an unauthenticated copy of
+// /users/:id that served any user's email to anyone who asked. Nothing in the
+// app called it -- /users/:id, which requires auth, is what the profile page
+// uses -- so it was reach for strangers and nothing else.
 
 authRoutes.get("/logout", requireAuth, async (c) => {
   return c.json({ message: "Logout successful" });
