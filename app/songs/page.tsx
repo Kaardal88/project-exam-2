@@ -406,7 +406,9 @@ function SongDashboardPageContent() {
           />
         )}
 
-        <div className="w-full min-h-screen min-w-0 space-y-6">
+        {/* relative: the expanded media player anchors its blurred overlay to
+            this column, so it covers the dashboard and stops at the sidebar. */}
+        <div className="relative w-full min-h-screen min-w-0 space-y-6">
           <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl">
             <Link
               href={backHref}
