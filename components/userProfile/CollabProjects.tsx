@@ -37,13 +37,8 @@ export function CollabProjects() {
 
   useEffect(() => {
     async function load() {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
       try {
-        const response = await fetch("/api/users/me/collab-projects", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await fetch("/api/users/me/collab-projects");
 
         if (response.ok) {
           const data = await response.json();

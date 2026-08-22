@@ -42,13 +42,10 @@ export function AddCommentModal({
     setSubmitting(true);
     setError(null);
 
-    const token = localStorage.getItem("token");
-
     const response = await fetch(`/api/songs/${songId}/comments`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         timestamp_seconds: timestampSeconds,

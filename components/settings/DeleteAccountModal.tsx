@@ -73,11 +73,7 @@ export function DeleteAccountModal({
       setLoadingPreview(true);
       setError(null);
 
-      const token = localStorage.getItem("token");
-
-      const response = await fetch("/api/users/me/deletion-preview", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch("/api/users/me/deletion-preview");
 
       const data = await response.json();
 
@@ -112,13 +108,10 @@ export function DeleteAccountModal({
     setDeleting(true);
     setError(null);
 
-    const token = localStorage.getItem("token");
-
     const response = await fetch(`/api/users/${userId}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ username: confirmName, password }),
     });
@@ -130,7 +123,8 @@ export function DeleteAccountModal({
       return;
     }
 
-    localStorage.removeItem("token");
+    // The delete route clears the session cookies as it goes -- the account
+    // they pointed at is gone, and this page cannot clear them itself.
     router.push("/");
   }
 

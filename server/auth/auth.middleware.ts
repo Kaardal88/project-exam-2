@@ -1,17 +1,16 @@
 // server/auth/auth.middleware.ts
 import { createMiddleware } from "hono/factory";
 import { jwtVerify } from "jose";
+import { readSessionToken } from "./session";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
 
 export const requireAuth = createMiddleware(async (c, next) => {
-  const authHeader = c.req.header("Authorization");
+  const token = readSessionToken(c);
 
-  if (!authHeader?.startsWith("Bearer ")) {
+  if (!token) {
     return c.json({ error: "Unauthorized" }, 401);
   }
-
-  const token = authHeader.split(" ")[1];
 
   try {
     const { payload } = await jwtVerify(token, secret);
@@ -29,11 +28,9 @@ export const requireAuth = createMiddleware(async (c, next) => {
 // different payloads (e.g. a band profile that's public unless you're a
 // member).
 export const optionalAuth = createMiddleware(async (c, next) => {
-  const authHeader = c.req.header("Authorization");
+  const token = readSessionToken(c);
 
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.split(" ")[1];
-
+  if (token) {
     try {
       const { payload } = await jwtVerify(token, secret);
       c.set("userId", payload.userId);

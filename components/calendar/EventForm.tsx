@@ -47,13 +47,6 @@ export function EventForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      console.error("Unauthorized");
-      return;
-    }
-
     if (!title || !selectedRange?.from) {
       console.error("Missing required fields");
       return;
@@ -75,7 +68,6 @@ export function EventForm({
       method: isEditing ? "PUT" : "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         title,

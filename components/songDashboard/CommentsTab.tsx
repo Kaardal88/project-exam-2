@@ -107,10 +107,8 @@ export function CommentsTab({
 
     setHistoryLoading(commentId);
 
-    const token = localStorage.getItem("token");
     const response = await fetch(
       `/api/songs/${songId}/comments/${commentId}/history`,
-      { headers: { Authorization: `Bearer ${token}` } },
     );
 
     if (response.ok) {
@@ -125,15 +123,12 @@ export function CommentsTab({
     commentId: string,
     updates: { status?: TicketStatus; assignee_id?: string | null },
   ) {
-    const token = localStorage.getItem("token");
-
     const response = await fetch(
       `/api/songs/${songId}/comments/${commentId}`,
       {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(updates),
       },

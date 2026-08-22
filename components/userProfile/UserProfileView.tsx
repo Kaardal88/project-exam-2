@@ -104,22 +104,19 @@ export function UserProfileView({
 
   useEffect(() => {
     async function loadUser() {
-      const token = localStorage.getItem("token");
+      // Always establish who is signed in, so ownership can be decided by
+      // comparing ids rather than by inspecting the URL.
+      const meResponse = await fetch("/api/auth/me");
 
-      if (!token) {
+      if (meResponse.status === 401) {
         router.push("/login");
         return;
       }
 
-      const headers = { Authorization: `Bearer ${token}` };
-
-      // Always establish who is signed in, so ownership can be decided by
-      // comparing ids rather than by inspecting the URL.
-      const meResponse = await fetch("/api/auth/me", { headers });
       const me = meResponse.ok ? await meResponse.json() : null;
 
       const response = profileUserId
-        ? await fetch(`/api/users/${profileUserId}`, { headers })
+        ? await fetch(`/api/users/${profileUserId}`)
         : meResponse;
 
       const data = profileUserId ? await response.json() : me;
@@ -155,18 +152,12 @@ export function UserProfileView({
   const fetchUserEvents = useCallback(async () => {
     if (!user?.id) return;
 
-    const token = localStorage.getItem("token");
+    const response = await fetch(`/api/users/me/events`);
 
-    if (!token) {
+    if (response.status === 401) {
       router.push("/login");
       return;
     }
-
-    const response = await fetch(`/api/users/me/events`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
 
     const data = await response.json();
 
@@ -181,18 +172,12 @@ export function UserProfileView({
   const fetchPrivateEvents = useCallback(async () => {
     if (!user?.id || !isOwnProfile) return;
 
-    const token = localStorage.getItem("token");
+    const response = await fetch(`/api/users/me/private-events`);
 
-    if (!token) {
+    if (response.status === 401) {
       router.push("/login");
       return;
     }
-
-    const response = await fetch(`/api/users/me/private-events`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
 
     const data = await response.json();
 
@@ -273,14 +258,8 @@ export function UserProfileView({
   async function handleDeletePrivateEvent(eventId: string) {
     if (!window.confirm("Delete this event?")) return false;
 
-    const token = localStorage.getItem("token");
-    if (!token) return false;
-
     const response = await fetch(`/api/users/me/private-events/${eventId}`, {
       method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
     });
 
     if (!response.ok) {
@@ -299,15 +278,9 @@ export function UserProfileView({
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const token = localStorage.getItem("token");
 
     if (!user?.id) {
       setError("Missing user id");
-      return;
-    }
-
-    if (!token) {
-      router.push("/login");
       return;
     }
 
@@ -317,7 +290,6 @@ export function UserProfileView({
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         username,

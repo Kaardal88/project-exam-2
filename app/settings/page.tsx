@@ -23,16 +23,14 @@ export default function SettingsPage() {
 
   useEffect(() => {
     async function loadUser() {
-      const token = localStorage.getItem("token");
+      const response = await fetch("/api/auth/me");
 
-      if (!token) {
+      // The page can no longer see whether a session exists, so the server
+      // saying 401 is what "not logged in" looks like now.
+      if (response.status === 401) {
         router.push("/login");
         return;
       }
-
-      const response = await fetch("/api/auth/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
 
       const data = await response.json();
 

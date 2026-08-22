@@ -46,13 +46,10 @@ export async function uploadToR2({
   category,
   onProgress,
 }: UploadToR2Params): Promise<{ key: string }> {
-  const token = localStorage.getItem("token");
-
   const presignResponse = await fetch(`/api/songs/${songId}/presign-upload`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
       target,

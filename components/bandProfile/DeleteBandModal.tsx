@@ -15,8 +15,9 @@ type DeleteBandModalProps = {
 
 /**
  * Mirrors DeleteAccountModal: typing the name proves intent, but the password
- * is the real check, because the JWT sits in localStorage and UI friction
- * alone protects nothing on an unlocked laptop.
+ * is the real check, because a session cookie rides along with every request
+ * from this browser and UI friction alone protects nothing on an unlocked
+ * laptop.
  */
 export function DeleteBandModal({
   isOpen,
@@ -37,13 +38,6 @@ export function DeleteBandModal({
   const canSubmit = nameMatches && password !== "" && !deleting;
 
   async function handleDelete() {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      setError("Unauthorized");
-      return;
-    }
-
     setError(null);
     setDeleting(true);
 
@@ -52,7 +46,6 @@ export function DeleteBandModal({
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ band_name: typedName, password }),
       });

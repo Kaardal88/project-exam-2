@@ -203,12 +203,8 @@ function BandProfileContent() {
 
   useEffect(() => {
     async function loadBand() {
-      const token = localStorage.getItem("token");
-
       try {
-        const response = await fetch(`/api/bands/${slug}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        });
+        const response = await fetch(`/api/bands/${slug}`);
 
         if (!response.ok) {
           setError("Failed to load band");
@@ -271,12 +267,6 @@ function BandProfileContent() {
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      setActionError("Unauthorized");
-      return;
-    }
 
     setActionError(null);
     setSavingBand(true);
@@ -285,7 +275,6 @@ function BandProfileContent() {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         band_name,
@@ -341,21 +330,10 @@ function BandProfileContent() {
 
   useEffect(() => {
     async function loadUsers() {
-      const token = localStorage.getItem("token");
-
       try {
-        if (!token) {
-          setActionError("Unauthorized");
-          return;
-        }
-
         setActionError(null);
 
-        const response = await fetch(`/api/users`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await fetch(`/api/users`);
 
         if (!response.ok) {
           setActionError("Failed to load users");
@@ -375,21 +353,13 @@ function BandProfileContent() {
   }, [showModal, users.length]);
 
   async function handleAddMember(userId: string) {
-    const token = localStorage.getItem("token");
-
     try {
-      if (!token) {
-        setActionError("Unauthorized");
-        return;
-      }
-
       setActionError(null);
 
       const response = await fetch(`/api/bands/${bandId}/members`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ user_id: userId }),
       });
@@ -409,13 +379,6 @@ function BandProfileContent() {
   }
 
   async function handleChangeRole(memberUserId: string, nextRole: string) {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      setActionError("Unauthorized");
-      return;
-    }
-
     setActionError(null);
 
     try {
@@ -425,7 +388,6 @@ function BandProfileContent() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ role: nextRole }),
         },
@@ -453,21 +415,11 @@ function BandProfileContent() {
   }
 
   async function handleRemoveMember(userId: string) {
-    const token = localStorage.getItem("token");
-
     try {
-      if (!token) {
-        setActionError("Unauthorized");
-        return;
-      }
-
       setActionError(null);
 
       const response = await fetch(`/api/bands/${bandId}/members/${userId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (!response.ok) {
@@ -485,21 +437,10 @@ function BandProfileContent() {
   const fetchEvents = useCallback(async () => {
     if (!bandId || !authenticated) return;
 
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      setEventsError("Unauthorized");
-      return;
-    }
-
     setEventsError(null);
 
     try {
-      const response = await fetch(`/api/bands/${bandId}/events`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(`/api/bands/${bandId}/events`);
 
       if (!response.ok) {
         console.error("Failed to fetch events:", await response.text());
@@ -550,21 +491,10 @@ function BandProfileContent() {
   const fetchProjects = useCallback(async () => {
     if (!bandId || !authenticated) return;
 
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      setProjectsError("Unauthorized");
-      return;
-    }
-
     setProjectsError(null);
 
     try {
-      const response = await fetch(`/api/bands/${bandId}/projects`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(`/api/bands/${bandId}/projects`);
 
       if (!response.ok) {
         setProjectsError("Failed to fetch projects");

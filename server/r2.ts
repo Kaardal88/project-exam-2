@@ -68,3 +68,22 @@ export async function deleteObject(key: string) {
 export function isLegacyPastedUrl(value: string) {
   return value.startsWith("http://") || value.startsWith("https://");
 }
+
+/**
+ * True when this key is one /presign-upload could have handed out for this
+ * song.
+ *
+ * getDownloadUrl signs whatever key it is given, and deleteObject deletes
+ * whatever key it is given -- neither asks who owns it. Keys reach the server
+ * from a request body, so without this check a caller may name any object in
+ * the bucket: pointing their own song at another band's audio key and asking
+ * for a download URL reads it, and replacing the file afterwards deletes it.
+ * Learning a key is easy, since every presigned URL contains the key it signs,
+ * so anyone who ever had legitimate access keeps it forever otherwise.
+ *
+ * Upload keys are built as songs/<songId>/... in the presign route; this is
+ * the same rule read back.
+ */
+export function isKeyForSong(key: string, songId: string) {
+  return key.startsWith(`songs/${songId}/`) && !key.includes("..");
+}

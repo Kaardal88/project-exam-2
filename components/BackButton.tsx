@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
+import { hasSignedInHint } from "@/lib/session";
 
 export function BackButton({
   className,
@@ -18,7 +19,7 @@ export function BackButton({
 
   useEffect(() => {
     const id = setTimeout(() => {
-      setIsLoggedIn(!!localStorage.getItem("token"));
+      setIsLoggedIn(hasSignedInHint());
     }, 0);
 
     return () => clearTimeout(id);

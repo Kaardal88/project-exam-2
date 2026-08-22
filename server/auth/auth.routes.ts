@@ -5,6 +5,7 @@ import { verifyPassword } from "./password";
 import { loginSchema, registerSchema } from "./auth.schemas";
 import { hashPassword } from "./password";
 import { requireAuth } from "./auth.middleware";
+import { setSessionCookies, clearSessionCookies } from "./session";
 import { createUser } from "@/server/users/users.service";
 import { ACCEPTED } from "@/lib/inviteStatus";
 
@@ -79,7 +80,11 @@ authRoutes.post("/login", zValidator("json", loginSchema), async (c) => {
     return c.json({ error: "Failed to create token" }, 500);
   }
 
-  return c.json({ token });
+  // The token goes into an httpOnly cookie and is never handed to the client.
+  // The response body says only that it worked.
+  setSessionCookies(c, token);
+
+  return c.json({ success: true });
 });
 
 authRoutes.get("/me", requireAuth, async (c) => {
@@ -124,44 +129,22 @@ authRoutes.get("/me", requireAuth, async (c) => {
   return c.json({ user, bandMembers }, 200);
 });
 
-authRoutes.get("/users/:userId", async (c) => {
-  const { userId } = c.req.param();
+// GET /auth/users/:userId used to live here: an unauthenticated copy of
+// /users/:id that served any user's email to anyone who asked. Nothing in the
+// app called it -- /users/:id, which requires auth, is what the profile page
+// uses -- so it was reach for strangers and nothing else.
 
-  const user = await db.query.users.findFirst({
-    where: eq(users.id, userId),
-    columns: {
-      id: true,
-      handle: true,
-      username: true,
-      email: true,
-      image_url: true,
-      header_image_url: true,
-      tags: true,
-    },
-  });
+/**
+ * POST, not GET, and not gated on requireAuth.
+ *
+ * A GET logout is something a prefetch, a link or an <img> on another site can
+ * trigger, and SameSite=Lax deliberately still sends the cookie on top-level
+ * GET navigations. Requiring auth would also mean an expired session could not
+ * clear its own leftover cookies -- logging out has to work even when the
+ * thing being logged out of is already gone.
+ */
+authRoutes.post("/logout", async (c) => {
+  clearSessionCookies(c);
 
-  if (!user) {
-    return c.json({ error: "User not found" }, 404);
-  }
-
-  const bandMembers = await db.query.band_members.findMany({
-    where: and(eq(band_members.user_id, userId), eq(band_members.status, ACCEPTED)),
-    columns: { band_id: true, role: true, joined_at: true },
-    with: {
-      band: {
-        columns: {
-          id: true,
-          slug: true,
-          band_name: true,
-          image_url: true,
-        },
-      },
-    },
-  });
-
-  return c.json({ user, bandMembers }, 200);
-});
-
-authRoutes.get("/logout", requireAuth, async (c) => {
   return c.json({ message: "Logout successful" });
 });

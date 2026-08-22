@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, Menu, Music, Users } from "lucide-react";
+import { logout } from "@/lib/session";
 
 type User = {
   id: string;
@@ -239,19 +240,15 @@ export function NavBar() {
 
   useEffect(() => {
     async function loadUser() {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
-      const headers = { Authorization: `Bearer ${token}` };
-
+      // No token to check for any more -- a signed-out visitor simply gets a
+      // 401 from both of these, and the nav renders in its logged-out shape.
       const [meResponse, invitesResponse] = await Promise.all([
-        fetch("/api/auth/me", { headers }),
-        fetch("/api/users/me/invitations", { headers }),
+        fetch("/api/auth/me"),
+        fetch("/api/users/me/invitations"),
       ]);
 
-      const data = await meResponse.json();
-
       if (meResponse.ok) {
+        const data = await meResponse.json();
         setUser(data.user);
       }
 
@@ -265,8 +262,10 @@ export function NavBar() {
     loadUser();
   }, []);
 
-  function handleLogout() {
-    localStorage.removeItem("token");
+  async function handleLogout() {
+    // Only the server can clear an httpOnly cookie, so logging out is a
+    // request now rather than a line of local cleanup.
+    await logout();
     setUser(null);
     router.push("/");
   }

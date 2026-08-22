@@ -47,19 +47,13 @@ export default function ProjectDetailsPage() {
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
 
   const fetchProject = useCallback(async () => {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-
     try {
-      const response = await fetch(`/api/projects/${projectId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(`/api/projects/${projectId}`);
+
+      if (response.status === 401) {
+        router.push("/login");
+        return;
+      }
 
       if (!response.ok) {
         setError("Failed to load project");
@@ -73,7 +67,6 @@ export default function ProjectDetailsPage() {
 
       const collaboratorsResponse = await fetch(
         `/api/projects/${projectId}/collaborators`,
-        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       if (collaboratorsResponse.ok) {
@@ -86,12 +79,9 @@ export default function ProjectDetailsPage() {
   }, [projectId, router]);
 
   async function removeCollaborator(collaborator: Collaborator) {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
     const response = await fetch(
       `/api/projects/${projectId}/collaborators/${collaborator.user.id}`,
-      { method: "DELETE", headers: { Authorization: `Bearer ${token}` } },
+      { method: "DELETE" },
     );
 
     if (response.ok) {

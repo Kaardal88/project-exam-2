@@ -31,13 +31,8 @@ export function SettingsModal({
     setDeleting(true);
     setError(null);
 
-    const token = localStorage.getItem("token");
-
     const response = await fetch(`/api/songs/${songId}`, {
       method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
     });
 
     if (!response.ok) {

@@ -6,8 +6,11 @@ import {
   Pause,
   SkipBack,
   SkipForward,
+  Volume1,
   Volume2,
+  VolumeX,
   Maximize2,
+  Minimize2,
   Upload,
 } from "lucide-react";
 import { formatSongTime } from "@/lib/utils";
@@ -126,6 +129,9 @@ export function MediaPlayer({
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [volume, setVolume] = useState(1);
+  const [muted, setMuted] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const waveformRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -170,6 +176,10 @@ export function MediaPlayer({
   // instead of being stuck with the same fixed bar count as mobile.
   const [barCount, setBarCount] = useState(MIN_BARS);
 
+  // `expanded` is a dependency because collapsing and expanding swap the
+  // waveform for a different DOM node. Without it the observer would still be
+  // watching the node that was just thrown away, and the expanded player would
+  // draw mobile-width detail across its full width.
   useEffect(() => {
     const el = waveformRef.current;
     if (!el) return;
@@ -185,7 +195,26 @@ export function MediaPlayer({
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [expanded]);
+
+  // The <audio> element is the source of truth for what is audible; this keeps
+  // it in step with the control. Muting sets volume to 0 rather than the muted
+  // property so the two cannot disagree about what should be heard.
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = muted ? 0 : volume;
+  }, [volume, muted]);
+
+  // Escape closes the expanded player, the way it closes every modal.
+  useEffect(() => {
+    if (!expanded) return;
+
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setExpanded(false);
+    }
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [expanded]);
 
   const bars = useMemo(
     () => resampleBars(realBars ?? placeholderBars, barCount),
@@ -362,12 +391,10 @@ export function MediaPlayer({
         onProgress: setUploadProgress,
       });
 
-      const token = localStorage.getItem("token");
       const response = await fetch(`/api/songs/${songId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ audio_url: key }),
       });
@@ -391,21 +418,13 @@ export function MediaPlayer({
   const pendingPercent =
     pendingSeconds !== null ? (pendingSeconds / duration) * 100 : null;
 
-  return (
-    <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-4 shadow-2xl">
-      {hasRealAudio && (
-        <audio
-          ref={audioRef}
-          src={audioUrl!}
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onEnded={() => setIsPlaying(false)}
-          onError={handleAudioError}
-        />
-      )}
+  // The icon reports what you would actually hear, so silence never looks the
+  // same as sound.
+  const VolumeIcon =
+    muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
 
+  const controls = (
+    <>
       {audioError && <p className="form-error mb-2">{audioError}</p>}
       {uploadError && <p className="form-error mb-2">{uploadError}</p>}
 
@@ -462,7 +481,9 @@ export function MediaPlayer({
           <div
             ref={waveformRef}
             onClick={handleWaveformClick}
-            className="relative flex h-10 cursor-pointer items-end overflow-hidden rounded-sm bg-neutral-950 px-1"
+            className={`relative flex cursor-pointer items-end overflow-hidden rounded-sm bg-neutral-950 px-1 ${
+              expanded ? "h-40" : "h-10"
+            }`}
           >
             {bars.map((height, i) => {
               const barPercent = (i / bars.length) * 100;
@@ -512,10 +533,35 @@ export function MediaPlayer({
           {formatSongTime(duration)}
         </span>
 
-        <Volume2
-          className="h-4 w-4 shrink-0 text-neutral-500"
-          aria-hidden="true"
-        />
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={() => setMuted((wasMuted) => !wasMuted)}
+            aria-label={muted ? "Unmute" : "Mute"}
+            title={muted ? "Unmute" : "Mute"}
+            className="shrink-0 text-neutral-400 transition hover:cursor-pointer hover:text-yellow-100"
+          >
+            <VolumeIcon className="h-4 w-4" />
+          </button>
+
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={muted ? 0 : volume}
+            onChange={(e) => {
+              setVolume(Number(e.target.value));
+              // Dragging the slider is an unmute in itself -- leaving it muted
+              // while the handle sits at two thirds is just silence with no
+              // explanation.
+              setMuted(false);
+            }}
+            aria-label="Volume"
+            className={`h-1 cursor-pointer accent-yellow-100 ${
+              expanded ? "w-28" : "hidden w-20 sm:block"
+            }`}
+          />
+        </div>
 
         <input
           ref={fileInputRef}
@@ -541,14 +587,72 @@ export function MediaPlayer({
         </button>
 
         <button
-          disabled
-          title="Coming soon"
-          className="hidden shrink-0 items-center gap-1 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-500 cursor-not-allowed sm:flex"
+          onClick={() => setExpanded((wasExpanded) => !wasExpanded)}
+          title={expanded ? "Collapse player" : "Expand player"}
+          className="hidden shrink-0 items-center gap-1 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 sm:flex"
         >
-          Expand player
-          <Maximize2 className="h-3 w-3" />
+          {expanded ? "Collapse" : "Expand player"}
+          {expanded ? (
+            <Minimize2 className="h-3 w-3" />
+          ) : (
+            <Maximize2 className="h-3 w-3" />
+          )}
         </button>
       </div>
-    </section>
+    </>
+  );
+
+  return (
+    <>
+      {/*
+        Kept outside the collapsed/expanded branch on purpose. React reconciles
+        by position, so moving this element into the overlay would unmount and
+        remount it -- which stops playback and drops the playhead back to zero.
+        Sitting here, it never moves, and expanding is silent to the listener.
+      */}
+      {hasRealAudio && (
+        <audio
+          ref={audioRef}
+          src={audioUrl!}
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onEnded={() => setIsPlaying(false)}
+          onError={handleAudioError}
+        />
+      )}
+
+      {expanded ? (
+        // Bounded by the dashboard column rather than the viewport: the column
+        // is the positioned ancestor, so the blur stops where the dashboard
+        // stops and the sidebar stays legible beside it.
+        <div className="absolute inset-0 z-40">
+          <button
+            onClick={() => setExpanded(false)}
+            aria-label="Close expanded player"
+            className="absolute inset-0 h-full w-full cursor-default bg-neutral-950/70 backdrop-blur-sm"
+          />
+
+          {/*
+            A viewport-tall sticky layer, centring its content. The dashboard
+            column is min-h-screen and usually much taller than the window, so
+            centring inside the column would park the player halfway down the
+            page and out of sight. Measuring against the window instead keeps
+            it in the middle of what you are actually looking at, however far
+            down the dashboard you had scrolled when you expanded it.
+          */}
+          <div className="sticky top-0 z-10 flex h-screen items-center justify-center px-4">
+            <section className="w-full max-w-6xl rounded-md border border-neutral-700 bg-neutral-900/95 p-6 shadow-2xl">
+              {controls}
+            </section>
+          </div>
+        </div>
+      ) : (
+        <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-4 shadow-2xl">
+          {controls}
+        </section>
+      )}
+    </>
   );
 }
