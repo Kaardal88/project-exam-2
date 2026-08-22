@@ -24,7 +24,10 @@ Always:
 Known gotchas:
 
 - Never use "bg-dark" or introduce light-mode variants — the app is dark-only for now.
-- Auth uses JWT in localStorage (not cookies yet) — don't "fix" this unless explicitly asked.
+- Auth is a JWT in an httpOnly `bs_session` cookie, sent automatically on
+  same-origin requests. Never add an `Authorization` header, and never read the
+  session from JavaScript — it isn't reachable. `bs_signed_in` is a readable
+  hint for rendering only and must never gate access to anything.
 - Reuse existing Tailwind colors already in use; don't introduce new palette values.
 
 Commands:
