@@ -162,22 +162,18 @@ function SongDashboardPageContent() {
   }, []);
 
   const fetchSong = useCallback(async () => {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-
     if (!songId) {
       setError("Missing song id");
       setLoading(false);
       return;
     }
 
-    const response = await fetch(`/api/songs/${songId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await fetch(`/api/songs/${songId}`);
+
+    if (response.status === 401) {
+      router.push("/login");
+      return;
+    }
 
     if (!response.ok) {
       setError("Failed to load song");
@@ -201,19 +197,16 @@ function SongDashboardPageContent() {
     if (!song) return;
 
     async function loadBandAndData() {
-      const token = localStorage.getItem("token");
-      if (!token || !song) return;
-
-      const headers = { Authorization: `Bearer ${token}` };
+      if (!song) return;
 
       const [bandRes, commentsRes, tasksRes, notesRes, filesRes, meRes] =
         await Promise.all([
-          fetch(`/api/projects/${song.project.id}`, { headers }),
-          fetch(`/api/songs/${song.id}/comments`, { headers }),
-          fetch(`/api/songs/${song.id}/tasks`, { headers }),
-          fetch(`/api/songs/${song.id}/notes`, { headers }),
-          fetch(`/api/songs/${song.id}/files`, { headers }),
-          fetch(`/api/auth/me`, { headers }),
+          fetch(`/api/projects/${song.project.id}`),
+          fetch(`/api/songs/${song.id}/comments`),
+          fetch(`/api/songs/${song.id}/tasks`),
+          fetch(`/api/songs/${song.id}/notes`),
+          fetch(`/api/songs/${song.id}/files`),
+          fetch(`/api/auth/me`),
         ]);
 
       // Context comes from the project, not the band: a collaborator is not a
@@ -243,11 +236,7 @@ function SongDashboardPageContent() {
   const refreshComments = useCallback(async () => {
     if (!song) return;
 
-    const token = localStorage.getItem("token");
-
-    const response = await fetch(`/api/songs/${song.id}/comments`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await fetch(`/api/songs/${song.id}/comments`);
 
     if (response.ok) setComments(await response.json());
   }, [song]);
@@ -255,11 +244,7 @@ function SongDashboardPageContent() {
   const refreshNotes = useCallback(async () => {
     if (!song) return;
 
-    const token = localStorage.getItem("token");
-
-    const response = await fetch(`/api/songs/${song.id}/notes`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await fetch(`/api/songs/${song.id}/notes`);
 
     if (response.ok) setNotes(await response.json());
   }, [song]);
@@ -267,11 +252,7 @@ function SongDashboardPageContent() {
   const refreshFiles = useCallback(async () => {
     if (!song) return;
 
-    const token = localStorage.getItem("token");
-
-    const response = await fetch(`/api/songs/${song.id}/files`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await fetch(`/api/songs/${song.id}/files`);
 
     if (response.ok) setFiles(await response.json());
   }, [song]);
@@ -282,11 +263,7 @@ function SongDashboardPageContent() {
       return;
     }
 
-    const token = localStorage.getItem("token");
-
-    const response = await fetch(`/api/songs/${song.id}/audio-url`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await fetch(`/api/songs/${song.id}/audio-url`);
 
     setAudioPlaybackUrl(response.ok ? (await response.json()).url : null);
   }, [song]);
@@ -305,11 +282,7 @@ function SongDashboardPageContent() {
       return;
     }
 
-    const token = localStorage.getItem("token");
-
-    const response = await fetch(`/api/songs/${song.id}/artwork-url`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const response = await fetch(`/api/songs/${song.id}/artwork-url`);
 
     setArtworkDisplayUrl(response.ok ? (await response.json()).url : null);
   }, [song]);
@@ -358,13 +331,10 @@ function SongDashboardPageContent() {
         onProgress: setArtworkUploadProgress,
       });
 
-      const token = localStorage.getItem("token");
-
       const response = await fetch(`/api/songs/${song.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ artwork_url: key }),
       });

@@ -45,11 +45,8 @@ export function FilesTab({
     setDeletingId(fileId);
     setDeleteError(null);
 
-    const token = localStorage.getItem("token");
-
     const response = await fetch(`/api/songs/${songId}/files/${fileId}`, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
     });
 
     if (response.ok) {
@@ -66,11 +63,8 @@ export function FilesTab({
     setOpeningId(fileId);
     setOpenError(null);
 
-    const token = localStorage.getItem("token");
-
     const response = await fetch(
       `/api/songs/${songId}/files/${fileId}/download-url`,
-      { headers: { Authorization: `Bearer ${token}` } },
     );
 
     if (response.ok) {

@@ -362,12 +362,10 @@ export function MediaPlayer({
         onProgress: setUploadProgress,
       });
 
-      const token = localStorage.getItem("token");
       const response = await fetch(`/api/songs/${songId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ audio_url: key }),
       });

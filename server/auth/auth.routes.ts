@@ -5,6 +5,7 @@ import { verifyPassword } from "./password";
 import { loginSchema, registerSchema } from "./auth.schemas";
 import { hashPassword } from "./password";
 import { requireAuth } from "./auth.middleware";
+import { setSessionCookies, clearSessionCookies } from "./session";
 import { createUser } from "@/server/users/users.service";
 import { ACCEPTED } from "@/lib/inviteStatus";
 
@@ -79,7 +80,11 @@ authRoutes.post("/login", zValidator("json", loginSchema), async (c) => {
     return c.json({ error: "Failed to create token" }, 500);
   }
 
-  return c.json({ token });
+  // The token goes into an httpOnly cookie and is never handed to the client.
+  // The response body says only that it worked.
+  setSessionCookies(c, token);
+
+  return c.json({ success: true });
 });
 
 authRoutes.get("/me", requireAuth, async (c) => {
@@ -129,6 +134,17 @@ authRoutes.get("/me", requireAuth, async (c) => {
 // app called it -- /users/:id, which requires auth, is what the profile page
 // uses -- so it was reach for strangers and nothing else.
 
-authRoutes.get("/logout", requireAuth, async (c) => {
+/**
+ * POST, not GET, and not gated on requireAuth.
+ *
+ * A GET logout is something a prefetch, a link or an <img> on another site can
+ * trigger, and SameSite=Lax deliberately still sends the cookie on top-level
+ * GET navigations. Requiring auth would also mean an expired session could not
+ * clear its own leftover cookies -- logging out has to work even when the
+ * thing being logged out of is already gone.
+ */
+authRoutes.post("/logout", async (c) => {
+  clearSessionCookies(c);
+
   return c.json({ message: "Logout successful" });
 });

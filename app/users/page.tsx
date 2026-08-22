@@ -29,13 +29,7 @@ export default function UsersPage() {
   useEffect(() => {
     async function loadUsers() {
       try {
-        const token = localStorage.getItem("token");
-
-        const response = await fetch("/api/users", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await fetch("/api/users");
 
         const data = await response.json();
 

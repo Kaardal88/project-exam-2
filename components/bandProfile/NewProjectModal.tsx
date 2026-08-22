@@ -28,13 +28,6 @@ export function NewProjectModal({
     e.preventDefault();
     setError(null);
 
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      setError("Unauthorized");
-      return;
-    }
-
     if (!title.trim()) {
       setError("Title is required");
       return;
@@ -46,7 +39,6 @@ export function NewProjectModal({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ type, title, description }),
     });

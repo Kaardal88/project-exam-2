@@ -445,8 +445,9 @@ bandsRoutes.delete("/:id", requireAuth, async (c) => {
   const body = await c.req.json().catch(() => ({}));
 
   // Same confirmation strength as account deletion: typing the name proves
-  // intent, but the password is the real check, because the JWT sits in
-  // localStorage and UI friction alone protects nothing on an unlocked laptop.
+  // intent, but the password is the real check, because a session cookie rides
+  // along with every request from that browser and UI friction alone protects
+  // nothing on an unlocked laptop.
   if (body.band_name !== band.band_name) {
     return c.json({ error: "Band name does not match" }, 400);
   }

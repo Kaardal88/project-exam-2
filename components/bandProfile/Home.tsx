@@ -63,17 +63,11 @@ export function HomeNav({
     if (!canManageEvents) return false;
     if (!window.confirm("Delete this event?")) return false;
 
-    const token = localStorage.getItem("token");
-    if (!token) return false;
-
     setDeletingId(eventId);
 
     try {
       const response = await fetch(`/api/bands/${bandId}/events/${eventId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (!response.ok) {

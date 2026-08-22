@@ -38,19 +38,10 @@ export default function RegisterPage() {
     setError("");
     setLoading(true);
 
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      setError("You must be logged in to create a band profile");
-      setLoading(false);
-      return;
-    }
-
     const response = await fetch("/api/bands", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         bandname,

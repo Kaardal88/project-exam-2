@@ -46,8 +46,6 @@ export function NoteEditorModal({
     setSubmitting(true);
     setError(null);
 
-    const token = localStorage.getItem("token");
-
     const url = isEditing
       ? `/api/songs/${songId}/notes/${existingNote.id}`
       : `/api/songs/${songId}/notes`;
@@ -56,7 +54,6 @@ export function NoteEditorModal({
       method: isEditing ? "PUT" : "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(
         isEditing ? { title, body } : { title, body, kind },

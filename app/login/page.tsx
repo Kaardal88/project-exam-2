@@ -46,8 +46,8 @@ export default function LoginPage() {
       return;
     }
 
-    const data = await response.json();
-    localStorage.setItem("token", data.token);
+    // Nothing to store: the session arrived as an httpOnly cookie on this
+    // response, and the page is not allowed to read it.
     router.push(`/user`);
   }
 

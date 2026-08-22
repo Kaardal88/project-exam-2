@@ -89,13 +89,10 @@ export function AddFileModal({
         onProgress: setUploadProgress,
       });
 
-      const token = localStorage.getItem("token");
-
       const response = await fetch(`/api/songs/${songId}/files`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           filename: selectedFile.name,

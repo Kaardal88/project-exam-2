@@ -161,17 +161,13 @@ export default function InvitationsPage() {
 
   useEffect(() => {
     async function load() {
-      const token = localStorage.getItem("token");
-
-      if (!token) {
-        router.push("/login");
-        return;
-      }
-
       try {
-        const response = await fetch("/api/users/me/invitations", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await fetch("/api/users/me/invitations");
+
+        if (response.status === 401) {
+          router.push("/login");
+          return;
+        }
 
         const data = await response.json();
 
@@ -197,9 +193,6 @@ export default function InvitationsPage() {
     answer: "accept" | "decline",
   ) {
     const id = invitation.id;
-    const token = localStorage.getItem("token");
-
-    if (!token) return;
 
     setAnswering(id);
     setError(null);
@@ -209,7 +202,6 @@ export default function InvitationsPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ answer, kind: invitation.kind }),
       });

@@ -45,12 +45,7 @@ export function InviteCollaboratorModal({
     if (!isOpen) return;
 
     async function load() {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
-      const response = await fetch("/api/users", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch("/api/users");
 
       if (response.ok) {
         const data = await response.json();
@@ -73,9 +68,6 @@ export function InviteCollaboratorModal({
   async function send() {
     if (!selected) return;
 
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
     setSending(true);
     setError(null);
 
@@ -84,7 +76,6 @@ export function InviteCollaboratorModal({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ user_id: selected.id, role }),
       });

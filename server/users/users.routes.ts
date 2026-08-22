@@ -14,6 +14,7 @@ import { requireAuth } from "../auth/auth.middleware";
 import { ACCEPTED, PENDING, DECLINED } from "@/lib/inviteStatus";
 import { getCollabProjectsForUser } from "@/server/projects/access";
 import { verifyPassword } from "../auth/password";
+import { clearSessionCookies } from "../auth/session";
 import { db } from "../db";
 import { and, eq, inArray, asc } from "drizzle-orm";
 import {
@@ -151,6 +152,10 @@ usersRoutes.delete(
     }
 
     const bands = await deleteUser(userId);
+
+    // The account this session pointed at no longer exists, so the cookie must
+    // go with it -- the client cannot clear an httpOnly cookie itself.
+    clearSessionCookies(c);
 
     return c.json({ success: true, bands });
   },
