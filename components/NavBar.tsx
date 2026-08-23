@@ -10,16 +10,23 @@ type User = {
   id: string;
   username: string;
   image_url?: string | null;
+  is_admin?: boolean;
 };
 
 function AccountMenuItems({
   onClose,
   onLogout,
   inviteCount = 0,
+  isAdmin = false,
+  replyCount = 0,
+  inboxCount = 0,
 }: {
   onClose: () => void;
   onLogout: () => void;
   inviteCount?: number;
+  isAdmin?: boolean;
+  replyCount?: number;
+  inboxCount?: number;
 }) {
   return (
     <>
@@ -36,6 +43,36 @@ function AccountMenuItems({
           </span>
         )}
       </Link>
+      <Link
+        href="/feedback"
+        role="menuitem"
+        onClick={onClose}
+        className="flex items-center justify-between px-4 py-2 text-sm text-yellow-100 hover:bg-neutral-800"
+      >
+        Feedback
+        {replyCount > 0 && (
+          <span className="ml-2 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-bold text-neutral-950">
+            {replyCount}
+          </span>
+        )}
+      </Link>
+      {isAdmin && (
+        // Drawn from your own /auth/me record. Hiding it is courtesy, not
+        // security -- the API answers 404 to anyone else who finds the URL.
+        <Link
+          href="/admin/feedback"
+          role="menuitem"
+          onClick={onClose}
+          className="flex items-center justify-between px-4 py-2 text-sm text-yellow-100 hover:bg-neutral-800"
+        >
+          Feedback inbox
+          {inboxCount > 0 && (
+            <span className="ml-2 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-bold text-neutral-950">
+              {inboxCount}
+            </span>
+          )}
+        </Link>
+      )}
       <Link
         href="/user"
         role="menuitem"
@@ -72,13 +109,19 @@ function ProfileMenu({
   user,
   onLogout,
   inviteCount,
+  replyCount,
+  inboxCount,
 }: {
   user: User;
   onLogout: () => void;
   inviteCount: number;
+  replyCount: number;
+  inboxCount: number;
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const waiting = inviteCount + replyCount + inboxCount;
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -113,14 +156,15 @@ function ProfileMenu({
           </div>
         )}
 
-        {/* the menu is closed by default, so the count needs to be visible
-            from the outside or an invitation goes unnoticed */}
-        {inviteCount > 0 && (
+        {/* The menu is closed by default, so anything waiting has to be
+            visible from the outside or it goes unnoticed. The dot is the sum
+            of everything wanting attention; the menu says which is which. */}
+        {waiting > 0 && (
           <span
-            aria-label={`${inviteCount} pending invitation${inviteCount === 1 ? "" : "s"}`}
+            aria-label={`${waiting} thing${waiting === 1 ? "" : "s"} waiting for you`}
             className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-neutral-900 bg-yellow-100 text-[10px] font-bold text-neutral-950"
           >
-            {inviteCount}
+            {waiting}
           </span>
         )}
       </button>
@@ -134,6 +178,9 @@ function ProfileMenu({
             onClose={() => setOpen(false)}
             onLogout={onLogout}
             inviteCount={inviteCount}
+            isAdmin={user.is_admin}
+            replyCount={replyCount}
+            inboxCount={inboxCount}
           />
         </div>
       )}
@@ -145,10 +192,14 @@ function MobileMenu({
   user,
   onLogout,
   inviteCount,
+  replyCount,
+  inboxCount,
 }: {
   user: User | null;
   onLogout: () => void;
   inviteCount: number;
+  replyCount: number;
+  inboxCount: number;
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -224,6 +275,9 @@ function MobileMenu({
                 onClose={() => setOpen(false)}
                 onLogout={onLogout}
                 inviteCount={inviteCount}
+                isAdmin={user.is_admin}
+                replyCount={replyCount}
+                inboxCount={inboxCount}
               />
             </>
           )}
@@ -236,15 +290,18 @@ function MobileMenu({
 export function NavBar() {
   const [user, setUser] = useState<User | null>(null);
   const [inviteCount, setInviteCount] = useState(0);
+  const [replyCount, setReplyCount] = useState(0);
+  const [inboxCount, setInboxCount] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
     async function loadUser() {
       // No token to check for any more -- a signed-out visitor simply gets a
-      // 401 from both of these, and the nav renders in its logged-out shape.
-      const [meResponse, invitesResponse] = await Promise.all([
+      // 401 from all of these, and the nav renders in its logged-out shape.
+      const [meResponse, invitesResponse, unreadResponse] = await Promise.all([
         fetch("/api/auth/me"),
         fetch("/api/users/me/invitations"),
+        fetch("/api/feedback/unread"),
       ]);
 
       if (meResponse.ok) {
@@ -256,6 +313,12 @@ export function NavBar() {
       if (invitesResponse.ok) {
         const invites = await invitesResponse.json();
         setInviteCount(invites.invitations?.length ?? 0);
+      }
+
+      if (unreadResponse.ok) {
+        const unread = await unreadResponse.json();
+        setReplyCount(unread.replies ?? 0);
+        setInboxCount(unread.inbox ?? 0);
       }
     }
 
@@ -315,6 +378,8 @@ export function NavBar() {
               user={user}
               onLogout={handleLogout}
               inviteCount={inviteCount}
+              replyCount={replyCount}
+              inboxCount={inboxCount}
             />
           )}
         </div>
@@ -324,6 +389,8 @@ export function NavBar() {
           user={user}
           onLogout={handleLogout}
           inviteCount={inviteCount}
+          replyCount={replyCount}
+          inboxCount={inboxCount}
         />
       </div>
     </nav>

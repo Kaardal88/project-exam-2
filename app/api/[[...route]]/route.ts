@@ -5,6 +5,7 @@ import { usersRoutes } from "@/server/users/users.routes";
 import { bandsRoutes } from "@/server/bands/bands.routes";
 import { projectsRoutes } from "@/server/projects/projects.routes";
 import { songsRoutes } from "@/server/songs/songs.routes";
+import { feedbackRoutes } from "@/server/feedback/feedback.routes";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,7 @@ app.route("/users", usersRoutes);
 app.route("/bands", bandsRoutes);
 app.route("/projects", projectsRoutes);
 app.route("/songs", songsRoutes);
+app.route("/feedback", feedbackRoutes);
 
 export const GET = handle(app);
 export const POST = handle(app);

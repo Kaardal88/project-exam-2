@@ -5,50 +5,82 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   integer,
   boolean,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
-export const users = pgTable("users", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
 
-  username: varchar("username", {
-    length: 255,
-  }).notNull(),
+    username: varchar("username", {
+      length: 255,
+    }).notNull(),
 
-  /**
-   * URL identifier, e.g. /user/adrian-2. Deliberately separate from username:
-   * two musicians are allowed to both be called "Adrian", but only one of them
-   * can own /user/adrian. Display names collide; addresses must not.
-   *
-   * Nullable because it was added to a table that already had rows -- a UNIQUE
-   * NOT NULL column cannot be added with a default. Backfilled by
-   * scripts/backfill-user-handles.ts and always set on registration, and the
-   * UI falls back to the user id the same way band links fall back to band id.
-   */
-  handle: varchar("handle", {
-    length: 255,
-  }).unique(),
+    /**
+     * URL identifier, e.g. /user/adrian-2. Deliberately separate from username:
+     * two musicians are allowed to both be called "Adrian", but only one of them
+     * can own /user/adrian. Display names collide; addresses must not.
+     *
+     * Nullable because it was added to a table that already had rows -- a UNIQUE
+     * NOT NULL column cannot be added with a default. Backfilled by
+     * scripts/backfill-user-handles.ts and always set on registration, and the
+     * UI falls back to the user id the same way band links fall back to band id.
+     */
+    handle: varchar("handle", {
+      length: 255,
+    }).unique(),
 
-  email: varchar("email", {
-    length: 255,
-  })
-    .notNull()
-    .unique(),
+    email: varchar("email", {
+      length: 255,
+    })
+      .notNull()
+      .unique(),
 
-  password_hash: varchar("password_hash", {
-    length: 255,
-  }).notNull(),
+    password_hash: varchar("password_hash", {
+      length: 255,
+    }).notNull(),
 
-  image_url: text("image_url"),
+    image_url: text("image_url"),
 
-  header_image_url: text("header_image_url"),
+    header_image_url: text("header_image_url"),
 
-  tags: text("tags")
-    .array()
-    .default(sql`'{}'::text[]`),
-});
+    tags: text("tags")
+      .array()
+      .default(sql`'{}'::text[]`),
+
+    /**
+     * Reads the tester feedback inbox. Nothing else -- not other bands, not
+     * other projects, not anyone's files. Testers consented to sending feedback,
+     * not to being overseen.
+     *
+     * No route writes this and no schema accepts it: updateUserSchema is a
+     * z.object, which strips unknown keys, and updateUser names each column
+     * explicitly rather than spreading a body. The only way to set it is
+     * scripts/grant-admin.ts, run by hand against the database.
+     *
+     * It is deliberately absent from the JWT. A token lasts seven days, so
+     * authority carried inside one would outlive its own revocation; every gated
+     * route re-reads this column instead.
+     */
+    is_admin: boolean("is_admin").notNull().default(false),
+  },
+  (table) => ({
+    /**
+     * At most one admin can exist on the platform, enforced by Postgres rather
+     * than by anyone remembering. A partial unique index over a single value
+     * means the second row trying to be true is rejected outright -- so a
+     * mistake, a bad migration or a future misunderstanding cannot quietly
+     * hand this out twice.
+     */
+    singleAdmin: uniqueIndex("users_single_admin_idx")
+      .on(table.is_admin)
+      .where(sql`${table.is_admin} = true`),
+  }),
+);
 
 export const bands = pgTable("bands", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -601,3 +633,64 @@ export const song_audio_versionsRelations = relations(
     }),
   }),
 );
+
+/**
+ * Tester feedback, and the developer's answer to it.
+ *
+ * One question, one answer. Not a thread: five testers over a short round, and
+ * anything needing real back-and-forth has a channel outside the app. If that
+ * turns out too thin, the way forward is a messages table underneath this one,
+ * not a rebuild of it.
+ *
+ * Only the developer reads the whole table. A tester sees their own rows and
+ * nothing else -- scoped by author_id on the server, never filtered in the
+ * client.
+ */
+export const feedback = pgTable("feedback", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  // Nullable so a submission survives its author deleting their account. The
+  // report stays useful; it just stops being attributable.
+  author_id: uuid("author_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+
+  // "bug" | "missing" | "worked" -- see lib/feedbackCategories.ts.
+  category: varchar("category", { length: 20 }).notNull(),
+
+  body: text("body").notNull(),
+
+  /**
+   * The path they were on when they opened the form, captured automatically.
+   * "It crashed" and "it crashed on /songs?songId=..." are different reports,
+   * and nobody remembers to include the second one.
+   */
+  page: varchar("page", { length: 255 }),
+
+  // "new" | "seen" | "resolved" -- see lib/feedbackCategories.ts.
+  status: varchar("status", { length: 20 }).notNull().default("new"),
+
+  /** The developer's answer, shown to the tester who sent it. */
+  reply: text("reply"),
+
+  replied_at: timestamp("replied_at"),
+
+  /**
+   * When the author last looked at the reply.
+   *
+   * A badge that counts every answer would never clear, and a badge that never
+   * clears stops being read. This is what makes "new" mean something: set when
+   * the author opens their feedback page, and cleared again whenever the reply
+   * is edited, so a changed answer is new again.
+   */
+  reply_seen_at: timestamp("reply_seen_at"),
+
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const feedbackRelations = relations(feedback, ({ one }) => ({
+  author: one(users, {
+    fields: [feedback.author_id],
+    references: [users.id],
+  }),
+}));

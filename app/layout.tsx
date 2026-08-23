@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Permanent_Marker, Caveat_Brush, Geist } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { FeedbackButton } from "@/components/feedback/FeedbackButton";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -32,7 +33,12 @@ export default function RootLayout({
       lang="en"
       className={cn("h-full", "antialiased", "scroll-smooth", permanentMarker.variable, caveatBrush.variable, "font-sans", geist.variable)}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        {/* Every page, so a tester never has to go looking for where to
+            report something. Renders nothing when signed out. */}
+        <FeedbackButton />
+      </body>
     </html>
   );
 }
