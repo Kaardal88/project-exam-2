@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NavBar } from "@/components/NavBar";
 import { DeleteAccountModal } from "@/components/settings/DeleteAccountModal";
+import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import { Trash2 } from "lucide-react";
 import AmpLoader from "@/components/AmpLoader";
 
@@ -85,6 +86,8 @@ export default function SettingsPage() {
                 </div>
               </dl>
             </section>
+
+            <ChangePasswordForm />
 
             <section className="rounded-md border border-red-900/60 bg-red-950/20 p-6">
               <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-red-300">
