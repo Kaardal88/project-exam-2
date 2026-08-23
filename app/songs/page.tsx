@@ -589,6 +589,8 @@ function SongDashboardPageContent() {
               audioUrl={audioPlaybackUrl}
               onAudioUploaded={fetchSong}
               onAudioUrlExpired={fetchAudioUrl}
+              isLeader={role === "band_leader"}
+              currentUserId={currentUserId}
             />
           ) : activeTab === "Comments" ? (
             <CommentsTab

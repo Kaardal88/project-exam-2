@@ -55,6 +55,8 @@ type DashboardTabProps = {
   audioUrl: string | null;
   onAudioUploaded: () => void;
   onAudioUrlExpired: () => void;
+  isLeader: boolean;
+  currentUserId: string | null;
 };
 
 export function DashboardTab({
@@ -70,6 +72,8 @@ export function DashboardTab({
   audioUrl,
   onAudioUploaded,
   onAudioUrlExpired,
+  isLeader,
+  currentUserId,
 }: DashboardTabProps) {
   const [playerPosition, setPlayerPosition] = useState(0);
   const [addCommentSeconds, setAddCommentSeconds] = useState<number | null>(
@@ -87,6 +91,8 @@ export function DashboardTab({
         seekSignal={seekSignal}
         onAudioUploaded={onAudioUploaded}
         onAudioUrlExpired={onAudioUrlExpired}
+        isLeader={isLeader}
+        currentUserId={currentUserId}
       />
 
       <div className="grid gap-6 md:grid-cols-3">

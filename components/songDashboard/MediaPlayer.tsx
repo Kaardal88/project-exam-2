@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Play,
   Pause,
@@ -11,16 +11,13 @@ import {
   VolumeX,
   Maximize2,
   Minimize2,
-  Upload,
 } from "lucide-react";
 import { formatSongTime } from "@/lib/utils";
-import { uploadToR2 } from "@/lib/uploadToR2";
 import { TICKET_STATUS_STYLES, type TicketStatus } from "./ticketStatus";
-import { UploadProgress } from "./UploadProgress";
+import { AudioVersions, type AudioVersion } from "./AudioVersions";
 
 // Placeholder duration used until real audio is uploaded/loaded.
 const PLACEHOLDER_TOTAL_SECONDS = 246;
-const MP3_MAX_BYTES = 25 * 1024 * 1024;
 
 // Decoded/placeholder data is generated at this resolution so the display
 // can always downsample to however many bars actually fit on screen,
@@ -103,6 +100,8 @@ type MediaPlayerProps = {
   seekSignal?: SeekSignal | null;
   onAudioUploaded: () => void;
   onAudioUrlExpired: () => void;
+  isLeader: boolean;
+  currentUserId: string | null;
 };
 
 export function MediaPlayer({
@@ -114,8 +113,19 @@ export function MediaPlayer({
   seekSignal,
   onAudioUploaded,
   onAudioUrlExpired,
+  isLeader,
+  currentUserId,
 }: MediaPlayerProps) {
-  const hasRealAudio = Boolean(audioUrl);
+  const [previewVersion, setPreviewVersion] = useState<AudioVersion | null>(
+    null,
+  );
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Previewing an older take swaps what the player is pointed at without
+  // touching what the song actually is. Everything below works off this rather
+  // than the prop, so seeking, the waveform and the duration all follow.
+  const activeAudioUrl = previewUrl ?? audioUrl;
+  const hasRealAudio = Boolean(activeAudioUrl);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSeconds, setCurrentSeconds] = useState(0);
@@ -123,20 +133,39 @@ export function MediaPlayer({
   const [pendingSeconds, setPendingSeconds] = useState<number | null>(null);
   const [appliedSeekNonce, setAppliedSeekNonce] = useState(seekSignal?.nonce);
   const [seekTarget, setSeekTarget] = useState<number | null>(null);
-  const [appliedAudioUrl, setAppliedAudioUrl] = useState(audioUrl);
+  const [appliedAudioUrl, setAppliedAudioUrl] = useState(activeAudioUrl);
   const [audioError, setAudioError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
+  const [versions, setVersions] = useState<AudioVersion[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(true);
+
   const waveformRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const hasRetriedAfterError = useRef(false);
+
+  // Loaded whether or not the player is expanded: the collapsed card names the
+  // take it is playing, and it cannot do that from a list that only exists
+  // inside the panel.
+  const loadVersions = useCallback(async () => {
+    const response = await fetch(`/api/songs/${songId}/versions`);
+
+    if (response.ok) setVersions(await response.json());
+
+    setVersionsLoading(false);
+  }, [songId]);
+
+  useEffect(() => {
+    async function load() {
+      await loadVersions();
+    }
+
+    void load();
+  }, [loadVersions]);
+
+  const currentVersion = versions.find((version) => version.is_current) ?? null;
 
   // Adjusting state in response to a prop change (not an effect) — see
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
@@ -153,8 +182,8 @@ export function MediaPlayer({
     }
   }
 
-  if (hasRealAudio && audioUrl !== appliedAudioUrl) {
-    setAppliedAudioUrl(audioUrl);
+  if (hasRealAudio && activeAudioUrl !== appliedAudioUrl) {
+    setAppliedAudioUrl(activeAudioUrl);
     setCurrentSeconds(0);
     setIsPlaying(false);
     setAudioError(null);
@@ -225,13 +254,13 @@ export function MediaPlayer({
     let cancelled = false;
 
     async function loadWaveform() {
-      if (!audioUrl) {
+      if (!activeAudioUrl) {
         setRealBars(null);
         return;
       }
 
       try {
-        const peaks = await computeWaveformPeaks(audioUrl);
+        const peaks = await computeWaveformPeaks(activeAudioUrl);
         if (!cancelled) setRealBars(peaks);
       } catch (err) {
         console.error("Failed to decode waveform:", err);
@@ -244,7 +273,7 @@ export function MediaPlayer({
     return () => {
       cancelled = true;
     };
-  }, [audioUrl]);
+  }, [activeAudioUrl]);
 
   useEffect(() => {
     onPositionChange?.(currentSeconds);
@@ -270,7 +299,7 @@ export function MediaPlayer({
   // Ref-only reset (not state) — safe to do directly in an effect.
   useEffect(() => {
     hasRetriedAfterError.current = false;
-  }, [audioUrl]);
+  }, [activeAudioUrl]);
 
   // Deferred seek: audioRef can only be touched outside of render.
   useEffect(() => {
@@ -362,56 +391,31 @@ export function MediaPlayer({
     setPendingSeconds(null);
   }
 
-  async function handleUploadFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-
-    setUploadError(null);
-
-    if (!file.name.toLowerCase().endsWith(".mp3") || file.type !== "audio/mpeg") {
-      setUploadError("Only .mp3 files are allowed");
+  /**
+   * Switch what the player is pointed at, without touching what the song is.
+   *
+   * Passing null returns to the current version. The signed URL is fetched per
+   * version rather than held for all of them, because they expire and a list
+   * of stale URLs is worse than no list.
+   */
+  async function handlePreview(version: AudioVersion | null) {
+    if (!version) {
+      setPreviewVersion(null);
+      setPreviewUrl(null);
       return;
     }
 
-    if (file.size > MP3_MAX_BYTES) {
-      setUploadError("File too large. Max 25MB");
+    const response = await fetch(
+      `/api/songs/${songId}/versions/${version.id}/url`,
+    );
+
+    if (!response.ok) {
+      setAudioError("Couldn't load that version.");
       return;
     }
 
-    setUploading(true);
-    setUploadProgress(0);
-    setUploadSuccess(false);
-
-    try {
-      const { key } = await uploadToR2({
-        songId,
-        target: "audio",
-        file,
-        onProgress: setUploadProgress,
-      });
-
-      const response = await fetch(`/api/songs/${songId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ audio_url: key }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save audio to song");
-      }
-
-      onAudioUploaded();
-      setUploadSuccess(true);
-      setTimeout(() => setUploadSuccess(false), 2000);
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setUploading(false);
-      setUploadProgress(null);
-    }
+    setPreviewVersion(version);
+    setPreviewUrl((await response.json()).url);
   }
 
   const progressPercent = (currentSeconds / duration) * 100;
@@ -426,7 +430,40 @@ export function MediaPlayer({
   const controls = (
     <>
       {audioError && <p className="form-error mb-2">{audioError}</p>}
-      {uploadError && <p className="form-error mb-2">{uploadError}</p>}
+
+      {/*
+        Shown in both the collapsed and expanded player. Collapsing does not
+        stop a preview, so without this the card would quietly be playing a
+        take that is not the song, with the comment markers gone and nothing
+        saying why.
+      */}
+      {previewVersion ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-yellow-200/30 bg-yellow-100/5 px-3 py-2">
+          <span className="text-xs text-neutral-300">
+            Listening to{" "}
+            <span className="font-semibold text-yellow-100">
+              {previewVersion.label}
+            </span>
+            {" — not the song's current audio."}
+          </span>
+
+          <button
+            onClick={() => handlePreview(null)}
+            className="rounded-md border border-neutral-700 px-2 py-0.5 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100"
+          >
+            Back to current
+          </button>
+        </div>
+      ) : (
+        currentVersion && (
+          <p className="mb-2 text-xs text-neutral-500">
+            Playing{" "}
+            <span className="font-semibold text-neutral-300">
+              {currentVersion.label}
+            </span>
+          </p>
+        )
+      )}
 
       <div className="flex items-center gap-3 sm:gap-4">
         <button
@@ -506,7 +543,16 @@ export function MediaPlayer({
             />
           </div>
 
-          <div className="pointer-events-none absolute inset-x-0 -bottom-2 h-2">
+          {/*
+            Comments are timestamped against the song, not against a take. On
+            an older version of a different length they would point at the
+            wrong moments, so they are hidden rather than shown misplaced.
+          */}
+          <div
+            className={`pointer-events-none absolute inset-x-0 -bottom-2 h-2 ${
+              previewVersion ? "hidden" : ""
+            }`}
+          >
             {comments.map((comment) => (
               <button
                 key={comment.id}
@@ -563,35 +609,18 @@ export function MediaPlayer({
           />
         </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="audio/mpeg,.mp3"
-          onChange={handleUploadFile}
-          className="hidden"
-        />
-
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          title={hasRealAudio ? "Replace audio (MP3, max 25MB)" : "Upload audio (MP3, max 25MB)"}
-          className="hidden shrink-0 items-center gap-1.5 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed sm:flex"
-        >
-          <UploadProgress progress={uploadProgress} success={uploadSuccess} />
-          {uploadProgress === null && !uploadSuccess && (
-            <>
-              <Upload className="h-3 w-3" />
-              {hasRealAudio ? "Replace" : "Upload MP3"}
-            </>
-          )}
-        </button>
-
+        {/*
+          Uploading lives in the version panel now, so there is one way for
+          audio to enter a song rather than two that write different things.
+          With no audio at all there is nothing to expand into, so the button
+          says what it would get you.
+        */}
         <button
           onClick={() => setExpanded((wasExpanded) => !wasExpanded)}
           title={expanded ? "Collapse player" : "Expand player"}
           className="hidden shrink-0 items-center gap-1 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 sm:flex"
         >
-          {expanded ? "Collapse" : "Expand player"}
+          {expanded ? "Collapse" : hasRealAudio ? "Expand player" : "Add audio"}
           {expanded ? (
             <Minimize2 className="h-3 w-3" />
           ) : (
@@ -613,7 +642,7 @@ export function MediaPlayer({
       {hasRealAudio && (
         <audio
           ref={audioRef}
-          src={audioUrl!}
+          src={activeAudioUrl!}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onPlay={() => setIsPlaying(true)}
@@ -643,8 +672,20 @@ export function MediaPlayer({
             down the dashboard you had scrolled when you expanded it.
           */}
           <div className="sticky top-0 z-10 flex h-screen items-center justify-center px-4">
-            <section className="w-full max-w-6xl rounded-md border border-neutral-700 bg-neutral-900/95 p-6 shadow-2xl">
+            <section className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-md border border-neutral-700 bg-neutral-900/95 p-6 shadow-2xl">
               {controls}
+
+              <AudioVersions
+                songId={songId}
+                isLeader={isLeader}
+                currentUserId={currentUserId}
+                versions={versions}
+                loading={versionsLoading}
+                onReload={loadVersions}
+                previewVersionId={previewVersion?.id ?? null}
+                onPreview={handlePreview}
+                onPromoted={onAudioUploaded}
+              />
             </section>
           </div>
         </div>
