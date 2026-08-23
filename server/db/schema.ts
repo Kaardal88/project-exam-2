@@ -548,3 +548,56 @@ export const song_comment_eventsRelations = relations(
     }),
   }),
 );
+
+/**
+ * Every audio file ever uploaded for a song, newest and oldest alike.
+ *
+ * songs.audio_url stays the pointer to the current version, so playback,
+ * /audio-url and the key validation all keep working untouched. Which row is
+ * current is *derived* -- r2_key === song.audio_url -- rather than stored as a
+ * flag here, so the two can never drift into disagreeing.
+ *
+ * The table exists so that contributing and deciding can be different acts. A
+ * guest musician needs to upload their take; only a band leader should get to
+ * say which take is the song. Before this, "replace the audio" was one write
+ * that overwrote the pointer and deleted the old object, which made those two
+ * things inseparable and lost the previous take for good.
+ */
+export const song_audio_versions = pgTable("song_audio_versions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  song_id: uuid("song_id")
+    .notNull()
+    .references(() => songs.id, { onDelete: "cascade" }),
+
+  /** R2 object key, always scoped songs/<song_id>/audio/... */
+  r2_key: text("r2_key").notNull(),
+
+  /** "Kim's guitar overdub" — what a reader needs to tell two takes apart. */
+  label: varchar("label", { length: 255 }).notNull(),
+
+  /** Optional longer note: what changed, what to listen for. */
+  note: text("note"),
+
+  // Nullable so the history survives the uploader deleting their account,
+  // the same way song_files and song_comment_events do.
+  uploaded_by: uuid("uploaded_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const song_audio_versionsRelations = relations(
+  song_audio_versions,
+  ({ one }) => ({
+    song: one(songs, {
+      fields: [song_audio_versions.song_id],
+      references: [songs.id],
+    }),
+    uploader: one(users, {
+      fields: [song_audio_versions.uploaded_by],
+      references: [users.id],
+    }),
+  }),
+);
