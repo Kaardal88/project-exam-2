@@ -118,6 +118,18 @@ export default function LoginPage() {
           </p>
         )}
 
+        {/*
+          There is no self-service reset yet: that needs an email provider, a
+          verified sending domain and a token table, and it is the same job as
+          email verification. Saying so is better than an absence -- someone
+          who finds nothing here assumes the app is broken and stops, rather
+          than asking.
+        */}
+        <p className="mt-4 text-center text-sm text-neutral-400">
+          Forgotten your password? There is no reset link yet — contact the
+          developer and it can be set for you.
+        </p>
+
         <p className="auth-switch">
           No account? <Link href="/register">Create one</Link>
         </p>

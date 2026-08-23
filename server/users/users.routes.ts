@@ -9,12 +9,14 @@ import {
 import {
   updateUserSchema,
   deleteAccountSchema,
+  changePasswordSchema,
 } from "@/server/users/users.schemas";
 import { requireAuth } from "../auth/auth.middleware";
 import { ACCEPTED, PENDING, DECLINED } from "@/lib/inviteStatus";
 import { getCollabProjectsForUser } from "@/server/projects/access";
-import { verifyPassword } from "../auth/password";
-import { clearSessionCookies } from "../auth/session";
+import { verifyPassword, hashPassword } from "../auth/password";
+import { createToken } from "../auth/jwt";
+import { clearSessionCookies, setSessionCookies } from "../auth/session";
 import { db } from "../db";
 import { and, eq, inArray, asc } from "drizzle-orm";
 import {
@@ -112,6 +114,63 @@ usersRoutes.put(
     });
 
     return c.json({ user: updatedUser });
+  },
+);
+
+/**
+ * Change your own password.
+ *
+ * Scoped to /me rather than /:id: there is no case for one account setting
+ * another's password, so the route does not offer the shape.
+ *
+ * Known limitation, stated here rather than discovered later: this does not
+ * end sessions on other devices. The JWT is stateless, so the only ways to
+ * invalidate an issued one are to keep a token version in the database and
+ * read it on every authenticated request, or to shorten the expiry. The first
+ * costs a round trip per request on a serverless database, which is real
+ * latency on a page that already makes six parallel calls. So a changed
+ * password stops future logins with the old one, and any session already open
+ * elsewhere lasts until it expires. Worth revisiting if this ever holds
+ * anything worth stealing.
+ */
+usersRoutes.put(
+  "/me/password",
+  requireAuth,
+  zValidator("json", changePasswordSchema),
+  async (c) => {
+    const userId = c.get("userId");
+    const { currentPassword, newPassword } = c.req.valid("json");
+
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { id: true, password_hash: true },
+    });
+
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    if (!(await verifyPassword(currentPassword, user.password_hash))) {
+      return c.json({ error: "Current password is incorrect" }, 401);
+    }
+
+    if (currentPassword === newPassword) {
+      return c.json({ error: "That is already your password" }, 400);
+    }
+
+    await db
+      .update(users)
+      .set({ password_hash: await hashPassword(newPassword) })
+      .where(eq(users.id, userId));
+
+    // A fresh cookie so the browser doing the changing stays signed in on a
+    // token minted after the change, rather than carrying on with the one it
+    // had before.
+    const token = await createToken(userId);
+
+    if (token) setSessionCookies(c, token);
+
+    return c.json({ success: true });
   },
 );
 
