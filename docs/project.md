@@ -65,21 +65,54 @@ The platform should feel modern, clean, intuitive and enjoyable to use.
 
 # Current Features
 
-Current functionality includes:
+### Accounts and access
 
-- User accounts
-- Authentication
-- Band creation
-- Member invitations
-- Role-based permissions
-- Public band profiles
-- Biography
-- Social media links
-- Country selection
-- Event calendar
-- Upcoming events
-- Member management
-- Responsive design
+- User accounts, with handles so profiles have shareable addresses
+- Session in an httpOnly cookie; password change from settings
+- Band creation, member invitations you can accept or decline
+- Role-based permissions enforced server-side, not by hiding buttons
+- Band visibility: public, unlisted or private
+- Retired band slugs keep working, so shared links do not break
+- Account deletion, with a preview of what it does to each band
+- Band deletion, confirmed with the band name and a password
+
+### The band workspace
+
+- Public band profiles: biography, country, genre, social links
+- Event calendar, shared and private
+- Member management and role changes
+- Projects: albums and singles
+- Songs, with status and track order
+
+### The song dashboard
+
+- Audio upload and playback with a decoded waveform
+- **Audio version history** — every take is kept; a band leader chooses which
+  one is the song
+- Comments pinned to a timestamp, which double as tickets with a status and an
+  assignee
+- Comment history: who changed a status, who reassigned it
+- Notes and lyrics with a rich text editor
+- File management: project files, artwork, press photos, contracts
+- Artwork per song, falling back to the project cover
+
+### Collaboration
+
+- **Project-scoped guests** — a session musician, producer, engineer or manager
+  invited to one project sees nothing else the band is doing
+- Guests can upload a take without being able to replace the song's audio
+- One inbox for band invitations and project invitations alike
+
+### Feedback
+
+- A feedback button on every page, for the closed test round
+- Testers see their own submissions and any answer
+- A single platform admin reads the inbox and replies
+
+### Throughout
+
+- Responsive design, dark only
+- Files served from Cloudflare R2 through presigned URLs
 
 ---
 
@@ -87,42 +120,31 @@ Current functionality includes:
 
 Potential future features include:
 
+### Nearest at hand
+
+- Password reset and email verification — one job, since both need an email
+  provider and a verified sending domain
+- Avatar and header uploads, on their own Cloudflare bucket
+- SEO metadata, which was waiting on the move to cookies and is now unblocked
+- Sorting and filtering on Connect and Artists
+- Tablature sheets in the song dashboard
+
 ### Music Management
 
-- Albums
-- Singles
 - EPs
-- Songs
-- Lyrics
-- Song metadata
-- BPM / Key information
+- Deeper song metadata beyond BPM and key
 
 ### Project Management
 
-- Work In Progress dashboard
-- Finished songs
 - Recording sessions
-- Task management
 - Deadlines
 - Checklists
+- Task creation and completion (the list is read-only for now)
 
 ### Collaboration
 
-- Guest musicians
-- Producers
-- Mixing engineers
-- Mastering engineers
-- External collaborators
 - Internal messaging
-
-### File Management
-
-- Audio uploads
-- Project files
-- Artwork
-- Press photos
-- Contracts
-- Cloud storage integration
+- Narrower guest permissions, once real guests have shown what they need
 
 ### Band Administration
 
