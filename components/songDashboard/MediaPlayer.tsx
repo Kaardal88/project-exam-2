@@ -150,7 +150,7 @@ export function MediaPlayer({
   // take it is playing, and it cannot do that from a list that only exists
   // inside the panel.
   const loadVersions = useCallback(async () => {
-    const response = await fetch(`/api/songs/${songId}/versions`);
+    const response = await fetch(`/api/songs/${songId}/audio-versions`);
 
     if (response.ok) setVersions(await response.json());
 
@@ -406,7 +406,7 @@ export function MediaPlayer({
     }
 
     const response = await fetch(
-      `/api/songs/${songId}/versions/${version.id}/url`,
+      `/api/songs/${songId}/audio-versions/${version.id}/url`,
     );
 
     if (!response.ok) {

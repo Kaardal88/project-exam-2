@@ -1,6 +1,12 @@
 # Stems and version control
 
-**Decided 2026-08-24. Not built yet — this is the plan of record.**
+**Decided 2026-08-24. The plan of record, kept in step with what is built.**
+
+Schema, migration and API are in. The studio UI is not — the player still reads
+the old whole-song version log at `/audio-versions`, and nothing in the client
+touches stems yet. Sections marked *deviation* are places where building it
+changed the plan; they describe what the code does, not what was first
+intended.
 
 A song version stops being one finished mixdown and becomes a set of separate
 stems played back together. A new contribution — a guest vocalist's take, a
@@ -270,18 +276,20 @@ export const song_version_stems = pgTable("song_version_stems", {
     .references(() => songs.id, { onDelete: "cascade" }),
 
   stem_id: uuid("stem_id").notNull()
-    .references(() => song_stems.id, { onDelete: "restrict" }),
+    .references(() => song_stems.id, { onDelete: "no action" }),
 
   /**
-   * RESTRICT, not cascade and not set null. A take some version points at
-   * cannot be deleted, because deleting it would change what an already
-   * approved mix sounds like -- the exact thing section 3 exists to prevent.
-   * The route checks first and answers 409 with an explanation; this is the
-   * backstop under it. A snapshot row with a hole in it is worse than a
-   * refusal: it is history that quietly changed.
+   * Not cascade and not set null. A take some version points at cannot be
+   * deleted, because deleting it would change what an already approved mix
+   * sounds like -- the exact thing section 3 exists to prevent. The route
+   * checks first and answers 409 with an explanation; this is the backstop
+   * under it. A snapshot row with a hole in it is worse than a refusal: it is
+   * history that quietly changed.
+   *
+   * NO ACTION rather than RESTRICT -- see the note below, it is not cosmetic.
    */
   take_id: uuid("take_id").notNull()
-    .references(() => song_stem_takes.id, { onDelete: "restrict" }),
+    .references(() => song_stem_takes.id, { onDelete: "no action" }),
 }, (t) => ({
   /** one active take per slot per version, enforced by Postgres */
   oneTakePerSlot: unique().on(t.song_version_id, t.stem_id),
@@ -290,6 +298,17 @@ export const song_version_stems = pgTable("song_version_stems", {
   byTake: index("song_version_stems_take_id_idx").on(t.take_id),
 }));
 ```
+
+**NO ACTION, not RESTRICT, and the difference is load-bearing.** Both refuse
+the delete; they differ in when the check runs. RESTRICT checks immediately,
+NO ACTION at the end of the statement. Deleting a song cascades into
+`song_stems`, `song_stem_takes` and this table in a single statement, so under
+RESTRICT the check fires against rows that same statement is about to remove --
+and whether deleting a song, a project or a band worked at all would come down
+to the order Postgres happened to fire the constraints in. It passed when
+tested, which is exactly what makes it dangerous: it passed by luck of
+constraint creation order, and a database rebuilt in a different order would
+flip it. NO ACTION removes the luck.
 
 **Deviation from the planning notes**, which asked for an index on `song_id`
 here. The UNIQUE covers the hot read, and no query filters on `song_id` alone.
@@ -339,10 +358,18 @@ and `song_version_stems`, dropped again afterwards). Results:
 | Does a failing batch roll back? | **Yes** — a UNIQUE violation in the third statement left nothing at all behind, version row included |
 | Does `<> ALL(${array}::uuid[])` bind? | **No** — `malformed array literal`. The http driver does not send a JS array as a Postgres array |
 
-So the model stands, with one correction to the SQL below: **the exclusion is
-written as `NOT IN` with the ids expanded one per parameter**, via
-`sql.join(ids.map((id) => sql\`${id}::uuid\`), sql\`, \`)`. The array form does
-not work on this driver.
+So the model stands. The array form does not work on this driver, so any
+`INSERT ... SELECT` exclusion has to be `NOT IN` with the ids expanded one per
+parameter.
+
+**In the end the commit path does not need one.** `commitVersion()` reads the
+base version's rows, applies the changes in memory and writes the resulting
+arrangement out in full, one row per slot. Those rows have to be read anyway --
+to know which take lands in the mix slot for `songs.audio_url`, and to count
+the result against `MAX_STEMS_PER_VERSION` -- so once they are in hand,
+`INSERT ... SELECT` is a second way of saying the same thing, carrying a trap
+the explicit form does not have. **What matters is unchanged: the copy happens
+on write.** Every version holds its own complete set of rows.
 
 Two things that follow from `NOT IN` and need guarding in the route:
 
@@ -395,8 +422,22 @@ All under the existing Hono app, all behind `requireAuth` +
 `getSongContext()` + `getProjectAccess()` like the rest of the song routes.
 
 `server/songs/songs.routes.ts` is already 1194 lines. These live in
-**`server/songs/stems.routes.ts`**, mounted with
-`songsRoutes.route("/", stemsRoutes)`, or the file passes 2000.
+**`server/songs/stems.routes.ts`**, mounted as a second router on `/songs` in
+`app/api/[[...route]]/route.ts`, or the file passes 2000.
+
+**Two routers on one base path must never define the same route.** Hono matches
+in registration order, so the first one registered wins silently. The old
+whole-song version log collided on `/:id/versions`, so it moved to
+`/:id/audio-versions` -- five call sites in `MediaPlayer.tsx` and
+`AudioVersions.tsx` -- which keeps the existing player working untouched while
+the new routes take the name they should have. Both the legacy routes and the
+legacy component go when the studio UI lands.
+
+`getSongContext()` moved out of `songs.routes.ts` into
+`server/songs/songContext.ts` so both routers share it, and gained
+`requireSongAccess()` beside it: the load-song-404-resolve-access-401 preamble
+was about to be written twenty more times, and twenty copies of a security
+check is twenty chances to get one subtly wrong.
 
 ### Slots
 

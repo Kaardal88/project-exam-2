@@ -954,27 +954,34 @@ export const song_version_stems = pgTable(
       .references(() => songs.id, { onDelete: "cascade" }),
 
     /**
-     * restrict, not cascade: deleting a slot some version still uses would
-     * silently drop a layer out of an arrangement that has already been
-     * listened to and signed off on.
+     * Deleting a slot some version still uses would silently drop a layer out
+     * of an arrangement that has already been listened to and signed off on.
      */
     stem_id: uuid("stem_id")
       .notNull()
-      .references(() => song_stems.id, { onDelete: "restrict" }),
+      .references(() => song_stems.id, { onDelete: "no action" }),
 
     /**
-     * restrict, and this is the important one. A take some version points at
-     * cannot be deleted, because deleting it would change what an already
-     * approved mix sounds like -- the exact thing the flat-copy design exists
-     * to prevent. set null would be worse than either: a snapshot row with a
-     * hole in it is history that quietly changed.
+     * The important one. A take some version points at cannot be deleted,
+     * because deleting it would change what an already approved mix sounds
+     * like -- the exact thing the flat-copy design exists to prevent. set null
+     * would be worse than either: a snapshot row with a hole in it is history
+     * that quietly changed.
      *
      * The route checks first and answers 409 naming the versions that use it.
      * This is the backstop under that check, not a substitute for it.
+     *
+     * **no action rather than restrict, and the difference matters here.**
+     * Both refuse the delete. restrict checks immediately; no action checks at
+     * the end of the statement. Deleting a song cascades into song_stems,
+     * song_stem_takes and this table at once, and under restrict the check
+     * would fire against rows that the same statement is about to remove --
+     * so whether deleting a song (or a project, or a band) worked at all would
+     * depend on the order Postgres happened to fire the constraints in.
      */
     take_id: uuid("take_id")
       .notNull()
-      .references(() => song_stem_takes.id, { onDelete: "restrict" }),
+      .references(() => song_stem_takes.id, { onDelete: "no action" }),
   },
   (table) => ({
     /** One active take per slot per version, enforced by Postgres. */

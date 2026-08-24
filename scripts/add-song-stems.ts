@@ -112,18 +112,26 @@ async function createTables() {
     )
   `);
 
-  // RESTRICT on both references is the model enforcing itself: a take or a
+  // NO ACTION on both references is the model enforcing itself: a take or a
   // slot some version still points at cannot be deleted, because deleting it
   // would change what an already approved mix sounds like.
+  //
+  // NO ACTION rather than RESTRICT on purpose. Both refuse the delete, but
+  // RESTRICT checks immediately while NO ACTION checks at the end of the
+  // statement -- and deleting a song cascades into song_stems, song_stem_takes
+  // and this table in one statement. Under RESTRICT the check fires against
+  // rows the same statement is about to remove, so whether deleting a song,
+  // a project or a band worked would depend on the order Postgres happened to
+  // fire the constraints in.
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS "song_version_stems" (
       "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
       "song_version_id" uuid NOT NULL
         REFERENCES "song_versions"("id") ON DELETE CASCADE,
       "song_id" uuid NOT NULL REFERENCES "songs"("id") ON DELETE CASCADE,
-      "stem_id" uuid NOT NULL REFERENCES "song_stems"("id") ON DELETE RESTRICT,
+      "stem_id" uuid NOT NULL REFERENCES "song_stems"("id") ON DELETE NO ACTION,
       "take_id" uuid NOT NULL
-        REFERENCES "song_stem_takes"("id") ON DELETE RESTRICT,
+        REFERENCES "song_stem_takes"("id") ON DELETE NO ACTION,
       UNIQUE ("song_version_id", "stem_id")
     )
   `);
@@ -131,6 +139,29 @@ async function createTables() {
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS "song_version_stems_take_id_idx"
       ON "song_version_stems" ("take_id")
+  `);
+
+  // Both of these were created as RESTRICT before the ordering problem above
+  // was understood. DROP IF EXISTS followed by ADD makes the pair idempotent,
+  // and re-running it on a database that already has NO ACTION is a no-op in
+  // effect.
+  await db.execute(sql`
+    ALTER TABLE "song_version_stems"
+      DROP CONSTRAINT IF EXISTS "song_version_stems_stem_id_fkey"
+  `);
+  await db.execute(sql`
+    ALTER TABLE "song_version_stems"
+      ADD CONSTRAINT "song_version_stems_stem_id_fkey"
+      FOREIGN KEY ("stem_id") REFERENCES "song_stems"("id") ON DELETE NO ACTION
+  `);
+  await db.execute(sql`
+    ALTER TABLE "song_version_stems"
+      DROP CONSTRAINT IF EXISTS "song_version_stems_take_id_fkey"
+  `);
+  await db.execute(sql`
+    ALTER TABLE "song_version_stems"
+      ADD CONSTRAINT "song_version_stems_take_id_fkey"
+      FOREIGN KEY ("take_id") REFERENCES "song_stem_takes"("id") ON DELETE NO ACTION
   `);
 
   // Last, and it has to be last: this column references song_versions, so the

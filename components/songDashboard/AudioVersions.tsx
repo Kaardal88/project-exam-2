@@ -111,7 +111,7 @@ export function AudioVersions({
         onProgress: setProgress,
       });
 
-      const response = await fetch(`/api/songs/${songId}/versions`, {
+      const response = await fetch(`/api/songs/${songId}/audio-versions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ r2_key: key, label: label.trim(), note: note.trim() || null }),
@@ -134,7 +134,7 @@ export function AudioVersions({
 
   async function promote(version: AudioVersion) {
     const response = await fetch(
-      `/api/songs/${songId}/versions/${version.id}/promote`,
+      `/api/songs/${songId}/audio-versions/${version.id}/promote`,
       { method: "PUT" },
     );
 
@@ -151,7 +151,7 @@ export function AudioVersions({
 
   async function remove(version: AudioVersion) {
     const response = await fetch(
-      `/api/songs/${songId}/versions/${version.id}`,
+      `/api/songs/${songId}/audio-versions/${version.id}`,
       { method: "DELETE" },
     );
 

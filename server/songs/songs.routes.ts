@@ -27,6 +27,7 @@ import {
   FILE_DOWNLOAD_TTL_SECONDS,
 } from "@/server/r2";
 import { getProjectAccess } from "@/server/projects/access";
+import { getSongContext } from "./songContext";
 
 const TICKET_STATUSES = ["open", "wip", "done"] as const;
 const NOTE_KINDS = ["note", "lyrics"] as const;
@@ -36,7 +37,11 @@ const FILE_CATEGORIES = [
   "press_photo",
   "contract",
 ] as const;
-const UPLOAD_TARGETS = ["audio", "artwork", "file"] as const;
+// "stem" is one layer of a song; "audio" is the whole-song take the version
+// log has always used. Both are mp3 and validated identically -- they differ
+// only in which key prefix they land under, and therefore which feature reads
+// them back.
+const UPLOAD_TARGETS = ["audio", "stem", "artwork", "file"] as const;
 const IMAGE_FILE_CATEGORIES = ["artwork", "press_photo"];
 
 function sanitizeFilename(filename: string) {
@@ -51,21 +56,7 @@ export const songsRoutes = new Hono<{ Variables: Variables }>();
 
 
 
-async function getSongContext(songId: string) {
-  const song = await db.query.songs.findFirst({
-    where: (songs, { eq }) => eq(songs.id, songId),
-  });
-
-  if (!song) return null;
-
-  const project = await db.query.projects.findFirst({
-    where: (projects, { eq }) => eq(projects.id, song.project_id),
-  });
-
-  if (!project) return null;
-
-  return { song, project };
-}
+// Moved to ./songContext.ts when stems.routes.ts needed the same lookup.
 
 songsRoutes.get("/:id", requireAuth, async (c) => {
   const songId = c.req.param("id");
@@ -754,7 +745,10 @@ songsRoutes.post("/:id/presign-upload", requireAuth, async (c) => {
   const { target, filename, contentType, size, category } = body;
 
   if (!UPLOAD_TARGETS.includes(target)) {
-    return c.json({ error: "target must be 'audio', 'artwork', or 'file'" }, 400);
+    return c.json(
+      { error: "target must be 'audio', 'stem', 'artwork', or 'file'" },
+      400,
+    );
   }
 
   if (typeof filename !== "string" || !filename) {
@@ -776,7 +770,7 @@ songsRoutes.post("/:id/presign-upload", requireAuth, async (c) => {
   let maxBytes: number;
   let extension: string;
 
-  if (target === "audio") {
+  if (target === "audio" || target === "stem") {
     if (!ALLOWED_AUDIO_TYPES[contentType]) {
       return c.json({ error: "Only MP3 audio files are allowed" }, 400);
     }
@@ -820,6 +814,11 @@ songsRoutes.post("/:id/presign-upload", requireAuth, async (c) => {
 
   if (target === "audio") {
     key = `songs/${songId}/audio/${uuid}.${extension}`;
+  } else if (target === "stem") {
+    // Same songs/<songId>/ prefix every other upload uses, so isKeyForSong()
+    // covers stems without a line of new validation. Any future key path must
+    // go through that check rather than alongside it.
+    key = `songs/${songId}/stems/${uuid}.${extension}`;
   } else if (target === "artwork") {
     key = `songs/${songId}/artwork/${uuid}.${extension}`;
   } else {
@@ -839,7 +838,7 @@ songsRoutes.post("/:id/presign-upload", requireAuth, async (c) => {
  * `is_current` is derived from the song's own pointer rather than stored, so
  * there is no second place that could disagree about which take is the song.
  */
-songsRoutes.get("/:id/versions", requireAuth, async (c) => {
+songsRoutes.get("/:id/audio-versions", requireAuth, async (c) => {
   const songId = c.req.param("id");
   const userId = c.get("userId");
 
@@ -883,7 +882,7 @@ songsRoutes.get("/:id/versions", requireAuth, async (c) => {
  * included: a session musician who cannot hand in what they played is no use
  * to anybody. Adding a version never changes what the song currently plays.
  */
-songsRoutes.post("/:id/versions", requireAuth, async (c) => {
+songsRoutes.post("/:id/audio-versions", requireAuth, async (c) => {
   const songId = c.req.param("id");
   const userId = c.get("userId");
   const body = await c.req.json();
@@ -938,7 +937,7 @@ songsRoutes.post("/:id/versions", requireAuth, async (c) => {
  * Nothing is deleted: the take being replaced stays in the log, and promoting
  * it back is the same one-line move in the other direction.
  */
-songsRoutes.put("/:id/versions/:versionId/promote", requireAuth, async (c) => {
+songsRoutes.put("/:id/audio-versions/:versionId/promote", requireAuth, async (c) => {
   const songId = c.req.param("id");
   const versionId = c.req.param("versionId");
   const userId = c.get("userId");
@@ -993,7 +992,7 @@ songsRoutes.put("/:id/versions/:versionId/promote", requireAuth, async (c) => {
  * with no explanation. Promote another version first; that is the same shape
  * as the guard stopping a band from losing its last leader.
  */
-songsRoutes.delete("/:id/versions/:versionId", requireAuth, async (c) => {
+songsRoutes.delete("/:id/audio-versions/:versionId", requireAuth, async (c) => {
   const songId = c.req.param("id");
   const versionId = c.req.param("versionId");
   const userId = c.get("userId");
@@ -1058,7 +1057,7 @@ songsRoutes.delete("/:id/versions/:versionId", requireAuth, async (c) => {
 });
 
 /** A playable URL for one version, so takes can be compared against each other. */
-songsRoutes.get("/:id/versions/:versionId/url", requireAuth, async (c) => {
+songsRoutes.get("/:id/audio-versions/:versionId/url", requireAuth, async (c) => {
   const songId = c.req.param("id");
   const versionId = c.req.param("versionId");
   const userId = c.get("userId");
