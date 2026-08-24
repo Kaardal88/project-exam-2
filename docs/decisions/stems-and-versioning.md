@@ -316,7 +316,7 @@ join, and so the SEO/OG work later has something to read. A song with stems
 and no mix slot has `audio_url` null, and single-file consumers show "stems
 only" rather than a broken player.
 
-### 4.7 The transaction — verify this first
+### 4.7 The transaction — verified, it holds
 
 `server/db/index.ts` uses `drizzle-orm/neon-http`. **That driver has no
 interactive transactions** — `db.transaction()` throws. The copy has to be
@@ -326,13 +326,34 @@ about what the song sounds like.
 The way through: generate the version id in code with `crypto.randomUUID()`
 instead of relying on `defaultRandom()`, so every statement is known up front,
 and send them as one `db.batch([...])` — Neon runs an HTTP batch as a single
-transaction. If `batch` will not take a `db.execute()` carrying the
-`INSERT ... SELECT`, the fallbacks are `neon().transaction([...])` directly, or
-a `Pool`-based client for this one route.
+transaction.
 
-**This is the first thing to build and the first thing to test.** Everything
-else here is ordinary; this is the one assumption the whole write-time copy
-model rests on.
+**Probed against the real database before anything else was built**
+(`scripts/probe-batch.ts`, two throwaway tables shaped like `song_versions`
+and `song_version_stems`, dropped again afterwards). Results:
+
+| Question | Answer |
+| --- | --- |
+| Does `db.batch()` accept `db.execute(sql...)` items? | **Yes** |
+| Does `INSERT ... SELECT` work inside a batch? | **Yes** — two slots inherited, one overwritten, as intended |
+| Does a failing batch roll back? | **Yes** — a UNIQUE violation in the third statement left nothing at all behind, version row included |
+| Does `<> ALL(${array}::uuid[])` bind? | **No** — `malformed array literal`. The http driver does not send a JS array as a Postgres array |
+
+So the model stands, with one correction to the SQL below: **the exclusion is
+written as `NOT IN` with the ids expanded one per parameter**, via
+`sql.join(ids.map((id) => sql\`${id}::uuid\`), sql\`, \`)`. The array form does
+not work on this driver.
+
+Two things that follow from `NOT IN` and need guarding in the route:
+
+- `NOT IN ()` with an empty list is a syntax error. A real commit always
+  touches at least one slot, but the clause must be omitted rather than
+  emitted empty.
+- **`NOT IN` returns no rows at all if any value in the list is NULL.** A
+  malformed request carrying a null `stem_id` would silently inherit nothing
+  and produce a version with only the changed slot in it — a quietly emptied
+  arrangement rather than an error. Validate the ids as non-null uuids before
+  building the list.
 
 The copy itself:
 
@@ -344,12 +365,14 @@ VALUES ($new, $song,
            FROM song_versions WHERE song_id = $song),
         $label, $user);
 
--- 2. inherit everything that did not change -- on WRITE, not on read
+-- 2. inherit everything that did not change -- on WRITE, not on read.
+--    NOT IN with the ids expanded one per parameter; the array form does
+--    not bind on neon-http. Omit the clause entirely if nothing is touched.
 INSERT INTO song_version_stems (song_version_id, song_id, stem_id, take_id)
 SELECT $new, song_id, stem_id, take_id
   FROM song_version_stems
  WHERE song_version_id = $current
-   AND stem_id <> ALL($touchedStemIds);
+   AND stem_id NOT IN ($touched1::uuid, $touched2::uuid, ...);
 
 -- 3. the slots that did change, and only those
 INSERT INTO song_version_stems (song_version_id, song_id, stem_id, take_id)
@@ -574,13 +597,42 @@ slot's takes.** For every song that has audio:
 1. a `song_stems` row named "Full mix", kind `mix`
 2. one `song_stem_takes` row per existing `song_audio_versions` row —
    `r2_key`, `label`, `note`, `uploaded_by` and `created_at` carried over
-   unchanged
-3. one `song_versions` row per take, numbered by `created_at`, backdated to
-   the take rather than to now — a log that lies about its own age is worse
-   than no log, the same reasoning as the previous backfill
-4. one `song_version_stems` row per version, pointing at its take
-5. `songs.current_version_id` set to the version whose take has
-   `r2_key === songs.audio_url`
+   unchanged, and backdated to the take rather than to now, because a log that
+   lies about its own age is worse than no log
+3. **exactly one** `song_versions` row, holding the take whose `r2_key`
+   matches `songs.audio_url`
+4. one `song_version_stems` row pointing at that take
+5. `songs.current_version_id` set to that version
+
+### Every upload becomes a take. Only one version is created.
+
+The first draft of this said one version per upload, and the real data showed
+why that is wrong. **`song_audio_versions` records uploads, not promotions.**
+We know which take is current now, from `songs.audio_url`. We do not know which
+takes were ever current before, and no column would tell us.
+
+One song in the database has three takes with the **second** one current —
+somebody uploaded a take after the chosen one and it was never promoted, which
+is the contribute-versus-decide split working exactly as designed. Turning
+those three uploads into three versions would invent a history nobody lived,
+and put a version in the log that was never main. The next real commit copies
+from the current version, so the log would read v1 → v2 → v3 → v4 while v4
+actually descends from v2 — **the branch this whole model exists to prevent,
+imported into the history on day one.**
+
+So the other takes stay takes: label, note, uploader and date intact, nothing
+deleted, all still playable and promotable. That song reads "Full mix: 3 takes,
+version 1 uses Version 2", which is what is true. The cost is that one song
+shows one version instead of three; the gain is that every version in the log
+really was main, which is the assumption everything downstream rests on.
+
+Assuming instead that everything before the current take had been promoted in
+turn is also a guess — just a more flattering one. Rejected on the same
+grounds.
+
+If `audio_url` matches no take at all, the version falls back to the newest
+take and the script names the song at the end of the run, rather than leaving
+it with no current version and a silent player.
 
 Nothing in the new UI reads `song_audio_versions` afterwards, but **it is not
 dropped in this round.** It stays as the ground truth in case the backfill
@@ -602,8 +654,9 @@ have carried real use.
 
 **Known risks:**
 
-- **`db.batch()` (section 4.7) is unproven here.** It is the one assumption
-  that could force a different shape, so it is built and tested first.
+- ~~**`db.batch()` (section 4.7) is unproven here.**~~ Probed and confirmed on
+  2026-08-24, including rollback on failure. The one correction it forced is
+  in section 4.7: `NOT IN` rather than `<> ALL(array)`.
 - **Comments are timestamped against the song, not against a take.** The
   player already hides comment markers while previewing an older version for
   this reason. Stems of differing lengths make the question larger. The likely

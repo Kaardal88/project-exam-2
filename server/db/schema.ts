@@ -6,8 +6,10 @@ import {
   timestamp,
   unique,
   uniqueIndex,
+  index,
   integer,
   boolean,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -391,9 +393,44 @@ export const songs = pgTable("songs", {
 
   time_signature: varchar("time_signature", { length: 20 }),
 
+  /**
+   * The single-file mixdown of the current version, when there is one.
+   *
+   * Once a song is a set of stems there is no one file that *is* the audio, so
+   * this stops being the pointer and becomes a cache: the take sitting in the
+   * "mix" slot of current_version_id, written only by the commit path in
+   * server/songs/versions.service.ts and nowhere else. It is derivable, and it
+   * is materialised here so a song list does not need three joins.
+   *
+   * Null for a song built from stems with no mix slot. Consumers that want one
+   * file say "stems only" rather than drawing a broken player.
+   */
   audio_url: text("audio_url"),
 
   artwork_url: text("artwork_url"),
+
+  /**
+   * main. The version this song currently is.
+   *
+   * Stored rather than derived, unlike the pointer it replaces: with several
+   * stems there is nothing to derive it *from*. Every read of "what does this
+   * song sound like" starts here, which is why it is denormalised onto the row
+   * rather than found with MAX(version_number) on the most-visited page in the
+   * app.
+   *
+   * set null rather than cascade: losing the current version must not delete
+   * the song. DELETE of the current version is refused by the route anyway.
+   *
+   * The `: AnyPgColumn` annotation below is load-bearing, not decoration.
+   * songs points at song_versions and song_versions points back at songs, and
+   * without an explicit return type TypeScript cannot resolve either table --
+   * both collapse to `any`, and the damage spreads to every file that queries
+   * the schema at all.
+   */
+  current_version_id: uuid("current_version_id").references(
+    (): AnyPgColumn => song_versions.id,
+    { onDelete: "set null" },
+  ),
 
   created_by: uuid("created_by").references(() => users.id, {
     onDelete: "set null",
@@ -507,11 +544,19 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   collaborators: many(project_collaborators),
 }));
 
-export const songsRelations = relations(songs, ({ one }) => ({
+export const songsRelations = relations(songs, ({ one, many }) => ({
   project: one(projects, {
     fields: [songs.project_id],
     references: [projects.id],
   }),
+  /**
+   * The slot registry and the commit history. The *current* version is
+   * deliberately not a relation here: songs.current_version_id would pair
+   * ambiguously with `versions` below, and every route that wants it already
+   * has the id to fetch it by.
+   */
+  stems: many(song_stems),
+  versions: many(song_versions),
 }));
 
 export const song_commentsRelations = relations(song_comments, ({ one }) => ({
@@ -694,3 +739,311 @@ export const feedbackRelations = relations(feedback, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+/**
+ * Stems: a song is layers, and a version is a set of them.
+ *
+ * See docs/decisions/stems-and-versioning.md for the reasoning. The short
+ * version, because it is the part that is easy to get wrong later:
+ *
+ * A version is a **flat, independent** set of stem references. Creating v2
+ * copies v1's rows -- copies of pointers, not of audio -- and overwrites only
+ * the slot that changed. That copy happens **on write**, never on read.
+ * Resolving a missing slot by walking up to a parent version would mean that
+ * fixing a stem in v1 changes what v2, v3 and v4 sound like, including a mix
+ * somebody has already approved.
+ *
+ * The audio is still shared across versions by reference, so only the small
+ * pointer rows are duplicated. A version costs four rows, not four files.
+ */
+
+/**
+ * One slot in a song: "Lead vocal", "Gtr L", "Full mix".
+ *
+ * A registry of names and colors. It does **not** say what is in the
+ * arrangement -- the version does. A slot that no version references is simply
+ * not in the song, which is also how a layer is removed: commit a version that
+ * omits it. There is no delete path for "take this out of the song".
+ */
+export const song_stems = pgTable(
+  "song_stems",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    song_id: uuid("song_id")
+      .notNull()
+      .references(() => songs.id, { onDelete: "cascade" }),
+
+    /** The band's own name for the slot. */
+    name: varchar("name", { length: 80 }).notNull(),
+
+    /** See lib/stemKinds.ts -- drives the icon and the default color. */
+    kind: varchar("kind", { length: 40 }).notNull(),
+
+    /**
+     * #rrggbb chosen by the band. Null means "nobody has chosen", not "no
+     * color": stemColor() falls back to the kind's default, so a lane is never
+     * colorless and the picker never has to be opened.
+     *
+     * This is data, not palette. It is rendered as an inline style, never as a
+     * Tailwind class, so it does not put a new value into the design system --
+     * and it is used as a lane accent only, never as a text color, because a
+     * band that picks a near-black would otherwise make its own stem
+     * unreadable on a dark background.
+     */
+    color: varchar("color", { length: 7 }),
+
+    sort_order: integer("sort_order").notNull().default(0),
+
+    created_by: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+
+    created_at: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    bySong: index("song_stems_song_id_idx").on(table.song_id),
+  }),
+);
+
+/**
+ * The audio itself. One row per file anyone has handed in for a slot.
+ *
+ * Uploading writes a row here and does nothing else -- anyone with project
+ * access, guests included, and nothing audible changes. That is the same split
+ * song_audio_versions was built on: contributing and deciding are different
+ * acts, and a guest musician who cannot hand in what they played is no use to
+ * anybody while one who can silently overrule the band is worse.
+ */
+export const song_stem_takes = pgTable(
+  "song_stem_takes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    // Denormalised from the stem. Every route checks "does this belong to this
+    // song" before acting, and every other song_* table carries song_id for
+    // exactly that reason.
+    song_id: uuid("song_id")
+      .notNull()
+      .references(() => songs.id, { onDelete: "cascade" }),
+
+    stem_id: uuid("stem_id")
+      .notNull()
+      .references(() => song_stems.id, { onDelete: "cascade" }),
+
+    /** Always songs/<song_id>/stems/... -- passes isKeyForSong() unchanged. */
+    r2_key: text("r2_key").notNull(),
+
+    label: varchar("label", { length: 255 }).notNull(),
+
+    note: text("note"),
+
+    /**
+     * Format-agnostic from day one even though validation only admits mp3
+     * today. Adding wav later is then a validation change, not a schema
+     * change -- which is the whole reason these four columns exist before
+     * anything writes anything but "mp3" into them.
+     */
+    format: varchar("format", { length: 10 }).notNull().default("mp3"),
+    duration_seconds: integer("duration_seconds"),
+    sample_rate: integer("sample_rate"),
+    bit_depth: integer("bit_depth"),
+    byte_size: integer("byte_size"),
+
+    /**
+     * The compressed proxy the player always uses. Null while the master is
+     * already mp3, which is every take in this round.
+     *
+     * When wav arrives behind a subscription plan: the master stays in r2_key,
+     * a proxy is generated asynchronously into this column, playback reads
+     * proxy_r2_key ?? r2_key, and downloading for mix always reads r2_key. A
+     * band without wav access has no proxy and needs no extra step.
+     *
+     * A column rather than a second take row pointed at by a self-reference: a
+     * proxy that is its own row turns up in every "takes in this slot" list
+     * and has to be filtered out of every query that touches one.
+     */
+    proxy_r2_key: text("proxy_r2_key"),
+
+    // Nullable so the history survives the uploader deleting their account,
+    // the same way song_files and song_audio_versions do.
+    uploaded_by: uuid("uploaded_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+
+    created_at: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    bySong: index("song_stem_takes_song_id_idx").on(table.song_id),
+    byStem: index("song_stem_takes_stem_id_idx").on(table.stem_id),
+  }),
+);
+
+/**
+ * A commit on main.
+ *
+ * Not a branch. Branching means two versions living side by side that will
+ * later be merged; this is one sequence of states of the whole arrangement,
+ * which in git terms is a commit history on main with no branches at all.
+ * "Rhythm guitar v1" is not a branch, it is a commit message -- which is what
+ * `label` holds, with version_number playing the part of the hash.
+ *
+ * The rule that keeps it linear: a new version always copies from
+ * songs.current_version_id, never from an arbitrary version. Restoring an old
+ * version therefore writes a *new* version rather than moving the pointer
+ * backwards, the same shape as git revert.
+ */
+export const song_versions = pgTable(
+  "song_versions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    song_id: uuid("song_id")
+      .notNull()
+      .references(() => songs.id, { onDelete: "cascade" }),
+
+    version_number: integer("version_number").notNull(),
+
+    /** "Vocal ref 2" -- what a reader actually sees. */
+    label: varchar("label", { length: 255 }).notNull(),
+
+    note: text("note"),
+
+    /**
+     * Sent to mix. A timestamp and an actor rather than a boolean, the same
+     * shape as song_comments.resolved_at and feedback.replied_at -- it carries
+     * who and when for free, and a locked version cannot be deleted.
+     */
+    locked_at: timestamp("locked_at"),
+    locked_by: uuid("locked_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+
+    created_by: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+
+    created_at: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    /**
+     * Also the lookup index for "the versions of this song": song_id is
+     * leftmost, so a separate index on it would be a second write cost for a
+     * read Postgres can already serve.
+     */
+    uniqueNumber: unique().on(table.song_id, table.version_number),
+  }),
+);
+
+/**
+ * The flat snapshot: which take was in which slot, in this version.
+ *
+ * The most-read table in the feature and the one that enforces the model.
+ */
+export const song_version_stems = pgTable(
+  "song_version_stems",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    song_version_id: uuid("song_version_id")
+      .notNull()
+      .references(() => song_versions.id, { onDelete: "cascade" }),
+
+    song_id: uuid("song_id")
+      .notNull()
+      .references(() => songs.id, { onDelete: "cascade" }),
+
+    /**
+     * restrict, not cascade: deleting a slot some version still uses would
+     * silently drop a layer out of an arrangement that has already been
+     * listened to and signed off on.
+     */
+    stem_id: uuid("stem_id")
+      .notNull()
+      .references(() => song_stems.id, { onDelete: "restrict" }),
+
+    /**
+     * restrict, and this is the important one. A take some version points at
+     * cannot be deleted, because deleting it would change what an already
+     * approved mix sounds like -- the exact thing the flat-copy design exists
+     * to prevent. set null would be worse than either: a snapshot row with a
+     * hole in it is history that quietly changed.
+     *
+     * The route checks first and answers 409 naming the versions that use it.
+     * This is the backstop under that check, not a substitute for it.
+     */
+    take_id: uuid("take_id")
+      .notNull()
+      .references(() => song_stem_takes.id, { onDelete: "restrict" }),
+  },
+  (table) => ({
+    /** One active take per slot per version, enforced by Postgres. */
+    oneTakePerSlot: unique().on(table.song_version_id, table.stem_id),
+
+    /** "Does any version point at this take?" -- run on every take deletion. */
+    byTake: index("song_version_stems_take_id_idx").on(table.take_id),
+  }),
+);
+
+export const song_stemsRelations = relations(song_stems, ({ one, many }) => ({
+  song: one(songs, {
+    fields: [song_stems.song_id],
+    references: [songs.id],
+  }),
+  takes: many(song_stem_takes),
+  creator: one(users, {
+    fields: [song_stems.created_by],
+    references: [users.id],
+  }),
+}));
+
+export const song_stem_takesRelations = relations(
+  song_stem_takes,
+  ({ one }) => ({
+    stem: one(song_stems, {
+      fields: [song_stem_takes.stem_id],
+      references: [song_stems.id],
+    }),
+    uploader: one(users, {
+      fields: [song_stem_takes.uploaded_by],
+      references: [users.id],
+    }),
+  }),
+);
+
+export const song_versionsRelations = relations(
+  song_versions,
+  ({ one, many }) => ({
+    song: one(songs, {
+      fields: [song_versions.song_id],
+      references: [songs.id],
+    }),
+    creator: one(users, {
+      fields: [song_versions.created_by],
+      references: [users.id],
+    }),
+    locker: one(users, {
+      fields: [song_versions.locked_by],
+      references: [users.id],
+    }),
+    stems: many(song_version_stems),
+  }),
+);
+
+export const song_version_stemsRelations = relations(
+  song_version_stems,
+  ({ one }) => ({
+    version: one(song_versions, {
+      fields: [song_version_stems.song_version_id],
+      references: [song_versions.id],
+    }),
+    stem: one(song_stems, {
+      fields: [song_version_stems.stem_id],
+      references: [song_stems.id],
+    }),
+    take: one(song_stem_takes, {
+      fields: [song_version_stems.take_id],
+      references: [song_stem_takes.id],
+    }),
+  }),
+);
