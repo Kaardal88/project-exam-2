@@ -114,7 +114,7 @@ export function VersionHistory({
           History
         </h2>
         <p className="mt-0.5 text-[11px] text-neutral-500">
-          Every version is the whole arrangement at one moment.
+          Every version is the whole arrangement at one moment. Newest on top.
         </p>
       </header>
 
@@ -186,6 +186,25 @@ export function VersionHistory({
                         {version.note}
                       </span>
                     )}
+
+                    {/* A padlock on its own said nothing about what it did.
+                        Locking freezes one version as the reference that went
+                        to mix -- it deliberately does not stop the band
+                        working, which is the part that needed saying. */}
+                    {version.locked_at && (
+                      <span className="mt-1 block rounded-sm border border-neutral-700 bg-neutral-950/60 px-1.5 py-1 text-[10px] leading-relaxed text-neutral-400">
+                        Sent to mix
+                        {version.locker?.username
+                          ? ` by ${version.locker.username}`
+                          : ""}
+                        {version.locked_at
+                          ? ` on ${formatWhen(version.locked_at)}`
+                          : ""}
+                        . Kept exactly as it is — it cannot be removed while
+                        locked. The band carries on as normal: new versions
+                        still stack on top, and this one stays the reference.
+                      </span>
+                    )}
                   </span>
                 </button>
 
@@ -234,7 +253,7 @@ export function VersionHistory({
                         title={
                           version.locked_at
                             ? "Unlock so it can be removed again"
-                            : "Mark as sent to mix"
+                            : "Freeze this version as the one sent to mix. Does not stop new versions."
                         }
                         className="flex items-center gap-1 rounded-md border border-neutral-700 px-2 py-1 text-[11px] text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100"
                       >

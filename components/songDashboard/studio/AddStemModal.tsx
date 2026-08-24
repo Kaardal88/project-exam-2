@@ -5,6 +5,10 @@ import { Modal } from "@/components/Modal";
 import { stemKinds, stemColor } from "@/lib/stemKinds";
 import type { Stem } from "./types";
 
+function labelFor(kind: string) {
+  return stemKinds.find((option) => option.value === kind)?.label ?? "Stem";
+}
+
 type AddStemModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -25,19 +29,43 @@ export function AddStemModal({
   const [kind, setKind] = useState<string>(initialKind);
   const [appliedInitialKind, setAppliedInitialKind] = useState(initialKind);
 
+  /**
+   * The name starts filled in with the kind's label rather than empty behind a
+   * placeholder, and it says "Name" rather than "optional".
+   *
+   * The first real song built this way came out with five lanes all called
+   * "Clean guitar": the field was easy to skip, and the *take* label right
+   * after it was required, so the names the band actually wanted -- "Clean
+   * Rythm L", "Clean Lead R" -- all went onto the takes instead. A visible
+   * value invites editing in a way a placeholder does not.
+   */
+  const [name, setName] = useState(labelFor(initialKind));
+  const [nameTouched, setNameTouched] = useState(false);
+
   // Adjusting state in response to a prop change, not an effect -- the same
   // pattern the media player uses for its seek signal.
   if (initialKind !== appliedInitialKind) {
     setAppliedInitialKind(initialKind);
     setKind(initialKind);
+    if (!nameTouched) setName(labelFor(initialKind));
   }
 
-  const [name, setName] = useState("");
+  function chooseKind(value: string) {
+    setKind(value);
+    // Follows the kind until the band types something of their own, then stops.
+    if (!nameTouched) setName(labelFor(value));
+  }
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (!name.trim()) {
+      setError("Give the stem a name — it is what the lane is called");
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
@@ -45,15 +73,7 @@ export function AddStemModal({
       const response = await fetch(`/api/songs/${songId}/stems`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // The kind's label is a sensible name, so the field is optional --
-        // "Vocals" is a perfectly good name for the vocals.
-        body: JSON.stringify({
-          name:
-            name.trim() ||
-            stemKinds.find((option) => option.value === kind)?.label ||
-            "Stem",
-          kind,
-        }),
+        body: JSON.stringify({ name: name.trim(), kind }),
       });
 
       if (!response.ok) {
@@ -63,7 +83,8 @@ export function AddStemModal({
 
       const stem: Stem = await response.json();
 
-      setName("");
+      setName(labelFor(kind));
+      setNameTouched(false);
       await onAdded(stem);
       onClose();
     } catch (err) {
@@ -80,7 +101,8 @@ export function AddStemModal({
 
         <p className="text-xs text-neutral-400">
           A stem is one layer of the song — the drums, one guitar, a vocal.
-          Adding it makes the lane; the audio comes next.
+          The name is what you will see on the lane, so call it what you call it
+          in your DAW.
         </p>
 
         {error && <p className="form-error">{error}</p>}
@@ -95,7 +117,7 @@ export function AddStemModal({
               <button
                 key={option.value}
                 type="button"
-                onClick={() => setKind(option.value)}
+                onClick={() => chooseKind(option.value)}
                 className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-left text-[11px] transition hover:cursor-pointer ${
                   kind === option.value
                     ? "border-yellow-100 text-yellow-100"
@@ -122,15 +144,16 @@ export function AddStemModal({
             htmlFor="stem-name"
             className="mb-1.5 block text-xs uppercase tracking-wide text-neutral-500"
           >
-            Call it something (optional)
+            Name this lane
           </label>
           <input
             id="stem-name"
             value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder={
-              stemKinds.find((option) => option.value === kind)?.label ?? ""
-            }
+            onChange={(event) => {
+              setNameTouched(true);
+              setName(event.target.value);
+            }}
+            placeholder={labelFor(kind)}
             className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
           />
         </div>

@@ -88,6 +88,7 @@ export function DashboardTab({
         </button>
       ) : (
         <MediaPlayer
+          songId={songId}
           audioUrl={audioUrl}
           comments={comments}
           onRequestAddComment={(seconds) => setAddCommentSeconds(seconds)}

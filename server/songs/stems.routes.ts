@@ -319,6 +319,57 @@ stemsRoutes.post("/:id/stems/:stemId/takes", requireAuth, async (c) => {
   return c.json(take, 201);
 });
 
+/**
+ * Rename a take, or change its note.
+ *
+ * The label is written once at upload and was unchangeable, which turned a
+ * typo into a permanent one. Open to the uploader or a leader, the same rule
+ * that governs withdrawing it.
+ *
+ * Renaming a take deliberately does *not* touch the versions that use it. A
+ * version's label is its own commit message, written when the arrangement
+ * changed; relabelling the audio afterwards should not rewrite what the log
+ * says happened.
+ */
+stemsRoutes.patch("/:id/takes/:takeId", requireAuth, async (c) => {
+  const userId = c.get("userId");
+  const found = await requireSongAccess(c.req.param("id"), userId);
+  if (!found.ok) return c.json({ error: found.error }, found.status);
+
+  const takeId = c.req.param("takeId");
+  const body = await c.req.json();
+
+  const take = await db.query.song_stem_takes.findFirst({
+    where: (rows, { and, eq }) =>
+      and(eq(rows.id, takeId), eq(rows.song_id, found.song.id)),
+  });
+
+  if (!take) return c.json({ error: "Take not found" }, 404);
+
+  if (take.uploaded_by !== userId && !found.access.isLeader) {
+    return c.json(
+      { error: "Only the uploader or a band leader can rename this take" },
+      403,
+    );
+  }
+
+  const label =
+    typeof body.label === "string" ? body.label.trim().slice(0, 255) : undefined;
+
+  if (label === "") return c.json({ error: "label cannot be empty" }, 400);
+
+  const [updated] = await db
+    .update(song_stem_takes)
+    .set({
+      label: label ?? take.label,
+      note: body.note === undefined ? take.note : body.note,
+    })
+    .where(eq(song_stem_takes.id, takeId))
+    .returning();
+
+  return c.json(updated, 200);
+});
+
 /** A playable URL for one take, so candidates can be compared before a commit. */
 stemsRoutes.get("/:id/takes/:takeId/url", requireAuth, async (c) => {
   const found = await requireSongAccess(c.req.param("id"), c.get("userId"));

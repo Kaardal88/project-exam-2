@@ -15,6 +15,8 @@ import {
 import { formatSongTime } from "@/lib/utils";
 import { RAW_PEAK_COUNT, peaksFromBuffer, resampleBars } from "@/lib/waveform";
 import { TICKET_STATUS_STYLES, type TicketStatus } from "./ticketStatus";
+import { useStemPlayer, type PlayerLane } from "./studio/useStemPlayer";
+import type { Version, VersionDetail } from "./studio/types";
 
 // Placeholder duration used until real audio is uploaded/loaded.
 const PLACEHOLDER_TOTAL_SECONDS = 246;
@@ -45,6 +47,7 @@ type Comment = { id: string; timestamp_seconds: number; status: TicketStatus };
 type SeekSignal = { seconds: number; nonce: number };
 
 type MediaPlayerProps = {
+  songId: string;
   audioUrl: string | null;
   comments: Comment[];
   onRequestAddComment: (timestampSeconds: number) => void;
@@ -65,8 +68,21 @@ type MediaPlayerProps = {
  * anything that decides what the song *is* live in the Studio tab, which has
  * the width for it — this card used to open a blurred overlay to make room,
  * and an overlay is a worse workspace than a page.
+ *
+ * **It has two clocks, and only one is running at a time.** A song with a "Full
+ * mix" stem has a single file, and that plays through an <audio> element the
+ * way it always did. A song built only from separate stems has no such file —
+ * songs.audio_url is null and there is nothing to point the element at — so
+ * this card played silence and claimed there was no audio, for exactly the
+ * songs the feature exists for. In that case it falls back to the same Web
+ * Audio engine the studio uses, on the current version's stems.
+ *
+ * Nothing decodes until the listener presses play. This is the page you land
+ * on, and ten decoded stems is several hundred megabytes to spend on a song
+ * somebody may only have opened to read the comments.
  */
 export function MediaPlayer({
+  songId,
   audioUrl,
   comments,
   onRequestAddComment,
@@ -93,6 +109,75 @@ export function MediaPlayer({
   const audioRef = useRef<HTMLAudioElement>(null);
   const hasRetriedAfterError = useRef(false);
 
+  const [stemLanes, setStemLanes] = useState<PlayerLane[]>([]);
+  const [stemsStarted, setStemsStarted] = useState(false);
+  const playWhenReady = useRef(false);
+
+  // Only for a song with no single mixdown. A ref rather than state for the
+  // "play once decoded" flag, so pressing play does not have to round-trip
+  // through a render to take effect.
+  useEffect(() => {
+    if (audioUrl) return;
+
+    let cancelled = false;
+
+    async function loadCurrentArrangement() {
+      const listResponse = await fetch(`/api/songs/${songId}/versions`);
+      if (!listResponse.ok) return;
+
+      const versions: Version[] = await listResponse.json();
+      const current = versions.find((version) => version.is_current);
+      if (!current || cancelled) return;
+
+      const detailResponse = await fetch(
+        `/api/songs/${songId}/versions/${current.id}`,
+      );
+      if (!detailResponse.ok || cancelled) return;
+
+      const detail: VersionDetail = await detailResponse.json();
+
+      setStemLanes(
+        detail.stems.map((row) => ({
+          id: row.stem.id,
+          takeId: row.take.id,
+          url: row.url,
+        })),
+      );
+    }
+
+    void loadCurrentArrangement();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [songId, audioUrl]);
+
+  const stems = useStemPlayer(stemLanes, { enabled: stemsStarted });
+
+  /** True when this song is stems and nothing else. */
+  const usingStems = !hasRealAudio && stemLanes.length > 0;
+
+  /**
+   * The single clock the rest of this component reads, whichever source is
+   * driving it. Everything below this line is deliberately unaware of which.
+   */
+  const position = usingStems ? stems.position : currentSeconds;
+  const total = usingStems
+    ? stems.duration || PLACEHOLDER_TOTAL_SECONDS
+    : duration;
+  const playing = usingStems ? stems.isPlaying : isPlaying;
+
+
+  useEffect(() => {
+    if (playWhenReady.current && stems.state === "ready") {
+      playWhenReady.current = false;
+      void stems.play();
+    }
+    // Not [stems]: the hook returns a fresh object every render, so depending
+    // on it would run this on every one of them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stems.state, stems.play]);
+
   // Adjusting state in response to a prop change (not an effect) — see
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
   // Refs can't be touched during render, so a real-audio seek is deferred to
@@ -101,7 +186,7 @@ export function MediaPlayer({
     setAppliedSeekNonce(seekSignal.nonce);
     setPendingSeconds(null);
 
-    if (hasRealAudio) {
+    if (hasRealAudio || usingStems) {
       setSeekTarget(seekSignal.seconds);
     } else {
       setCurrentSeconds(seekSignal.seconds);
@@ -155,9 +240,29 @@ export function MediaPlayer({
     if (audioRef.current) audioRef.current.volume = muted ? 0 : volume;
   }, [volume, muted]);
 
+  /**
+   * One waveform for a song made of several. The loudest lane at each point is
+   * what an ear picks out anyway, so the peaks are a per-bar maximum across the
+   * stems rather than a sum, which would clip to a solid block.
+   */
+  const stemBars = useMemo(() => {
+    const lanes = Object.values(stems.peaks);
+    if (lanes.length === 0) return null;
+
+    const length = Math.max(...lanes.map((lane) => lane.length));
+
+    return Array.from({ length }, (_, i) =>
+      Math.max(...lanes.map((lane) => lane[i] ?? 0)),
+    );
+  }, [stems.peaks]);
+
   const bars = useMemo(
-    () => resampleBars(realBars ?? placeholderBars, barCount),
-    [realBars, placeholderBars, barCount],
+    () =>
+      resampleBars(
+        (usingStems ? stemBars : realBars) ?? placeholderBars,
+        barCount,
+      ),
+    [usingStems, stemBars, realBars, placeholderBars, barCount],
   );
 
   useEffect(() => {
@@ -186,8 +291,8 @@ export function MediaPlayer({
   }, [audioUrl]);
 
   useEffect(() => {
-    onPositionChange?.(currentSeconds);
-  }, [currentSeconds, onPositionChange]);
+    onPositionChange?.(position);
+  }, [position, onPositionChange]);
 
   // Fake simulated playback — only runs while no real audio is loaded.
   useEffect(() => {
@@ -211,13 +316,26 @@ export function MediaPlayer({
     hasRetriedAfterError.current = false;
   }, [audioUrl]);
 
-  // Deferred seek: audioRef can only be touched outside of render.
+  // Deferred seek: neither audioRef nor the audio graph can be touched during
+  // render, so a seek arriving as a prop is applied here instead.
   useEffect(() => {
-    if (seekTarget !== null && audioRef.current) {
+    if (seekTarget === null) return;
+
+    // Clearing the one-shot request after applying it. This cannot cascade:
+    // the next render has seekTarget null and the effect returns immediately.
+    if (usingStems) {
+      stems.seek(seekTarget);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSeekTarget(null);
+      return;
+    }
+
+    if (audioRef.current) {
       audioRef.current.currentTime = seekTarget;
       setSeekTarget(null);
     }
-  }, [seekTarget]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seekTarget, usingStems]);
 
   function handleTimeUpdate() {
     if (audioRef.current) setCurrentSeconds(audioRef.current.currentTime);
@@ -240,6 +358,19 @@ export function MediaPlayer({
   }
 
   function togglePlayPause() {
+    if (usingStems) {
+      // The first press is what buys the decode. Everything after it is an
+      // ordinary play/pause against buffers already in memory.
+      if (!stemsStarted) {
+        setStemsStarted(true);
+        playWhenReady.current = true;
+        return;
+      }
+
+      stems.toggle();
+      return;
+    }
+
     if (hasRealAudio) {
       if (!audioRef.current) return;
       if (isPlaying) {
@@ -255,6 +386,11 @@ export function MediaPlayer({
   }
 
   function seekTo(seconds: number) {
+    if (usingStems) {
+      stems.seek(seconds);
+      return;
+    }
+
     if (hasRealAudio && audioRef.current) {
       audioRef.current.currentTime = seconds;
     } else {
@@ -271,10 +407,10 @@ export function MediaPlayer({
       1,
       Math.max(0, (e.clientX - rect.left) / rect.width),
     );
-    const seconds = fraction * duration;
+    const seconds = fraction * total;
 
     seekTo(seconds);
-    setPendingSeconds(isPlaying ? null : Math.round(seconds));
+    setPendingSeconds(playing ? null : Math.round(seconds));
   }
 
   function jumpToComment(direction: "prev" | "next") {
@@ -287,10 +423,10 @@ export function MediaPlayer({
     let target: number;
 
     if (direction === "next") {
-      const next = sorted.find((t) => t > currentSeconds);
+      const next = sorted.find((t) => t > position);
       target = next ?? sorted[sorted.length - 1];
     } else {
-      const before = sorted.filter((t) => t < currentSeconds);
+      const before = sorted.filter((t) => t < position);
       target = before.length ? before[before.length - 1] : sorted[0];
     }
 
@@ -298,14 +434,16 @@ export function MediaPlayer({
     setPendingSeconds(null);
   }
 
-  const progressPercent = (currentSeconds / duration) * 100;
+  const progressPercent = (position / total) * 100;
   const pendingPercent =
-    pendingSeconds !== null ? (pendingSeconds / duration) * 100 : null;
+    pendingSeconds !== null ? (pendingSeconds / total) * 100 : null;
 
   // The icon reports what you would actually hear, so silence never looks the
   // same as sound.
+  const heardVolume = usingStems ? stems.masterVolume : muted ? 0 : volume;
+
   const VolumeIcon =
-    muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+    heardVolume === 0 ? VolumeX : heardVolume < 0.5 ? Volume1 : Volume2;
 
   return (
     <section className="relative rounded-md border border-neutral-700 bg-neutral-900/80 p-4 shadow-2xl">
@@ -335,10 +473,22 @@ export function MediaPlayer({
 
       {audioError && <p className="form-error mb-2 pr-8">{audioError}</p>}
 
-      {!hasRealAudio && (
+      {usingStems ? (
         <p className="mb-2 pr-8 text-xs text-neutral-500">
-          No audio yet — open the studio to add some.
+          {stems.state === "loading"
+            ? `Loading ${stems.loadedCount} of ${stems.laneCount} stems…`
+            : `Built from ${stemLanes.length} stems, played together.`}
         </p>
+      ) : (
+        !hasRealAudio && (
+          <p className="mb-2 pr-8 text-xs text-neutral-500">
+            No audio yet — open the studio to add some.
+          </p>
+        )
+      )}
+
+      {usingStems && stems.error && (
+        <p className="form-error mb-2 pr-8">{stems.error}</p>
       )}
 
       {/*
@@ -397,7 +547,7 @@ export function MediaPlayer({
               }}
               title={`${TICKET_STATUS_STYLES[comment.status].label} ticket at ${formatSongTime(comment.timestamp_seconds)}`}
               style={{
-                left: `${(comment.timestamp_seconds / duration) * 100}%`,
+                left: `${(comment.timestamp_seconds / total) * 100}%`,
               }}
               className={`pointer-events-auto absolute h-2 w-2 -translate-x-1/2 rounded-full ring-1 ring-neutral-950 hover:cursor-pointer ${TICKET_STATUS_STYLES[comment.status].dot}`}
             />
@@ -406,8 +556,8 @@ export function MediaPlayer({
       </div>
 
       <div className="mt-4 flex items-center justify-between text-[11px] text-neutral-500">
-        <span>{formatSongTime(currentSeconds)}</span>
-        <span>{formatSongTime(duration)}</span>
+        <span>{formatSongTime(position)}</span>
+        <span>{formatSongTime(total)}</span>
       </div>
 
       {/*
@@ -428,11 +578,14 @@ export function MediaPlayer({
 
           <button
             onClick={togglePlayPause}
-            disabled={hasRealAudio && !!audioError}
+            disabled={
+              (hasRealAudio && !!audioError) ||
+              (usingStems && stems.state === "loading")
+            }
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-yellow-100 text-black transition hover:cursor-pointer hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label={isPlaying ? "Pause" : "Play"}
+            aria-label={playing ? "Pause" : "Play"}
           >
-            {isPlaying ? (
+            {playing ? (
               <Pause className="h-5 w-5" />
             ) : (
               <Play className="ml-0.5 h-5 w-5" />
@@ -450,7 +603,14 @@ export function MediaPlayer({
 
           <div className="flex shrink-0 items-center gap-2">
             <button
-              onClick={() => setMuted((wasMuted) => !wasMuted)}
+              onClick={() => {
+                // The stems run through their own gain chain, which the
+                // <audio> element's volume never reaches.
+                if (usingStems) {
+                  stems.setMasterVolume(stems.masterVolume > 0 ? 0 : 1);
+                }
+                setMuted((wasMuted) => !wasMuted);
+              }}
               aria-label={muted ? "Unmute" : "Mute"}
               title={muted ? "Unmute" : "Mute"}
               className="shrink-0 text-neutral-400 transition hover:cursor-pointer hover:text-yellow-100"
@@ -465,8 +625,9 @@ export function MediaPlayer({
               min={0}
               max={1}
               step={0.01}
-              value={muted ? 0 : volume}
+              value={usingStems ? stems.masterVolume : muted ? 0 : volume}
               onChange={(e) => {
+                if (usingStems) stems.setMasterVolume(Number(e.target.value));
                 setVolume(Number(e.target.value));
                 // Dragging the slider is an unmute in itself -- leaving it
                 // muted while the handle sits at two thirds is just silence

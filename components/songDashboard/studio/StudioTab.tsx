@@ -226,6 +226,26 @@ export function StudioTab({
     await reload(true);
   }
 
+  async function renameTake(take: Take, label: string) {
+    setError(null);
+
+    const response = await fetch(`/api/songs/${songId}/takes/${take.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      setError(payload.error ?? "Could not rename that take");
+      return;
+    }
+
+    await loadTakes(take.stem_id);
+    // The lane names the take it is playing, so the detail has to follow.
+    if (selectedId) await loadDetail(selectedId);
+  }
+
   async function removeTake(take: Take) {
     setError(null);
 
@@ -394,6 +414,7 @@ export function StudioTab({
                 onRename={(name) => patchStem(stem, { name })}
                 onUploadTake={() => setUploadInto(stem)}
                 onUseTake={(take) => adoptTake(stem, take)}
+                onRenameTake={renameTake}
                 onRemoveTake={removeTake}
                 onRemoveStem={() =>
                   takeByStemId.has(stem.id) ? dropStem(stem) : removeStem(stem)

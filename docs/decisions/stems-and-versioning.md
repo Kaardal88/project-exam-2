@@ -467,6 +467,7 @@ check is twenty chances to get one subtly wrong.
 | `GET /songs/:id/versions/:versionId` | access | **one request: every stem plus its signed URL** |
 | `POST /songs/:id/versions` | **leader** | commit. Body `{ label, note, stems: [{ stem_id, take_id \| null }] }` — only what changed |
 | `PUT /songs/:id/versions/:versionId/restore` | leader | writes a **new** version copying that one; history stays straight |
+| `PATCH /songs/:id/takes/:takeId` | uploader or leader | rename a take, or change its note |
 | `PUT` / `DELETE /songs/:id/versions/:versionId/lock` | leader | sets/clears `locked_at` + `locked_by` |
 | `DELETE /songs/:id/versions/:versionId` | leader | 409 on current, 409 on locked |
 | `GET /songs/:id/versions/:versionId/download` | access | see section 8 |
@@ -478,6 +479,28 @@ round trips before a single note plays.
 
 `PUT /songs/:id` still rejects `audio_url` outright, now naming
 `POST /songs/:id/versions` as the route that does the job.
+
+### What locking actually does
+
+Very little on purpose, and that turned out to need saying out loud. Locking
+freezes one version as the reference that went to mix: it cannot be deleted
+while locked, and the history shows who locked it and when. It does **not** stop
+the band working — new versions still stack on top, stems can still be added,
+takes can still be handed in. That is the whole point of flat copies: the mix
+engineer's reference cannot change under them no matter what the band does next.
+
+The first version of this shipped as a padlock icon and nothing else, and the
+honest report was "I pressed it and I do not know what happened". A control
+whose entire effect is a refusal that may never come needs to say so where it
+is used, so the locked version now carries a sentence explaining itself.
+
+### Every method has to be re-exported
+
+`app/api/[[...route]]/route.ts` exported GET, POST, PUT and DELETE, and the
+whole API had never needed anything else. The first PATCH route looked correct,
+was mounted correctly, and was unreachable: Next.js answered 405 before Hono
+ever saw the request, so renaming and recolouring a stem silently did nothing.
+**Adding a method to a route means adding it to that file too.**
 
 ### R2 keys
 
@@ -622,6 +645,19 @@ rewrite, which touches the whole component anyway:
   volume on one side and "Open player" on the other
 - the volume slider is `hidden sm:block` today and comes back on mobile
 - closing is an ✕ icon, not the words "Collapse player"
+
+**The dashboard player falls back to the stems.** A song with a "Full mix"
+stem has one file and plays through an `<audio>` element as before. A song
+built only from separate stems has no such file — `songs.audio_url` is null and
+there is nothing to point the element at — so the card played silence and said
+"no audio yet", for exactly the songs this feature exists for. It now runs the
+studio's engine on the current version's stems instead, with one waveform taken
+as the per-bar maximum across the lanes.
+
+**Nothing decodes until play is pressed there.** The dashboard is the page you
+land on, and ten decoded stems is several hundred megabytes to spend on a song
+somebody may have opened only to read the comments. The studio, which you have
+to navigate to, still loads straight away.
 
 **Built, and it took the expand overlay with it.** `MediaPlayer` is now the
 simple half of playback: one mixdown, the comment markers that hang off it, and

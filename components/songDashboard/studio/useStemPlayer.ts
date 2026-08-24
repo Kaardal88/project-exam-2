@@ -42,8 +42,17 @@ type LoadState = "idle" | "loading" | "ready" | "error";
  * Buffers are cached by take id, so switching between versions that share a
  * take -- which is most of them, since a version usually changes one slot --
  * decodes nothing again.
+ *
+ * `enabled` exists because the dashboard is a landing page. Decoding ten stems
+ * is several hundred megabytes, and paying that just because somebody opened a
+ * song is not a trade worth making -- so on the dashboard nothing loads until
+ * the listener actually presses play. The studio, which you have to navigate
+ * to, loads straight away.
  */
-export function useStemPlayer(lanes: PlayerLane[]) {
+export function useStemPlayer(
+  lanes: PlayerLane[],
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   const contextRef = useRef<AudioContext | null>(null);
   const buffersRef = useRef<Map<string, AudioBuffer>>(new Map());
   const sourcesRef = useRef<AudioBufferSourceNode[]>([]);
@@ -97,7 +106,7 @@ export function useStemPlayer(lanes: PlayerLane[]) {
   const duration = lanes.length === 0 ? 0 : loadedDuration;
 
   useEffect(() => {
-    if (lanes.length === 0) return;
+    if (lanes.length === 0 || !enabled) return;
 
     let cancelled = false;
 
@@ -168,7 +177,7 @@ export function useStemPlayer(lanes: PlayerLane[]) {
     // laneKey, not lanes: the array is rebuilt on every render of the parent,
     // and depending on it directly would re-decode the whole song each time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [laneKey]);
+  }, [laneKey, enabled]);
 
   /* ----------------------------------------------------------- playback */
 

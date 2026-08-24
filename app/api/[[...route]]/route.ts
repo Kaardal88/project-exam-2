@@ -22,7 +22,12 @@ app.route("/songs", songsRoutes);
 app.route("/songs", stemsRoutes);
 app.route("/feedback", feedbackRoutes);
 
+// Every method the Hono app answers has to be re-exported here, or Next.js
+// answers 405 before Hono ever sees the request. PATCH was missing, which
+// silently broke renaming and recolouring a stem -- the routes existed and
+// were never reachable.
 export const GET = handle(app);
 export const POST = handle(app);
 export const PUT = handle(app);
+export const PATCH = handle(app);
 export const DELETE = handle(app);

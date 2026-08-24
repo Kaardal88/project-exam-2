@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, Trash2, Check, ChevronDown } from "lucide-react";
+import { Upload, Trash2, Check, ChevronDown, Pencil } from "lucide-react";
 import { stemColor, stemKindLabel } from "@/lib/stemKinds";
 import { StemWaveform } from "./StemWaveform";
 import { StemColorPicker } from "./StemColorPicker";
@@ -29,6 +29,7 @@ type StemLaneProps = {
   onRename: (name: string) => void;
   onUploadTake: () => void;
   onUseTake: (take: Take) => void;
+  onRenameTake: (take: Take, label: string) => void;
   onRemoveTake: (take: Take) => void;
   onRemoveStem: () => void;
 };
@@ -53,12 +54,15 @@ export function StemLane({
   onRename,
   onUploadTake,
   onUseTake,
+  onRenameTake,
   onRemoveTake,
   onRemoveStem,
 }: StemLaneProps) {
   const [renaming, setRenaming] = useState(false);
   const [draftName, setDraftName] = useState(stem.name);
   const [takesOpen, setTakesOpen] = useState(false);
+  const [renamingTakeId, setRenamingTakeId] = useState<string | null>(null);
+  const [draftTakeLabel, setDraftTakeLabel] = useState("");
 
   const color = stemColor(stem);
 
@@ -107,12 +111,18 @@ export function StemLane({
               className="w-full rounded-sm border border-neutral-700 bg-neutral-950 px-1.5 py-0.5 text-sm text-yellow-100 outline-none focus:border-yellow-200"
             />
           ) : (
+            /* The name used to be a button that looked exactly like text, so
+               nobody found it. A pencil is the whole difference between a
+               feature that exists and one that is used. */
             <button
               onClick={() => setRenaming(true)}
               title="Rename this stem"
-              className="block max-w-full truncate text-left text-sm font-semibold text-yellow-100 transition hover:cursor-pointer hover:text-yellow-200"
+              className="group flex max-w-full items-center gap-1 text-left transition hover:cursor-pointer"
             >
-              {stem.name}
+              <span className="truncate text-sm font-semibold text-yellow-100 group-hover:text-yellow-200">
+                {stem.name}
+              </span>
+              <Pencil className="h-2.5 w-2.5 shrink-0 text-neutral-600 group-hover:text-yellow-200" />
             </button>
           )}
 
@@ -216,9 +226,43 @@ export function StemLane({
                           className="flex items-center gap-2 rounded-sm px-1 py-1 hover:bg-neutral-800"
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs text-yellow-100">
-                              {candidate.label}
-                            </p>
+                            {renamingTakeId === candidate.id ? (
+                              <input
+                                autoFocus
+                                value={draftTakeLabel}
+                                onChange={(event) =>
+                                  setDraftTakeLabel(event.target.value)
+                                }
+                                onBlur={() => {
+                                  const trimmed = draftTakeLabel.trim();
+                                  if (trimmed && trimmed !== candidate.label) {
+                                    onRenameTake(candidate, trimmed);
+                                  }
+                                  setRenamingTakeId(null);
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter")
+                                    event.currentTarget.blur();
+                                  if (event.key === "Escape")
+                                    setRenamingTakeId(null);
+                                }}
+                                className="w-full rounded-sm border border-neutral-700 bg-neutral-950 px-1 py-0.5 text-xs text-yellow-100 outline-none focus:border-yellow-200"
+                              />
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setRenamingTakeId(candidate.id);
+                                  setDraftTakeLabel(candidate.label);
+                                }}
+                                title="Rename this take"
+                                className="group flex w-full items-center gap-1 text-left hover:cursor-pointer"
+                              >
+                                <span className="truncate text-xs text-yellow-100">
+                                  {candidate.label}
+                                </span>
+                                <Pencil className="h-2.5 w-2.5 shrink-0 text-neutral-600 group-hover:text-yellow-200" />
+                              </button>
+                            )}
                             <p className="truncate text-[10px] text-neutral-500">
                               {candidate.uploader?.username ?? "a departed member"}
                             </p>
