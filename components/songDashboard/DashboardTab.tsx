@@ -53,10 +53,7 @@ type DashboardTabProps = {
   seekSignal: { seconds: number; nonce: number } | null;
   onSeek: (seconds: number) => void;
   audioUrl: string | null;
-  onAudioUploaded: () => void;
   onAudioUrlExpired: () => void;
-  isLeader: boolean;
-  currentUserId: string | null;
 };
 
 export function DashboardTab({
@@ -70,30 +67,37 @@ export function DashboardTab({
   seekSignal,
   onSeek,
   audioUrl,
-  onAudioUploaded,
   onAudioUrlExpired,
-  isLeader,
-  currentUserId,
 }: DashboardTabProps) {
   const [playerPosition, setPlayerPosition] = useState(0);
+  // Closing hides the card for this visit rather than persisting a preference:
+  // it is a "get this out of my way while I read the comments", not a setting.
+  const [playerClosed, setPlayerClosed] = useState(false);
   const [addCommentSeconds, setAddCommentSeconds] = useState<number | null>(
     null,
   );
 
   return (
     <div className="space-y-6">
-      <MediaPlayer
-        songId={songId}
-        audioUrl={audioUrl}
-        comments={comments}
-        onRequestAddComment={(seconds) => setAddCommentSeconds(seconds)}
-        onPositionChange={setPlayerPosition}
-        seekSignal={seekSignal}
-        onAudioUploaded={onAudioUploaded}
-        onAudioUrlExpired={onAudioUrlExpired}
-        isLeader={isLeader}
-        currentUserId={currentUserId}
-      />
+      {playerClosed ? (
+        <button
+          onClick={() => setPlayerClosed(false)}
+          className="w-full rounded-md border border-dashed border-neutral-700 px-4 py-2 text-xs text-neutral-500 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100"
+        >
+          Show the player
+        </button>
+      ) : (
+        <MediaPlayer
+          audioUrl={audioUrl}
+          comments={comments}
+          onRequestAddComment={(seconds) => setAddCommentSeconds(seconds)}
+          onPositionChange={setPlayerPosition}
+          seekSignal={seekSignal}
+          onAudioUrlExpired={onAudioUrlExpired}
+          onOpenStudio={() => setActiveTab("Studio")}
+          onClose={() => setPlayerClosed(true)}
+        />
+      )}
 
       <div className="grid gap-6 md:grid-cols-3">
         <CommentsPreview

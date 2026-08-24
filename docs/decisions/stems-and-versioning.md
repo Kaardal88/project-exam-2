@@ -2,11 +2,12 @@
 
 **Decided 2026-08-24. The plan of record, kept in step with what is built.**
 
-Schema, migration and API are in. The studio UI is not — the player still reads
-the old whole-song version log at `/audio-versions`, and nothing in the client
-touches stems yet. Sections marked *deviation* are places where building it
-changed the plan; they describe what the code does, not what was first
-intended.
+Schema, migration, API and the studio UI are all in. Sections marked
+*deviation* are places where building it changed the plan; they describe what
+the code does, not what was first intended.
+
+Still open: WAV behind a plan, a real zip, and comments timestamped against a
+version rather than the song. See section 11.
 
 A song version stops being one finished mixdown and becomes a set of separate
 stems played back together. A new contribution — a guest vocalist's take, a
@@ -621,6 +622,18 @@ rewrite, which touches the whole component anyway:
   volume on one side and "Open player" on the other
 - the volume slider is `hidden sm:block` today and comes back on mobile
 - closing is an ✕ icon, not the words "Collapse player"
+
+**Built, and it took the expand overlay with it.** `MediaPlayer` is now the
+simple half of playback: one mixdown, the comment markers that hang off it, and
+a way through to the studio. The blurred overlay, the version panel inside it
+and `AudioVersions.tsx` are all gone, along with the five legacy
+`/audio-versions` routes — nothing was lost with them, because the migration
+carried every one of those rows into the "Full mix" stem as a take, so the
+studio shows the same history against the same audio.
+
+Lanes are drawn on a canvas rather than as DOM nodes. One waveform as spans is
+fine; twelve lanes at a few hundred bars each is several thousand elements
+being restyled every animation frame.
 
 ---
 

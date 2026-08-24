@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Play,
   Pause,
@@ -9,44 +9,19 @@ import {
   Volume1,
   Volume2,
   VolumeX,
-  Maximize2,
-  Minimize2,
+  SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { formatSongTime } from "@/lib/utils";
+import { RAW_PEAK_COUNT, peaksFromBuffer, resampleBars } from "@/lib/waveform";
 import { TICKET_STATUS_STYLES, type TicketStatus } from "./ticketStatus";
-import { AudioVersions, type AudioVersion } from "./AudioVersions";
 
 // Placeholder duration used until real audio is uploaded/loaded.
 const PLACEHOLDER_TOTAL_SECONDS = 246;
 
-// Decoded/placeholder data is generated at this resolution so the display
-// can always downsample to however many bars actually fit on screen,
-// instead of being locked to a fixed, screen-independent bar count.
-const RAW_PEAK_COUNT = 400;
 const MIN_BARS = 60;
 const MAX_BARS = RAW_PEAK_COUNT;
 const PIXELS_PER_BAR = 3;
-
-// Resamples a peak array to a different resolution by taking the max per
-// bucket — works for both downsampling (the common case) and upsampling.
-function resampleBars(source: number[], targetCount: number): number[] {
-  if (source.length === 0) return [];
-  if (source.length === targetCount) return source;
-
-  const bucketSize = source.length / targetCount;
-
-  return Array.from({ length: targetCount }, (_, i) => {
-    const start = Math.floor(i * bucketSize);
-    const end = Math.max(start + 1, Math.floor((i + 1) * bucketSize));
-
-    let max = 0;
-    for (let j = start; j < end && j < source.length; j++) {
-      if (source[j] > max) max = source[j];
-    }
-
-    return max;
-  });
-}
 
 // Decodes the audio into peak amplitudes, at RAW_PEAK_COUNT resolution.
 async function computeWaveformPeaks(audioUrl: string): Promise<number[]> {
@@ -59,29 +34,7 @@ async function computeWaveformPeaks(audioUrl: string): Promise<number[]> {
   const audioContext = new AudioContext();
 
   try {
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-    const channelData = audioBuffer.getChannelData(0);
-    const samplesPerPeak = Math.max(
-      1,
-      Math.floor(channelData.length / RAW_PEAK_COUNT),
-    );
-
-    const peaks = Array.from({ length: RAW_PEAK_COUNT }, (_, i) => {
-      const start = i * samplesPerPeak;
-      const end = Math.min(start + samplesPerPeak, channelData.length);
-
-      let max = 0;
-      for (let j = start; j < end; j++) {
-        const abs = Math.abs(channelData[j]);
-        if (abs > max) max = abs;
-      }
-
-      return max;
-    });
-
-    const maxPeak = Math.max(...peaks, 0.0001);
-
-    return peaks.map((peak) => 20 + (peak / maxPeak) * 80);
+    return peaksFromBuffer(await audioContext.decodeAudioData(arrayBuffer));
   } finally {
     void audioContext.close();
   }
@@ -92,40 +45,38 @@ type Comment = { id: string; timestamp_seconds: number; status: TicketStatus };
 type SeekSignal = { seconds: number; nonce: number };
 
 type MediaPlayerProps = {
-  songId: string;
   audioUrl: string | null;
   comments: Comment[];
   onRequestAddComment: (timestampSeconds: number) => void;
   onPositionChange?: (seconds: number) => void;
   seekSignal?: SeekSignal | null;
-  onAudioUploaded: () => void;
   onAudioUrlExpired: () => void;
-  isLeader: boolean;
-  currentUserId: string | null;
+  /** Takes the listener to the studio, where the stems and the history are. */
+  onOpenStudio: () => void;
+  /** Hides the card until the page is reloaded. */
+  onClose: () => void;
 };
 
+/**
+ * The song as one file, on the dashboard.
+ *
+ * Deliberately the simple half of playback: one mixdown, the comment markers
+ * that hang off it, and a way through to the studio. Stems, versions and
+ * anything that decides what the song *is* live in the Studio tab, which has
+ * the width for it — this card used to open a blurred overlay to make room,
+ * and an overlay is a worse workspace than a page.
+ */
 export function MediaPlayer({
-  songId,
   audioUrl,
   comments,
   onRequestAddComment,
   onPositionChange,
   seekSignal,
-  onAudioUploaded,
   onAudioUrlExpired,
-  isLeader,
-  currentUserId,
+  onOpenStudio,
+  onClose,
 }: MediaPlayerProps) {
-  const [previewVersion, setPreviewVersion] = useState<AudioVersion | null>(
-    null,
-  );
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-  // Previewing an older take swaps what the player is pointed at without
-  // touching what the song actually is. Everything below works off this rather
-  // than the prop, so seeking, the waveform and the duration all follow.
-  const activeAudioUrl = previewUrl ?? audioUrl;
-  const hasRealAudio = Boolean(activeAudioUrl);
+  const hasRealAudio = Boolean(audioUrl);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSeconds, setCurrentSeconds] = useState(0);
@@ -133,39 +84,14 @@ export function MediaPlayer({
   const [pendingSeconds, setPendingSeconds] = useState<number | null>(null);
   const [appliedSeekNonce, setAppliedSeekNonce] = useState(seekSignal?.nonce);
   const [seekTarget, setSeekTarget] = useState<number | null>(null);
-  const [appliedAudioUrl, setAppliedAudioUrl] = useState(activeAudioUrl);
+  const [appliedAudioUrl, setAppliedAudioUrl] = useState(audioUrl);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  const [versions, setVersions] = useState<AudioVersion[]>([]);
-  const [versionsLoading, setVersionsLoading] = useState(true);
 
   const waveformRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const hasRetriedAfterError = useRef(false);
-
-  // Loaded whether or not the player is expanded: the collapsed card names the
-  // take it is playing, and it cannot do that from a list that only exists
-  // inside the panel.
-  const loadVersions = useCallback(async () => {
-    const response = await fetch(`/api/songs/${songId}/audio-versions`);
-
-    if (response.ok) setVersions(await response.json());
-
-    setVersionsLoading(false);
-  }, [songId]);
-
-  useEffect(() => {
-    async function load() {
-      await loadVersions();
-    }
-
-    void load();
-  }, [loadVersions]);
-
-  const currentVersion = versions.find((version) => version.is_current) ?? null;
 
   // Adjusting state in response to a prop change (not an effect) — see
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
@@ -182,8 +108,8 @@ export function MediaPlayer({
     }
   }
 
-  if (hasRealAudio && activeAudioUrl !== appliedAudioUrl) {
-    setAppliedAudioUrl(activeAudioUrl);
+  if (hasRealAudio && audioUrl !== appliedAudioUrl) {
+    setAppliedAudioUrl(audioUrl);
     setCurrentSeconds(0);
     setIsPlaying(false);
     setAudioError(null);
@@ -205,10 +131,6 @@ export function MediaPlayer({
   // instead of being stuck with the same fixed bar count as mobile.
   const [barCount, setBarCount] = useState(MIN_BARS);
 
-  // `expanded` is a dependency because collapsing and expanding swap the
-  // waveform for a different DOM node. Without it the observer would still be
-  // watching the node that was just thrown away, and the expanded player would
-  // draw mobile-width detail across its full width.
   useEffect(() => {
     const el = waveformRef.current;
     if (!el) return;
@@ -224,7 +146,7 @@ export function MediaPlayer({
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [expanded]);
+  }, []);
 
   // The <audio> element is the source of truth for what is audible; this keeps
   // it in step with the control. Muting sets volume to 0 rather than the muted
@@ -232,18 +154,6 @@ export function MediaPlayer({
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = muted ? 0 : volume;
   }, [volume, muted]);
-
-  // Escape closes the expanded player, the way it closes every modal.
-  useEffect(() => {
-    if (!expanded) return;
-
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setExpanded(false);
-    }
-
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [expanded]);
 
   const bars = useMemo(
     () => resampleBars(realBars ?? placeholderBars, barCount),
@@ -254,13 +164,13 @@ export function MediaPlayer({
     let cancelled = false;
 
     async function loadWaveform() {
-      if (!activeAudioUrl) {
+      if (!audioUrl) {
         setRealBars(null);
         return;
       }
 
       try {
-        const peaks = await computeWaveformPeaks(activeAudioUrl);
+        const peaks = await computeWaveformPeaks(audioUrl);
         if (!cancelled) setRealBars(peaks);
       } catch (err) {
         console.error("Failed to decode waveform:", err);
@@ -273,7 +183,7 @@ export function MediaPlayer({
     return () => {
       cancelled = true;
     };
-  }, [activeAudioUrl]);
+  }, [audioUrl]);
 
   useEffect(() => {
     onPositionChange?.(currentSeconds);
@@ -299,7 +209,7 @@ export function MediaPlayer({
   // Ref-only reset (not state) — safe to do directly in an effect.
   useEffect(() => {
     hasRetriedAfterError.current = false;
-  }, [activeAudioUrl]);
+  }, [audioUrl]);
 
   // Deferred seek: audioRef can only be touched outside of render.
   useEffect(() => {
@@ -344,24 +254,26 @@ export function MediaPlayer({
     setPendingSeconds(null);
   }
 
-  function secondsFromClientX(clientX: number) {
-    const el = waveformRef.current;
-    if (!el) return null;
-    const rect = el.getBoundingClientRect();
-    const fraction = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    return fraction * duration;
-  }
-
-  function handleWaveformClick(e: React.MouseEvent<HTMLDivElement>) {
-    const seconds = secondsFromClientX(e.clientX);
-    if (seconds === null) return;
-
+  function seekTo(seconds: number) {
     if (hasRealAudio && audioRef.current) {
       audioRef.current.currentTime = seconds;
     } else {
       setCurrentSeconds(Math.round(seconds));
     }
+  }
 
+  function handleWaveformClick(e: React.MouseEvent<HTMLDivElement>) {
+    const el = waveformRef.current;
+    if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+    const fraction = Math.min(
+      1,
+      Math.max(0, (e.clientX - rect.left) / rect.width),
+    );
+    const seconds = fraction * duration;
+
+    seekTo(seconds);
     setPendingSeconds(isPlaying ? null : Math.round(seconds));
   }
 
@@ -382,40 +294,8 @@ export function MediaPlayer({
       target = before.length ? before[before.length - 1] : sorted[0];
     }
 
-    if (hasRealAudio && audioRef.current) {
-      audioRef.current.currentTime = target;
-    } else {
-      setCurrentSeconds(target);
-    }
-
+    seekTo(target);
     setPendingSeconds(null);
-  }
-
-  /**
-   * Switch what the player is pointed at, without touching what the song is.
-   *
-   * Passing null returns to the current version. The signed URL is fetched per
-   * version rather than held for all of them, because they expire and a list
-   * of stale URLs is worse than no list.
-   */
-  async function handlePreview(version: AudioVersion | null) {
-    if (!version) {
-      setPreviewVersion(null);
-      setPreviewUrl(null);
-      return;
-    }
-
-    const response = await fetch(
-      `/api/songs/${songId}/audio-versions/${version.id}/url`,
-    );
-
-    if (!response.ok) {
-      setAudioError("Couldn't load that version.");
-      return;
-    }
-
-    setPreviewVersion(version);
-    setPreviewUrl((await response.json()).url);
   }
 
   const progressPercent = (currentSeconds / duration) * 100;
@@ -427,222 +307,12 @@ export function MediaPlayer({
   const VolumeIcon =
     muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
 
-  const controls = (
-    <>
-      {audioError && <p className="form-error mb-2">{audioError}</p>}
-
-      {/*
-        Shown in both the collapsed and expanded player. Collapsing does not
-        stop a preview, so without this the card would quietly be playing a
-        take that is not the song, with the comment markers gone and nothing
-        saying why.
-      */}
-      {previewVersion ? (
-        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-yellow-200/30 bg-yellow-100/5 px-3 py-2">
-          <span className="text-xs text-neutral-300">
-            Listening to{" "}
-            <span className="font-semibold text-yellow-100">
-              {previewVersion.label}
-            </span>
-            {" — not the song's current audio."}
-          </span>
-
-          <button
-            onClick={() => handlePreview(null)}
-            className="rounded-md border border-neutral-700 px-2 py-0.5 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100"
-          >
-            Back to current
-          </button>
-        </div>
-      ) : (
-        currentVersion && (
-          <p className="mb-2 text-xs text-neutral-500">
-            Playing{" "}
-            <span className="font-semibold text-neutral-300">
-              {currentVersion.label}
-            </span>
-          </p>
-        )
-      )}
-
-      <div className="flex items-center gap-3 sm:gap-4">
-        <button
-          onClick={togglePlayPause}
-          disabled={hasRealAudio && !!audioError}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-yellow-100 text-black transition hover:cursor-pointer hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label={isPlaying ? "Pause" : "Play"}
-        >
-          {isPlaying ? (
-            <Pause className="h-5 w-5" />
-          ) : (
-            <Play className="ml-0.5 h-5 w-5" />
-          )}
-        </button>
-
-        <button
-          onClick={() => jumpToComment("prev")}
-          className="shrink-0 text-neutral-400 transition hover:cursor-pointer hover:text-yellow-100"
-          aria-label="Jump to previous comment"
-          title="Jump to previous comment"
-        >
-          <SkipBack className="h-4 w-4" />
-        </button>
-
-        <button
-          onClick={() => jumpToComment("next")}
-          className="shrink-0 text-neutral-400 transition hover:cursor-pointer hover:text-yellow-100"
-          aria-label="Jump to next comment"
-          title="Jump to next comment"
-        >
-          <SkipForward className="h-4 w-4" />
-        </button>
-
-        <span className="w-10 shrink-0 text-xs text-neutral-400">
-          {formatSongTime(currentSeconds)}
-        </span>
-
-        <div className="relative flex-1">
-          {pendingSeconds !== null && pendingPercent !== null && (
-            <button
-              onClick={() => {
-                onRequestAddComment(pendingSeconds);
-                setPendingSeconds(null);
-              }}
-              style={{ left: `${pendingPercent}%` }}
-              className="absolute -top-9 -translate-x-1/2 whitespace-nowrap rounded-md border border-yellow-200 bg-neutral-950 px-2 py-1 text-xs font-semibold text-yellow-100 shadow-lg transition hover:cursor-pointer hover:bg-neutral-800"
-            >
-              Comment?
-            </button>
-          )}
-
-          <div
-            ref={waveformRef}
-            onClick={handleWaveformClick}
-            className={`relative flex cursor-pointer items-end overflow-hidden rounded-sm bg-neutral-950 px-1 ${
-              expanded ? "h-40" : "h-10"
-            }`}
-          >
-            {bars.map((height, i) => {
-              const barPercent = (i / bars.length) * 100;
-              const played = barPercent <= progressPercent;
-
-              return (
-                <span
-                  key={i}
-                  style={{ height: `${height}%` }}
-                  className={`min-w-px flex-1 rounded-full ${
-                    played ? "bg-yellow-100" : "bg-neutral-700"
-                  }`}
-                />
-              );
-            })}
-
-            <span
-              style={{ left: `${progressPercent}%` }}
-              className="absolute top-0 h-full w-px bg-yellow-300"
-            />
-          </div>
-
-          {/*
-            Comments are timestamped against the song, not against a take. On
-            an older version of a different length they would point at the
-            wrong moments, so they are hidden rather than shown misplaced.
-          */}
-          <div
-            className={`pointer-events-none absolute inset-x-0 -bottom-2 h-2 ${
-              previewVersion ? "hidden" : ""
-            }`}
-          >
-            {comments.map((comment) => (
-              <button
-                key={comment.id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (hasRealAudio && audioRef.current) {
-                    audioRef.current.currentTime = comment.timestamp_seconds;
-                  } else {
-                    setCurrentSeconds(comment.timestamp_seconds);
-                  }
-                  setPendingSeconds(null);
-                }}
-                title={`${TICKET_STATUS_STYLES[comment.status].label} ticket at ${formatSongTime(comment.timestamp_seconds)}`}
-                style={{
-                  left: `${(comment.timestamp_seconds / duration) * 100}%`,
-                }}
-                className={`pointer-events-auto absolute h-2 w-2 -translate-x-1/2 rounded-full ring-1 ring-neutral-950 hover:cursor-pointer ${TICKET_STATUS_STYLES[comment.status].dot}`}
-              />
-            ))}
-          </div>
-        </div>
-
-        <span className="w-10 shrink-0 text-xs text-neutral-400">
-          {formatSongTime(duration)}
-        </span>
-
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            onClick={() => setMuted((wasMuted) => !wasMuted)}
-            aria-label={muted ? "Unmute" : "Mute"}
-            title={muted ? "Unmute" : "Mute"}
-            className="shrink-0 text-neutral-400 transition hover:cursor-pointer hover:text-yellow-100"
-          >
-            <VolumeIcon className="h-4 w-4" />
-          </button>
-
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={muted ? 0 : volume}
-            onChange={(e) => {
-              setVolume(Number(e.target.value));
-              // Dragging the slider is an unmute in itself -- leaving it muted
-              // while the handle sits at two thirds is just silence with no
-              // explanation.
-              setMuted(false);
-            }}
-            aria-label="Volume"
-            className={`h-1 cursor-pointer accent-yellow-100 ${
-              expanded ? "w-28" : "hidden w-20 sm:block"
-            }`}
-          />
-        </div>
-
-        {/*
-          Uploading lives in the version panel now, so there is one way for
-          audio to enter a song rather than two that write different things.
-          With no audio at all there is nothing to expand into, so the button
-          says what it would get you.
-        */}
-        <button
-          onClick={() => setExpanded((wasExpanded) => !wasExpanded)}
-          title={expanded ? "Collapse player" : "Expand player"}
-          className="hidden shrink-0 items-center gap-1 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 sm:flex"
-        >
-          {expanded ? "Collapse" : hasRealAudio ? "Expand player" : "Add audio"}
-          {expanded ? (
-            <Minimize2 className="h-3 w-3" />
-          ) : (
-            <Maximize2 className="h-3 w-3" />
-          )}
-        </button>
-      </div>
-    </>
-  );
-
   return (
-    <>
-      {/*
-        Kept outside the collapsed/expanded branch on purpose. React reconciles
-        by position, so moving this element into the overlay would unmount and
-        remount it -- which stops playback and drops the playhead back to zero.
-        Sitting here, it never moves, and expanding is silent to the listener.
-      */}
+    <section className="relative rounded-md border border-neutral-700 bg-neutral-900/80 p-4 shadow-2xl">
       {hasRealAudio && (
         <audio
           ref={audioRef}
-          src={activeAudioUrl!}
+          src={audioUrl!}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onPlay={() => setIsPlaying(true)}
@@ -652,48 +322,172 @@ export function MediaPlayer({
         />
       )}
 
-      {expanded ? (
-        // Bounded by the dashboard column rather than the viewport: the column
-        // is the positioned ancestor, so the blur stops where the dashboard
-        // stops and the sidebar stays legible beside it.
-        <div className="absolute inset-0 z-40">
+      {/* An icon, not the words "Collapse player" — on a phone the label ate
+          a third of the control row for something an ✕ says better. */}
+      <button
+        onClick={onClose}
+        aria-label="Close the player"
+        title="Close the player"
+        className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-md text-neutral-500 transition hover:cursor-pointer hover:bg-neutral-800 hover:text-yellow-100"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+
+      {audioError && <p className="form-error mb-2 pr-8">{audioError}</p>}
+
+      {!hasRealAudio && (
+        <p className="mb-2 pr-8 text-xs text-neutral-500">
+          No audio yet — open the studio to add some.
+        </p>
+      )}
+
+      {/*
+        The waveform gets its own full-width row rather than being squeezed
+        between two timestamps in the control row. On a phone that squeeze left
+        it a few centimetres wide and unusable as a scrub target.
+      */}
+      <div className="relative mt-4 sm:mt-2">
+        {pendingSeconds !== null && pendingPercent !== null && (
           <button
-            onClick={() => setExpanded(false)}
-            aria-label="Close expanded player"
-            className="absolute inset-0 h-full w-full cursor-default bg-neutral-950/70 backdrop-blur-sm"
-          />
+            onClick={() => {
+              onRequestAddComment(pendingSeconds);
+              setPendingSeconds(null);
+            }}
+            style={{ left: `${pendingPercent}%` }}
+            className="absolute -top-9 z-10 -translate-x-1/2 whitespace-nowrap rounded-md border border-yellow-200 bg-neutral-950 px-2 py-1 text-xs font-semibold text-yellow-100 shadow-lg transition hover:cursor-pointer hover:bg-neutral-800"
+          >
+            Comment?
+          </button>
+        )}
 
-          {/*
-            A viewport-tall sticky layer, centring its content. The dashboard
-            column is min-h-screen and usually much taller than the window, so
-            centring inside the column would park the player halfway down the
-            page and out of sight. Measuring against the window instead keeps
-            it in the middle of what you are actually looking at, however far
-            down the dashboard you had scrolled when you expanded it.
-          */}
-          <div className="sticky top-0 z-10 flex h-screen items-center justify-center px-4">
-            <section className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-md border border-neutral-700 bg-neutral-900/95 p-6 shadow-2xl">
-              {controls}
+        <div
+          ref={waveformRef}
+          onClick={handleWaveformClick}
+          className="relative flex h-14 cursor-pointer items-end overflow-hidden rounded-sm bg-neutral-950 px-1 sm:h-16"
+        >
+          {bars.map((height, i) => {
+            const barPercent = (i / bars.length) * 100;
+            const played = barPercent <= progressPercent;
 
-              <AudioVersions
-                songId={songId}
-                isLeader={isLeader}
-                currentUserId={currentUserId}
-                versions={versions}
-                loading={versionsLoading}
-                onReload={loadVersions}
-                previewVersionId={previewVersion?.id ?? null}
-                onPreview={handlePreview}
-                onPromoted={onAudioUploaded}
+            return (
+              <span
+                key={i}
+                style={{ height: `${height}%` }}
+                className={`min-w-px flex-1 rounded-full ${
+                  played ? "bg-yellow-100" : "bg-neutral-700"
+                }`}
               />
-            </section>
+            );
+          })}
+
+          <span
+            style={{ left: `${progressPercent}%` }}
+            className="absolute top-0 h-full w-px bg-yellow-300"
+          />
+        </div>
+
+        <div className="pointer-events-none absolute inset-x-0 -bottom-1.5 h-2">
+          {comments.map((comment) => (
+            <button
+              key={comment.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                seekTo(comment.timestamp_seconds);
+                setPendingSeconds(null);
+              }}
+              title={`${TICKET_STATUS_STYLES[comment.status].label} ticket at ${formatSongTime(comment.timestamp_seconds)}`}
+              style={{
+                left: `${(comment.timestamp_seconds / duration) * 100}%`,
+              }}
+              className={`pointer-events-auto absolute h-2 w-2 -translate-x-1/2 rounded-full ring-1 ring-neutral-950 hover:cursor-pointer ${TICKET_STATUS_STYLES[comment.status].dot}`}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between text-[11px] text-neutral-500">
+        <span>{formatSongTime(currentSeconds)}</span>
+        <span>{formatSongTime(duration)}</span>
+      </div>
+
+      {/*
+        Centred under the waveform on a phone, with a real gap between the
+        transport group and the way out to the studio, so the two are not one
+        undifferentiated row of buttons under the thumb.
+      */}
+      <div className="mt-2 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => jumpToComment("prev")}
+            className="shrink-0 text-neutral-400 transition hover:cursor-pointer hover:text-yellow-100"
+            aria-label="Jump to previous comment"
+            title="Jump to previous comment"
+          >
+            <SkipBack className="h-4 w-4" />
+          </button>
+
+          <button
+            onClick={togglePlayPause}
+            disabled={hasRealAudio && !!audioError}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-yellow-100 text-black transition hover:cursor-pointer hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label={isPlaying ? "Pause" : "Play"}
+          >
+            {isPlaying ? (
+              <Pause className="h-5 w-5" />
+            ) : (
+              <Play className="ml-0.5 h-5 w-5" />
+            )}
+          </button>
+
+          <button
+            onClick={() => jumpToComment("next")}
+            className="shrink-0 text-neutral-400 transition hover:cursor-pointer hover:text-yellow-100"
+            aria-label="Jump to next comment"
+            title="Jump to next comment"
+          >
+            <SkipForward className="h-4 w-4" />
+          </button>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={() => setMuted((wasMuted) => !wasMuted)}
+              aria-label={muted ? "Unmute" : "Mute"}
+              title={muted ? "Unmute" : "Mute"}
+              className="shrink-0 text-neutral-400 transition hover:cursor-pointer hover:text-yellow-100"
+            >
+              <VolumeIcon className="h-4 w-4" />
+            </button>
+
+            {/* Present on a phone now. It was hidden below sm, which meant the
+                one control a listener reaches for most was desktop-only. */}
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={muted ? 0 : volume}
+              onChange={(e) => {
+                setVolume(Number(e.target.value));
+                // Dragging the slider is an unmute in itself -- leaving it
+                // muted while the handle sits at two thirds is just silence
+                // with no explanation.
+                setMuted(false);
+              }}
+              aria-label="Volume"
+              className="h-1 w-20 cursor-pointer accent-yellow-100"
+            />
           </div>
         </div>
-      ) : (
-        <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-4 shadow-2xl">
-          {controls}
-        </section>
-      )}
-    </>
+
+        <button
+          onClick={onOpenStudio}
+          title="Stems, versions and the mix"
+          className="flex shrink-0 items-center gap-1.5 rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Open player
+        </button>
+      </div>
+    </section>
   );
 }

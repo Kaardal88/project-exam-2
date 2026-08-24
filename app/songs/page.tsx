@@ -19,6 +19,7 @@ import { SettingsModal } from "@/components/songDashboard/SettingsModal";
 import { SongTabs, type SongTab } from "@/components/songDashboard/SongTabs";
 import { PlaceholderTab } from "@/components/songDashboard/PlaceholderTab";
 import { DashboardTab } from "@/components/songDashboard/DashboardTab";
+import { StudioTab } from "@/components/songDashboard/studio/StudioTab";
 import { CommentsTab } from "@/components/songDashboard/CommentsTab";
 import { NotesTab } from "@/components/songDashboard/NotesTab";
 import { FilesTab } from "@/components/songDashboard/FilesTab";
@@ -107,7 +108,7 @@ type SongFile = {
 const PHASE_NOTES: Record<
   Exclude<
     SongTab,
-    "Dashboard" | "Comments" | "Lyrics" | "Notes & Ideas" | "Files"
+    "Dashboard" | "Studio" | "Comments" | "Lyrics" | "Notes & Ideas" | "Files"
   >,
   string
 > = {
@@ -587,10 +588,14 @@ function SongDashboardPageContent() {
               seekSignal={seekSignal}
               onSeek={requestSeekAndShow}
               audioUrl={audioPlaybackUrl}
-              onAudioUploaded={fetchSong}
               onAudioUrlExpired={fetchAudioUrl}
+            />
+          ) : activeTab === "Studio" ? (
+            <StudioTab
+              songId={song.id}
               isLeader={role === "band_leader"}
               currentUserId={currentUserId}
+              onSongChanged={fetchSong}
             />
           ) : activeTab === "Comments" ? (
             <CommentsTab
