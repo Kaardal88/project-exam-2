@@ -9,7 +9,6 @@ import {
   song_notes,
   song_comment_events,
   song_files,
-  song_audio_versions,
 } from "@/server/db/schema";
 import {
   getUploadUrl,
@@ -27,6 +26,7 @@ import {
   FILE_DOWNLOAD_TTL_SECONDS,
 } from "@/server/r2";
 import { getProjectAccess } from "@/server/projects/access";
+import { getSongContext } from "./songContext";
 
 const TICKET_STATUSES = ["open", "wip", "done"] as const;
 const NOTE_KINDS = ["note", "lyrics"] as const;
@@ -36,7 +36,11 @@ const FILE_CATEGORIES = [
   "press_photo",
   "contract",
 ] as const;
-const UPLOAD_TARGETS = ["audio", "artwork", "file"] as const;
+// "stem" is one layer of a song; "audio" is the whole-song take the version
+// log has always used. Both are mp3 and validated identically -- they differ
+// only in which key prefix they land under, and therefore which feature reads
+// them back.
+const UPLOAD_TARGETS = ["audio", "stem", "artwork", "file"] as const;
 const IMAGE_FILE_CATEGORIES = ["artwork", "press_photo"];
 
 function sanitizeFilename(filename: string) {
@@ -51,21 +55,7 @@ export const songsRoutes = new Hono<{ Variables: Variables }>();
 
 
 
-async function getSongContext(songId: string) {
-  const song = await db.query.songs.findFirst({
-    where: (songs, { eq }) => eq(songs.id, songId),
-  });
-
-  if (!song) return null;
-
-  const project = await db.query.projects.findFirst({
-    where: (projects, { eq }) => eq(projects.id, song.project_id),
-  });
-
-  if (!project) return null;
-
-  return { song, project };
-}
+// Moved to ./songContext.ts when stems.routes.ts needed the same lookup.
 
 songsRoutes.get("/:id", requireAuth, async (c) => {
   const songId = c.req.param("id");
@@ -754,7 +744,10 @@ songsRoutes.post("/:id/presign-upload", requireAuth, async (c) => {
   const { target, filename, contentType, size, category } = body;
 
   if (!UPLOAD_TARGETS.includes(target)) {
-    return c.json({ error: "target must be 'audio', 'artwork', or 'file'" }, 400);
+    return c.json(
+      { error: "target must be 'audio', 'stem', 'artwork', or 'file'" },
+      400,
+    );
   }
 
   if (typeof filename !== "string" || !filename) {
@@ -776,7 +769,7 @@ songsRoutes.post("/:id/presign-upload", requireAuth, async (c) => {
   let maxBytes: number;
   let extension: string;
 
-  if (target === "audio") {
+  if (target === "audio" || target === "stem") {
     if (!ALLOWED_AUDIO_TYPES[contentType]) {
       return c.json({ error: "Only MP3 audio files are allowed" }, 400);
     }
@@ -820,6 +813,11 @@ songsRoutes.post("/:id/presign-upload", requireAuth, async (c) => {
 
   if (target === "audio") {
     key = `songs/${songId}/audio/${uuid}.${extension}`;
+  } else if (target === "stem") {
+    // Same songs/<songId>/ prefix every other upload uses, so isKeyForSong()
+    // covers stems without a line of new validation. Any future key path must
+    // go through that check rather than alongside it.
+    key = `songs/${songId}/stems/${uuid}.${extension}`;
   } else if (target === "artwork") {
     key = `songs/${songId}/artwork/${uuid}.${extension}`;
   } else {
@@ -831,267 +829,20 @@ songsRoutes.post("/:id/presign-upload", requireAuth, async (c) => {
   return c.json({ uploadUrl, key }, 200);
 });
 
-/**
- * The version log. Everyone with access to the project sees the whole history,
- * including guests -- knowing what came before is most of what makes a take
- * worth recording.
+/*
+ * The whole-song version log lived here: five routes over song_audio_versions,
+ * moved to /audio-versions when stems took the /versions name, and now gone
+ * along with the panel that called them.
  *
- * `is_current` is derived from the song's own pointer rather than stored, so
- * there is no second place that could disagree about which take is the song.
- */
-songsRoutes.get("/:id/versions", requireAuth, async (c) => {
-  const songId = c.req.param("id");
-  const userId = c.get("userId");
-
-  const context = await getSongContext(songId);
-
-  if (!context) {
-    return c.json({ error: "Song not found" }, 404);
-  }
-
-  const access = await getProjectAccess(
-    context.project.id,
-    context.project.band_id,
-    userId,
-  );
-
-  if (!access) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-
-  const versions = await db.query.song_audio_versions.findMany({
-    where: (versions, { eq }) => eq(versions.song_id, songId),
-    orderBy: desc(song_audio_versions.created_at),
-    with: {
-      uploader: {
-        columns: { id: true, username: true, image_url: true },
-      },
-    },
-  });
-
-  return c.json(
-    versions.map((version) => ({
-      ...version,
-      is_current: version.r2_key === context.song.audio_url,
-    })),
-    200,
-  );
-});
-
-/**
- * Upload a take. Deliberately open to anyone with project access, guests
- * included: a session musician who cannot hand in what they played is no use
- * to anybody. Adding a version never changes what the song currently plays.
- */
-songsRoutes.post("/:id/versions", requireAuth, async (c) => {
-  const songId = c.req.param("id");
-  const userId = c.get("userId");
-  const body = await c.req.json();
-
-  const context = await getSongContext(songId);
-
-  if (!context) {
-    return c.json({ error: "Song not found" }, 404);
-  }
-
-  const access = await getProjectAccess(
-    context.project.id,
-    context.project.band_id,
-    userId,
-  );
-
-  if (!access) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-
-  if (typeof body.r2_key !== "string" || !isKeyForSong(body.r2_key, songId)) {
-    return c.json({ error: "r2_key must be a key uploaded for this song" }, 400);
-  }
-
-  const label =
-    typeof body.label === "string" && body.label.trim() !== ""
-      ? body.label.trim().slice(0, 255)
-      : null;
-
-  if (!label) {
-    return c.json({ error: "label is required" }, 400);
-  }
-
-  const [version] = await db
-    .insert(song_audio_versions)
-    .values({
-      song_id: songId,
-      r2_key: body.r2_key,
-      label,
-      note: typeof body.note === "string" ? body.note : null,
-      uploaded_by: userId,
-    })
-    .returning();
-
-  return c.json({ ...version, is_current: false }, 201);
-});
-
-/**
- * Make a version the song. Band leaders only -- this is the decision the
- * version log exists to separate from the act of contributing.
+ * Nothing was lost with them. scripts/add-song-stems.ts carried every row into
+ * the "Full mix" stem as a take -- label, note, uploader and date intact -- so
+ * the studio shows the same history against the same audio, with the versions
+ * of a song that has stems as well.
  *
- * Nothing is deleted: the take being replaced stays in the log, and promoting
- * it back is the same one-line move in the other direction.
+ * The song_audio_versions table itself is deliberately still there, as the
+ * ground truth behind that backfill until the new tables have carried real
+ * use. Dropping it is its own script.
  */
-songsRoutes.put("/:id/versions/:versionId/promote", requireAuth, async (c) => {
-  const songId = c.req.param("id");
-  const versionId = c.req.param("versionId");
-  const userId = c.get("userId");
-
-  const context = await getSongContext(songId);
-
-  if (!context) {
-    return c.json({ error: "Song not found" }, 404);
-  }
-
-  const access = await getProjectAccess(
-    context.project.id,
-    context.project.band_id,
-    userId,
-  );
-
-  if (!access) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-
-  if (!access.isLeader) {
-    return c.json(
-      { error: "Only band leaders can choose which version is the song" },
-      403,
-    );
-  }
-
-  const version = await db.query.song_audio_versions.findFirst({
-    where: (versions, { eq, and }) =>
-      and(eq(versions.id, versionId), eq(versions.song_id, songId)),
-  });
-
-  if (!version) {
-    return c.json({ error: "Version not found" }, 404);
-  }
-
-  const [updatedSong] = await db
-    .update(songs)
-    .set({ audio_url: version.r2_key, updated_at: new Date() })
-    .where(eq(songs.id, songId))
-    .returning();
-
-  return c.json({ song: updatedSong, promoted: version.id }, 200);
-});
-
-/**
- * Remove a take. The uploader can withdraw their own; a band leader can remove
- * any -- the same rule song_files already uses.
- *
- * The current version is refused outright. Deleting it would leave the song
- * pointing at an object that no longer exists, which plays as a broken player
- * with no explanation. Promote another version first; that is the same shape
- * as the guard stopping a band from losing its last leader.
- */
-songsRoutes.delete("/:id/versions/:versionId", requireAuth, async (c) => {
-  const songId = c.req.param("id");
-  const versionId = c.req.param("versionId");
-  const userId = c.get("userId");
-
-  const context = await getSongContext(songId);
-
-  if (!context) {
-    return c.json({ error: "Song not found" }, 404);
-  }
-
-  const access = await getProjectAccess(
-    context.project.id,
-    context.project.band_id,
-    userId,
-  );
-
-  if (!access) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-
-  const version = await db.query.song_audio_versions.findFirst({
-    where: (versions, { eq, and }) =>
-      and(eq(versions.id, versionId), eq(versions.song_id, songId)),
-  });
-
-  if (!version) {
-    return c.json({ error: "Version not found" }, 404);
-  }
-
-  if (version.uploaded_by !== userId && !access.isLeader) {
-    return c.json(
-      { error: "Only the uploader or a band leader can remove this version" },
-      403,
-    );
-  }
-
-  if (version.r2_key === context.song.audio_url) {
-    return c.json(
-      {
-        error:
-          "This is the song's current audio. Promote another version before removing it.",
-      },
-      409,
-    );
-  }
-
-  try {
-    await deleteObject(version.r2_key);
-  } catch {
-    return c.json(
-      { error: "Failed to delete the file from storage. Please try again." },
-      502,
-    );
-  }
-
-  const [deleted] = await db
-    .delete(song_audio_versions)
-    .where(eq(song_audio_versions.id, versionId))
-    .returning();
-
-  return c.json(deleted, 200);
-});
-
-/** A playable URL for one version, so takes can be compared against each other. */
-songsRoutes.get("/:id/versions/:versionId/url", requireAuth, async (c) => {
-  const songId = c.req.param("id");
-  const versionId = c.req.param("versionId");
-  const userId = c.get("userId");
-
-  const context = await getSongContext(songId);
-
-  if (!context) {
-    return c.json({ error: "Song not found" }, 404);
-  }
-
-  const access = await getProjectAccess(
-    context.project.id,
-    context.project.band_id,
-    userId,
-  );
-
-  if (!access) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-
-  const version = await db.query.song_audio_versions.findFirst({
-    where: (versions, { eq, and }) =>
-      and(eq(versions.id, versionId), eq(versions.song_id, songId)),
-  });
-
-  if (!version) {
-    return c.json({ error: "Version not found" }, 404);
-  }
-
-  const url = await getDownloadUrl(version.r2_key, AUDIO_DOWNLOAD_TTL_SECONDS);
-
-  return c.json({ url }, 200);
-});
 
 songsRoutes.get("/:id/audio-url", requireAuth, async (c) => {
   const songId = c.req.param("id");

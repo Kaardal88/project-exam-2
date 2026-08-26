@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import countries from "world-countries";
 import { SuccessMessage } from "@/components/SuccessMessage";
 import { genreOptions } from "@/lib/genres";
-
+import { appName } from "@/components/Stemlock";
 /* const countries = [
   { value: "NO", label: "Norway", flag: "🇳🇴" },
   { value: "SE", label: "Sweden", flag: "🇸🇪" },
@@ -81,7 +81,7 @@ export default function RegisterPage() {
         <div className="flex w-max justify-center mx-auto mt-6 mb-10 bg-[#f3e7b6] text-neutral-950 px-8 sm:px-10 py-3 font-black shadow-[0_8px_25px_rgba(0,0,0,0.45)] -rotate-3 [clip-path:polygon(6%_0%,94%_0%,98%_8%,95%_18%,99%_28%,94%_42%,97%_56%,93%_72%,98%_88%,95%_100%,6%_100%,2%_92%,5%_80%,1%_68%,6%_54%,2%_38%,5%_22%,1%_10%)]">
           <Link href="/">
             <span className="text-3xl md:text-4xl font-black tracking-tight hover:opacity-90 transition font-[family-name:var(--font-marker)]">
-              Vardo
+              {appName}
             </span>
           </Link>
         </div>

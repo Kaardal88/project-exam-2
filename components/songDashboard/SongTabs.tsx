@@ -1,5 +1,6 @@
 export type SongTab =
   | "Dashboard"
+  | "Studio"
   | "Lyrics"
   | "Comments"
   | "Tasks"
@@ -15,6 +16,7 @@ type SongTabsProps = {
 
 const tabs: SongTab[] = [
   "Dashboard",
+  "Studio",
   "Lyrics",
   "Comments",
   "Tasks",

@@ -1,4 +1,7 @@
-type UploadTarget = "audio" | "artwork" | "file";
+// "stem" is one layer of a song, "audio" the whole-song take the older
+// version log uses. Both are mp3 and validated the same server-side; they
+// differ only in the key prefix they land under.
+type UploadTarget = "audio" | "stem" | "artwork" | "file";
 
 type UploadToR2Params = {
   songId: string;

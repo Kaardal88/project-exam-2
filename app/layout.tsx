@@ -4,7 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { FeedbackButton } from "@/components/feedback/FeedbackButton";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 const permanentMarker = Permanent_Marker({
   weight: "400",
@@ -19,7 +19,7 @@ const caveatBrush = Caveat_Brush({
 });
 
 export const metadata: Metadata = {
-  title: "Vardo",
+  title: "StemLock",
   description: "Band structure app",
 };
 
@@ -31,7 +31,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", "scroll-smooth", permanentMarker.variable, caveatBrush.variable, "font-sans", geist.variable)}
+      className={cn(
+        "h-full",
+        "antialiased",
+        "scroll-smooth",
+        permanentMarker.variable,
+        caveatBrush.variable,
+        "font-sans",
+        geist.variable,
+      )}
     >
       <body className="min-h-full flex flex-col">
         {children}

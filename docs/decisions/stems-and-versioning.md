@@ -1,6 +1,13 @@
 # Stems and version control
 
-**Decided 2026-08-24. Not built yet — this is the plan of record.**
+**Decided 2026-08-24. The plan of record, kept in step with what is built.**
+
+Schema, migration, API and the studio UI are all in. Sections marked
+*deviation* are places where building it changed the plan; they describe what
+the code does, not what was first intended.
+
+Still open: WAV behind a plan, a real zip, and comments timestamped against a
+version rather than the song. See section 11.
 
 A song version stops being one finished mixdown and becomes a set of separate
 stems played back together. A new contribution — a guest vocalist's take, a
@@ -270,18 +277,20 @@ export const song_version_stems = pgTable("song_version_stems", {
     .references(() => songs.id, { onDelete: "cascade" }),
 
   stem_id: uuid("stem_id").notNull()
-    .references(() => song_stems.id, { onDelete: "restrict" }),
+    .references(() => song_stems.id, { onDelete: "no action" }),
 
   /**
-   * RESTRICT, not cascade and not set null. A take some version points at
-   * cannot be deleted, because deleting it would change what an already
-   * approved mix sounds like -- the exact thing section 3 exists to prevent.
-   * The route checks first and answers 409 with an explanation; this is the
-   * backstop under it. A snapshot row with a hole in it is worse than a
-   * refusal: it is history that quietly changed.
+   * Not cascade and not set null. A take some version points at cannot be
+   * deleted, because deleting it would change what an already approved mix
+   * sounds like -- the exact thing section 3 exists to prevent. The route
+   * checks first and answers 409 with an explanation; this is the backstop
+   * under it. A snapshot row with a hole in it is worse than a refusal: it is
+   * history that quietly changed.
+   *
+   * NO ACTION rather than RESTRICT -- see the note below, it is not cosmetic.
    */
   take_id: uuid("take_id").notNull()
-    .references(() => song_stem_takes.id, { onDelete: "restrict" }),
+    .references(() => song_stem_takes.id, { onDelete: "no action" }),
 }, (t) => ({
   /** one active take per slot per version, enforced by Postgres */
   oneTakePerSlot: unique().on(t.song_version_id, t.stem_id),
@@ -290,6 +299,17 @@ export const song_version_stems = pgTable("song_version_stems", {
   byTake: index("song_version_stems_take_id_idx").on(t.take_id),
 }));
 ```
+
+**NO ACTION, not RESTRICT, and the difference is load-bearing.** Both refuse
+the delete; they differ in when the check runs. RESTRICT checks immediately,
+NO ACTION at the end of the statement. Deleting a song cascades into
+`song_stems`, `song_stem_takes` and this table in a single statement, so under
+RESTRICT the check fires against rows that same statement is about to remove --
+and whether deleting a song, a project or a band worked at all would come down
+to the order Postgres happened to fire the constraints in. It passed when
+tested, which is exactly what makes it dangerous: it passed by luck of
+constraint creation order, and a database rebuilt in a different order would
+flip it. NO ACTION removes the luck.
 
 **Deviation from the planning notes**, which asked for an index on `song_id`
 here. The UNIQUE covers the hot read, and no query filters on `song_id` alone.
@@ -316,7 +336,7 @@ join, and so the SEO/OG work later has something to read. A song with stems
 and no mix slot has `audio_url` null, and single-file consumers show "stems
 only" rather than a broken player.
 
-### 4.7 The transaction — verify this first
+### 4.7 The transaction — verified, it holds
 
 `server/db/index.ts` uses `drizzle-orm/neon-http`. **That driver has no
 interactive transactions** — `db.transaction()` throws. The copy has to be
@@ -326,13 +346,42 @@ about what the song sounds like.
 The way through: generate the version id in code with `crypto.randomUUID()`
 instead of relying on `defaultRandom()`, so every statement is known up front,
 and send them as one `db.batch([...])` — Neon runs an HTTP batch as a single
-transaction. If `batch` will not take a `db.execute()` carrying the
-`INSERT ... SELECT`, the fallbacks are `neon().transaction([...])` directly, or
-a `Pool`-based client for this one route.
+transaction.
 
-**This is the first thing to build and the first thing to test.** Everything
-else here is ordinary; this is the one assumption the whole write-time copy
-model rests on.
+**Probed against the real database before anything else was built**
+(`scripts/probe-batch.ts`, two throwaway tables shaped like `song_versions`
+and `song_version_stems`, dropped again afterwards). Results:
+
+| Question | Answer |
+| --- | --- |
+| Does `db.batch()` accept `db.execute(sql...)` items? | **Yes** |
+| Does `INSERT ... SELECT` work inside a batch? | **Yes** — two slots inherited, one overwritten, as intended |
+| Does a failing batch roll back? | **Yes** — a UNIQUE violation in the third statement left nothing at all behind, version row included |
+| Does `<> ALL(${array}::uuid[])` bind? | **No** — `malformed array literal`. The http driver does not send a JS array as a Postgres array |
+
+So the model stands. The array form does not work on this driver, so any
+`INSERT ... SELECT` exclusion has to be `NOT IN` with the ids expanded one per
+parameter.
+
+**In the end the commit path does not need one.** `commitVersion()` reads the
+base version's rows, applies the changes in memory and writes the resulting
+arrangement out in full, one row per slot. Those rows have to be read anyway --
+to know which take lands in the mix slot for `songs.audio_url`, and to count
+the result against `MAX_STEMS_PER_VERSION` -- so once they are in hand,
+`INSERT ... SELECT` is a second way of saying the same thing, carrying a trap
+the explicit form does not have. **What matters is unchanged: the copy happens
+on write.** Every version holds its own complete set of rows.
+
+Two things that follow from `NOT IN` and need guarding in the route:
+
+- `NOT IN ()` with an empty list is a syntax error. A real commit always
+  touches at least one slot, but the clause must be omitted rather than
+  emitted empty.
+- **`NOT IN` returns no rows at all if any value in the list is NULL.** A
+  malformed request carrying a null `stem_id` would silently inherit nothing
+  and produce a version with only the changed slot in it — a quietly emptied
+  arrangement rather than an error. Validate the ids as non-null uuids before
+  building the list.
 
 The copy itself:
 
@@ -344,12 +393,14 @@ VALUES ($new, $song,
            FROM song_versions WHERE song_id = $song),
         $label, $user);
 
--- 2. inherit everything that did not change -- on WRITE, not on read
+-- 2. inherit everything that did not change -- on WRITE, not on read.
+--    NOT IN with the ids expanded one per parameter; the array form does
+--    not bind on neon-http. Omit the clause entirely if nothing is touched.
 INSERT INTO song_version_stems (song_version_id, song_id, stem_id, take_id)
 SELECT $new, song_id, stem_id, take_id
   FROM song_version_stems
  WHERE song_version_id = $current
-   AND stem_id <> ALL($touchedStemIds);
+   AND stem_id NOT IN ($touched1::uuid, $touched2::uuid, ...);
 
 -- 3. the slots that did change, and only those
 INSERT INTO song_version_stems (song_version_id, song_id, stem_id, take_id)
@@ -372,8 +423,22 @@ All under the existing Hono app, all behind `requireAuth` +
 `getSongContext()` + `getProjectAccess()` like the rest of the song routes.
 
 `server/songs/songs.routes.ts` is already 1194 lines. These live in
-**`server/songs/stems.routes.ts`**, mounted with
-`songsRoutes.route("/", stemsRoutes)`, or the file passes 2000.
+**`server/songs/stems.routes.ts`**, mounted as a second router on `/songs` in
+`app/api/[[...route]]/route.ts`, or the file passes 2000.
+
+**Two routers on one base path must never define the same route.** Hono matches
+in registration order, so the first one registered wins silently. The old
+whole-song version log collided on `/:id/versions`, so it moved to
+`/:id/audio-versions` -- five call sites in `MediaPlayer.tsx` and
+`AudioVersions.tsx` -- which keeps the existing player working untouched while
+the new routes take the name they should have. Both the legacy routes and the
+legacy component go when the studio UI lands.
+
+`getSongContext()` moved out of `songs.routes.ts` into
+`server/songs/songContext.ts` so both routers share it, and gained
+`requireSongAccess()` beside it: the load-song-404-resolve-access-401 preamble
+was about to be written twenty more times, and twenty copies of a security
+check is twenty chances to get one subtly wrong.
 
 ### Slots
 
@@ -402,6 +467,7 @@ All under the existing Hono app, all behind `requireAuth` +
 | `GET /songs/:id/versions/:versionId` | access | **one request: every stem plus its signed URL** |
 | `POST /songs/:id/versions` | **leader** | commit. Body `{ label, note, stems: [{ stem_id, take_id \| null }] }` — only what changed |
 | `PUT /songs/:id/versions/:versionId/restore` | leader | writes a **new** version copying that one; history stays straight |
+| `PATCH /songs/:id/takes/:takeId` | uploader or leader | rename a take, or change its note |
 | `PUT` / `DELETE /songs/:id/versions/:versionId/lock` | leader | sets/clears `locked_at` + `locked_by` |
 | `DELETE /songs/:id/versions/:versionId` | leader | 409 on current, 409 on locked |
 | `GET /songs/:id/versions/:versionId/download` | access | see section 8 |
@@ -413,6 +479,28 @@ round trips before a single note plays.
 
 `PUT /songs/:id` still rejects `audio_url` outright, now naming
 `POST /songs/:id/versions` as the route that does the job.
+
+### What locking actually does
+
+Very little on purpose, and that turned out to need saying out loud. Locking
+freezes one version as the reference that went to mix: it cannot be deleted
+while locked, and the history shows who locked it and when. It does **not** stop
+the band working — new versions still stack on top, stems can still be added,
+takes can still be handed in. That is the whole point of flat copies: the mix
+engineer's reference cannot change under them no matter what the band does next.
+
+The first version of this shipped as a padlock icon and nothing else, and the
+honest report was "I pressed it and I do not know what happened". A control
+whose entire effect is a refusal that may never come needs to say so where it
+is used, so the locked version now carries a sentence explaining itself.
+
+### Every method has to be re-exported
+
+`app/api/[[...route]]/route.ts` exported GET, POST, PUT and DELETE, and the
+whole API had never needed anything else. The first PATCH route looked correct,
+was mounted correctly, and was unreachable: Next.js answered 405 before Hono
+ever saw the request, so renaming and recolouring a stem silently did nothing.
+**Adding a method to a route means adding it to that file too.**
 
 ### R2 keys
 
@@ -558,6 +646,31 @@ rewrite, which touches the whole component anyway:
 - the volume slider is `hidden sm:block` today and comes back on mobile
 - closing is an ✕ icon, not the words "Collapse player"
 
+**The dashboard player falls back to the stems.** A song with a "Full mix"
+stem has one file and plays through an `<audio>` element as before. A song
+built only from separate stems has no such file — `songs.audio_url` is null and
+there is nothing to point the element at — so the card played silence and said
+"no audio yet", for exactly the songs this feature exists for. It now runs the
+studio's engine on the current version's stems instead, with one waveform taken
+as the per-bar maximum across the lanes.
+
+**Nothing decodes until play is pressed there.** The dashboard is the page you
+land on, and ten decoded stems is several hundred megabytes to spend on a song
+somebody may have opened only to read the comments. The studio, which you have
+to navigate to, still loads straight away.
+
+**Built, and it took the expand overlay with it.** `MediaPlayer` is now the
+simple half of playback: one mixdown, the comment markers that hang off it, and
+a way through to the studio. The blurred overlay, the version panel inside it
+and `AudioVersions.tsx` are all gone, along with the five legacy
+`/audio-versions` routes — nothing was lost with them, because the migration
+carried every one of those rows into the "Full mix" stem as a take, so the
+studio shows the same history against the same audio.
+
+Lanes are drawn on a canvas rather than as DOM nodes. One waveform as spans is
+fine; twelve lanes at a few hundred bars each is several thousand elements
+being restyled every animation frame.
+
 ---
 
 ## 10. Migration
@@ -574,13 +687,42 @@ slot's takes.** For every song that has audio:
 1. a `song_stems` row named "Full mix", kind `mix`
 2. one `song_stem_takes` row per existing `song_audio_versions` row —
    `r2_key`, `label`, `note`, `uploaded_by` and `created_at` carried over
-   unchanged
-3. one `song_versions` row per take, numbered by `created_at`, backdated to
-   the take rather than to now — a log that lies about its own age is worse
-   than no log, the same reasoning as the previous backfill
-4. one `song_version_stems` row per version, pointing at its take
-5. `songs.current_version_id` set to the version whose take has
-   `r2_key === songs.audio_url`
+   unchanged, and backdated to the take rather than to now, because a log that
+   lies about its own age is worse than no log
+3. **exactly one** `song_versions` row, holding the take whose `r2_key`
+   matches `songs.audio_url`
+4. one `song_version_stems` row pointing at that take
+5. `songs.current_version_id` set to that version
+
+### Every upload becomes a take. Only one version is created.
+
+The first draft of this said one version per upload, and the real data showed
+why that is wrong. **`song_audio_versions` records uploads, not promotions.**
+We know which take is current now, from `songs.audio_url`. We do not know which
+takes were ever current before, and no column would tell us.
+
+One song in the database has three takes with the **second** one current —
+somebody uploaded a take after the chosen one and it was never promoted, which
+is the contribute-versus-decide split working exactly as designed. Turning
+those three uploads into three versions would invent a history nobody lived,
+and put a version in the log that was never main. The next real commit copies
+from the current version, so the log would read v1 → v2 → v3 → v4 while v4
+actually descends from v2 — **the branch this whole model exists to prevent,
+imported into the history on day one.**
+
+So the other takes stay takes: label, note, uploader and date intact, nothing
+deleted, all still playable and promotable. That song reads "Full mix: 3 takes,
+version 1 uses Version 2", which is what is true. The cost is that one song
+shows one version instead of three; the gain is that every version in the log
+really was main, which is the assumption everything downstream rests on.
+
+Assuming instead that everything before the current take had been promoted in
+turn is also a guess — just a more flattering one. Rejected on the same
+grounds.
+
+If `audio_url` matches no take at all, the version falls back to the newest
+take and the script names the song at the end of the run, rather than leaving
+it with no current version and a silent player.
 
 Nothing in the new UI reads `song_audio_versions` afterwards, but **it is not
 dropped in this round.** It stays as the ground truth in case the backfill
@@ -602,8 +744,9 @@ have carried real use.
 
 **Known risks:**
 
-- **`db.batch()` (section 4.7) is unproven here.** It is the one assumption
-  that could force a different shape, so it is built and tested first.
+- ~~**`db.batch()` (section 4.7) is unproven here.**~~ Probed and confirmed on
+  2026-08-24, including rollback on failure. The one correction it forced is
+  in section 4.7: `NOT IN` rather than `<> ALL(array)`.
 - **Comments are timestamped against the song, not against a take.** The
   player already hides comment markers while previewing an older version for
   this reason. Stems of differing lengths make the question larger. The likely
