@@ -479,6 +479,9 @@ export function StudioTab({
           versions={versions}
           loading={loading}
           selectedId={selectedId}
+          selectedHasMix={
+            detail?.stems.some((row) => row.stem.kind === MIX_KIND) ?? false
+          }
           isLeader={isLeader}
           onSelect={(version) => loadDetail(version.id)}
           onChanged={async () => {

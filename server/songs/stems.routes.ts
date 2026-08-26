@@ -25,6 +25,7 @@ import {
   isStemKind,
   isHexColor,
   MAX_STEMS_PER_VERSION,
+  MIX_KIND,
 } from "@/lib/stemKinds";
 
 type Variables = { userId: string };
@@ -745,15 +746,25 @@ stemsRoutes.delete("/:id/versions/:versionId", requireAuth, async (c) => {
 });
 
 /**
- * Everything a mix engineer needs to pull one version's stems down.
+ * Everything needed to take one version away and work on it.
  *
- * A manifest of signed URLs rather than a zip. A real archive wants a queue,
- * a worker and somewhere to park the result, and this stack has none of the
- * three -- so the endpoint is shaped so that a zip can replace the body later
+ * Written first with a mix engineer in mind, but the real user turned out to
+ * be a band member overdubbing at home: download the latest version, open it
+ * in a DAW, play a solo over it, render that track on its own and upload it
+ * back as the next version. That is the loop this whole feature exists to
+ * close, and it needs two different things --
+ *
+ * - `mix`, a single file to drop in as a guide track. Null when the song has
+ *   no "Full mix" slot, because then no such file exists.
+ * - `files`, every stem separately, for anyone who wants the parts.
+ *
+ * A manifest of signed URLs rather than a zip. A real archive wants a queue, a
+ * worker and somewhere to park the result, and this stack has none of the
+ * three -- so the endpoint is shaped so a zip can replace the body later
  * without the client or the model changing.
  *
- * Open to anyone with project access, which is how a guest engineer invited to
- * the project already reaches it. No new access model.
+ * Open to anyone with project access, which is how a guest invited to the
+ * project already reaches it. No new access model.
  */
 stemsRoutes.get("/:id/versions/:versionId/download", requireAuth, async (c) => {
   const found = await requireSongAccess(c.req.param("id"), c.get("userId"));
@@ -773,14 +784,48 @@ stemsRoutes.get("/:id/versions/:versionId/download", requireAuth, async (c) => {
   arrangement.sort((a, b) => a.stem.sort_order - b.stem.sort_order);
 
   const files = await Promise.all(
-    arrangement.map(async (row, position) => ({
-      filename: downloadName(position, row.stem.name, version.version_number),
-      stem: row.stem.name,
-      // The master, never the proxy: the proxy exists so the app can play
-      // cheaply, and a mix engineer wants what was actually recorded.
-      url: await getDownloadUrl(row.take.r2_key, AUDIO_DOWNLOAD_TTL_SECONDS),
-    })),
+    arrangement.map(async (row, position) => {
+      const filename = downloadName(
+        position,
+        row.stem.name,
+        version.version_number,
+      );
+
+      return {
+        filename,
+        stem: row.stem.name,
+        kind: row.stem.kind,
+        // The master, never the proxy: the proxy exists so the app can play
+        // cheaply, and someone recording against this wants what was actually
+        // recorded.
+        url: await getDownloadUrl(
+          row.take.r2_key,
+          AUDIO_DOWNLOAD_TTL_SECONDS,
+          filename,
+        ),
+      };
+    }),
   );
+
+  // The guide track, when the arrangement has one. Named after the song rather
+  // than the slot, because this is the file somebody drops into a DAW and it
+  // should say which song it is.
+  const mixRow = arrangement.find((row) => row.stem.kind === MIX_KIND);
+
+  const mix = mixRow
+    ? await (async () => {
+        const filename = `${found.song.title} - v${version.version_number}.mp3`;
+
+        return {
+          filename,
+          url: await getDownloadUrl(
+            mixRow.take.r2_key,
+            AUDIO_DOWNLOAD_TTL_SECONDS,
+            filename,
+          ),
+        };
+      })()
+    : null;
 
   return c.json(
     {
@@ -788,6 +833,7 @@ stemsRoutes.get("/:id/versions/:versionId/download", requireAuth, async (c) => {
       version: version.version_number,
       label: version.label,
       expires_in_seconds: AUDIO_DOWNLOAD_TTL_SECONDS,
+      mix,
       files,
     },
     200,

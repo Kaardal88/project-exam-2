@@ -50,8 +50,44 @@ export async function getUploadUrl(key: string, contentType: string) {
   return getSignedUrl(r2, command, { expiresIn: UPLOAD_URL_TTL_SECONDS });
 }
 
-export async function getDownloadUrl(key: string, ttlSeconds: number) {
-  const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
+/**
+ * Strips a filename down to what is safe to put inside a Content-Disposition
+ * header.
+ *
+ * The name reaches this from a stem the band typed and a song title they
+ * chose, and it ends up inside a quoted header value. A double quote or a
+ * newline in either would break out of that value -- so this keeps letters,
+ * digits, spaces and a short list of punctuation, and nothing else.
+ */
+function safeDownloadName(filename: string) {
+  return filename.replace(/[^a-zA-Z0-9 ._-]/g, "_").slice(0, 120) || "download";
+}
+
+/**
+ * A signed URL for reading an object.
+ *
+ * Pass `filename` when the browser should save the file rather than open it,
+ * and save it under a name a human chose. **Without it the download lands as
+ * the R2 key** -- a uuid -- because the object is on another origin and a
+ * `download` attribute on the link is ignored cross-origin. That is not a
+ * detail: a musician downloading seven stems to overdub against needs to know
+ * which one is the drums.
+ */
+export async function getDownloadUrl(
+  key: string,
+  ttlSeconds: number,
+  filename?: string,
+) {
+  const command = new GetObjectCommand({
+    Bucket: BUCKET,
+    Key: key,
+    ...(filename
+      ? {
+          ResponseContentDisposition: `attachment; filename="${safeDownloadName(filename)}"`,
+        }
+      : {}),
+  });
+
   return getSignedUrl(r2, command, { expiresIn: ttlSeconds });
 }
 

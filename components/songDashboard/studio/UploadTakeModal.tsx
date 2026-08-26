@@ -170,6 +170,25 @@ export function UploadTakeModal({
 
         {error && <p className="form-error">{error}</p>}
 
+        {/*
+          The one thing that silently ruins the overdub loop. Every stem in a
+          version is started against the same clock at the same offset, so a
+          take rendered from the middle of a DAW timeline lines up exactly as
+          wrong as the gap in front of it. There is no way for the app to
+          detect this -- a solo that genuinely begins at 1:12 and a file
+          missing its first 1:12 are the same bytes -- so it has to be said
+          before the upload rather than diagnosed after.
+        */}
+        <p className="rounded-md border border-neutral-800 bg-neutral-950/50 px-3 py-2 text-xs leading-relaxed text-neutral-400">
+          <span className="font-semibold text-neutral-300">
+            Render from the very start.
+          </span>{" "}
+          Stems are played together from 0:00, so export the full length of the
+          song with silence where your part is not playing — not just the bars
+          you recorded. Anything trimmed off the front will play early by
+          exactly that much.
+        </p>
+
         <input
           type="file"
           accept="audio/mpeg,.mp3"

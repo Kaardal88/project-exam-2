@@ -9,6 +9,8 @@ type VersionHistoryProps = {
   versions: Version[];
   loading: boolean;
   selectedId: string | null;
+  /** whether the selected version has a "Full mix" slot to download */
+  selectedHasMix: boolean;
   isLeader: boolean;
   onSelect: (version: Version) => void;
   onChanged: () => Promise<void> | void;
@@ -28,13 +30,14 @@ export function VersionHistory({
   versions,
   loading,
   selectedId,
+  selectedHasMix,
   isLeader,
   onSelect,
   onChanged,
 }: VersionHistoryProps) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [downloading, setDownloading] = useState(false);
+  const [downloading, setDownloading] = useState<"mix" | "stems" | null>(null);
 
   async function call(
     versionId: string,
@@ -64,16 +67,23 @@ export function VersionHistory({
     }
   }
 
+  type Manifest = {
+    mix: { filename: string; url: string } | null;
+    files: { filename: string; url: string }[];
+  };
+
   /**
-   * Pulls every stem of a version down as separate files.
+   * Takes a version away to work on.
    *
-   * Not a zip. A real archive wants a queue, a worker and somewhere to park
-   * the result, and this stack has none of the three — so the server hands
-   * back a manifest of signed URLs and the browser fetches them in turn,
-   * numbered so they sort into the order the lanes are in.
+   * "mix" is the guide track a band member drops into a DAW to overdub
+   * against; "stems" is every layer separately. The filenames come from the
+   * server inside the signed URL itself -- setting `download` on the link does
+   * nothing here, because the object lives on another origin and the attribute
+   * is ignored cross-origin. That is why these used to arrive named after
+   * their uuid.
    */
-  async function downloadStems(version: Version) {
-    setDownloading(true);
+  async function download(version: Version, what: "mix" | "stems") {
+    setDownloading(what);
     setError(null);
 
     try {
@@ -86,10 +96,16 @@ export function VersionHistory({
         throw new Error(body.error ?? "Could not prepare the download");
       }
 
-      const manifest: { files: { filename: string; url: string }[] } =
-        await response.json();
+      const manifest: Manifest = await response.json();
 
-      for (const file of manifest.files) {
+      const wanted =
+        what === "mix" ? (manifest.mix ? [manifest.mix] : []) : manifest.files;
+
+      if (wanted.length === 0) {
+        throw new Error("There is no single mixdown in this version.");
+      }
+
+      for (const file of wanted) {
         const link = document.createElement("a");
         link.href = file.url;
         link.download = file.filename;
@@ -103,7 +119,7 @@ export function VersionHistory({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Download failed");
     } finally {
-      setDownloading(false);
+      setDownloading(null);
     }
   }
 
@@ -210,14 +226,26 @@ export function VersionHistory({
 
                 {selected && (
                   <div className="flex flex-wrap gap-1.5 px-4 pb-3">
+                    {selectedHasMix && (
+                      <button
+                        onClick={() => download(version, "mix")}
+                        disabled={downloading !== null}
+                        title="One file to play along to in your DAW"
+                        className="flex items-center gap-1 rounded-md border border-neutral-700 px-2 py-1 text-[11px] text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Download className="h-3 w-3" />
+                        {downloading === "mix" ? "Preparing…" : "Download mix"}
+                      </button>
+                    )}
+
                     <button
-                      onClick={() => downloadStems(version)}
-                      disabled={downloading}
-                      title="Download every stem in this version"
+                      onClick={() => download(version, "stems")}
+                      disabled={downloading !== null}
+                      title="Every layer of this version, as separate files"
                       className="flex items-center gap-1 rounded-md border border-neutral-700 px-2 py-1 text-[11px] text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Download className="h-3 w-3" />
-                      {downloading ? "Preparing…" : "Download stems"}
+                      {downloading === "stems" ? "Preparing…" : "Download stems"}
                     </button>
 
                     {isLeader && !version.is_current && (
