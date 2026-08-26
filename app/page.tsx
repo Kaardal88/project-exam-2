@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PreviewMixer } from "@/components/home/PreviewMixer";
 import { FeatureShowcase } from "@/components/landing/FeatureShowcase";
 import { LandingNav } from "@/components/landing/LandingNav";
+import { appName } from "@/components/Stemlock";
 
 type Band = {
   id: string;
@@ -62,7 +63,7 @@ export default function HomePage() {
         [clip-path:polygon(6%_0%,94%_0%,98%_8%,95%_18%,99%_28%,94%_42%,97%_56%,93%_72%,98%_88%,95%_100%,6%_100%,2%_92%,5%_80%,1%_68%,6%_54%,2%_38%,5%_22%,1%_10%)]
       "
         >
-          VARDO
+          {appName}
         </div>
 
         <section className="pt-12 flex flex-col items-center gap-4 sm:mt-12 sm:gap-6">
