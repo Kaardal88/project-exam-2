@@ -13,6 +13,8 @@ type StemWaveformProps = {
   /** the stem's colour, used for the played portion */
   color: string;
   dimmed?: boolean;
+  /** This slot holds no take in the version being shown. */
+  absent?: boolean;
   height?: number;
   onSeekFraction?: (fraction: number) => void;
 };
@@ -34,6 +36,7 @@ export function StemWaveform({
   progress,
   color,
   dimmed = false,
+  absent = false,
   height = 48,
   onSeekFraction,
 }: StemWaveformProps) {
@@ -111,10 +114,22 @@ export function StemWaveform({
     >
       <canvas ref={canvasRef} className="block h-full w-full" />
 
-      {peaks === undefined && (
-        <span className="absolute inset-0 flex items-center justify-center text-[10px] uppercase tracking-widest text-neutral-600">
-          decoding…
+      {/*
+        "decoding…" is only true while there is something to decode. A slot the
+        selected version does not include has no audio at all, and sat there
+        claiming to be loading forever -- which reads as a stuck app rather than
+        as an answer.
+      */}
+      {absent ? (
+        <span className="absolute inset-0 flex items-center justify-center text-[10px] uppercase tracking-widest text-neutral-700">
+          not in this version
         </span>
+      ) : (
+        peaks === undefined && (
+          <span className="absolute inset-0 flex items-center justify-center text-[10px] uppercase tracking-widest text-neutral-600">
+            decoding…
+          </span>
+        )
       )}
     </div>
   );

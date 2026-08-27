@@ -98,6 +98,83 @@ export const stemColorPresets = stemKinds.map((kind) => ({
   color: kind.defaultColor,
 }));
 
+function hexToHsl(hex: string): [number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const light = (max + min) / 2;
+
+  if (max === min) return [0, 0, light * 100];
+
+  const span = max - min;
+  const saturation = span / (light > 0.5 ? 2 - max - min : max + min);
+
+  let hue: number;
+  if (max === r) hue = (g - b) / span + (g < b ? 6 : 0);
+  else if (max === g) hue = (b - r) / span + 2;
+  else hue = (r - g) / span + 4;
+
+  return [hue * 60, saturation * 100, light * 100];
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const saturation = s / 100;
+  const light = l / 100;
+
+  const chroma = (1 - Math.abs(2 * light - 1)) * saturation;
+  const second = chroma * (1 - Math.abs(((h / 60) % 2) - 1));
+  const base = light - chroma / 2;
+
+  const [r, g, b] =
+    h < 60
+      ? [chroma, second, 0]
+      : h < 120
+        ? [second, chroma, 0]
+        : h < 180
+          ? [0, chroma, second]
+          : h < 240
+            ? [0, second, chroma]
+            : h < 300
+              ? [second, 0, chroma]
+              : [chroma, 0, second];
+
+  const channel = (value: number) =>
+    Math.round((value + base) * 255)
+      .toString(16)
+      .padStart(2, "0");
+
+  return `#${channel(r)}${channel(g)}${channel(b)}`;
+}
+
+/**
+ * A distinguishable shade for the second, third, fourth stem of one kind.
+ *
+ * A song with four clean guitars had four lanes in exactly the same orange,
+ * which defeats the point of colouring them at all. The turn in hue is small
+ * on purpose -- a second clean guitar should still read as a clean guitar, not
+ * as something green -- so most of the separating work is done by lightness.
+ *
+ * Only a starting point. It is written into the row like any other colour, so
+ * the band can change it, and the picker offers the default back.
+ */
+export function variantColor(base: string, index: number): string {
+  if (index <= 0) return base;
+
+  const [hue, saturation, light] = hexToHsl(base);
+
+  const step = Math.ceil(index / 2);
+  const direction = index % 2 === 1 ? 1 : -1;
+
+  return hslToHex(
+    (hue + direction * step * 14 + 360) % 360,
+    saturation,
+    Math.min(76, Math.max(30, light + direction * step * 9)),
+  );
+}
+
 /**
  * Band-chosen colors are stored as #rrggbb and nothing else.
  *

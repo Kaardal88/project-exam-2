@@ -359,6 +359,7 @@ export function StudioTab({
           onClose={() => setAddStemOpen(false)}
           songId={songId}
           initialKind={addStemKind}
+          existingNames={stems.map((stem) => stem.name)}
           onAdded={async (stem) => {
             await reload();
             // An empty lane is not what anyone came for. Naming the stem and
@@ -531,6 +532,7 @@ export function StudioTab({
         onClose={() => setAddStemOpen(false)}
         songId={songId}
         initialKind={addStemKind}
+        existingNames={stems.map((stem) => stem.name)}
         onAdded={async (stem) => {
           await reload(true);
           setUploadInto(stem);

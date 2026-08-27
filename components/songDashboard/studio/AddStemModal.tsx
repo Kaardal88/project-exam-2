@@ -15,6 +15,8 @@ type AddStemModalProps = {
   songId: string;
   /** What the picker starts on — "mix" when the band said "just the song". */
   initialKind?: string;
+  /** Names already in use on this song, so a duplicate can be pointed out. */
+  existingNames: string[];
   /** Handed the stem it created, so the caller can go straight to the audio. */
   onAdded: (stem: Stem) => Promise<void> | void;
 };
@@ -24,6 +26,7 @@ export function AddStemModal({
   onClose,
   songId,
   initialKind = "vocals",
+  existingNames,
   onAdded,
 }: AddStemModalProps) {
   const [kind, setKind] = useState<string>(initialKind);
@@ -49,6 +52,17 @@ export function AddStemModal({
     setKind(initialKind);
     if (!nameTouched) setName(labelFor(initialKind));
   }
+
+  /**
+   * Not a blocker. Two lanes may legitimately share a name, and refusing would
+   * be worse than the confusion -- but a song that ended up with four lanes all
+   * called "Clean guitar" got there because nothing ever mentioned it.
+   */
+  const duplicate = existingNames.some(
+    (existing) =>
+      existing.trim().toLowerCase() === name.trim().toLowerCase() &&
+      name.trim() !== "",
+  );
 
   function chooseKind(value: string) {
     setKind(value);
@@ -157,6 +171,15 @@ export function AddStemModal({
             className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
           />
         </div>
+
+        {duplicate && (
+          <p className="rounded-md border border-neutral-800 bg-neutral-950/50 px-3 py-2 text-xs text-neutral-400">
+            You already have a stem called{" "}
+            <span className="text-neutral-300">{name.trim()}</span>. That is
+            allowed — but &ldquo;{name.trim()} L&rdquo; and &ldquo;{name.trim()}{" "}
+            R&rdquo; are easier to tell apart in the lanes.
+          </p>
+        )}
 
         <div className="flex justify-end gap-2">
           <button

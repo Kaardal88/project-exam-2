@@ -24,6 +24,8 @@ import {
 import {
   isStemKind,
   isHexColor,
+  stemColor,
+  variantColor,
   MAX_STEMS_PER_VERSION,
   MIX_KIND,
 } from "@/lib/stemKinds";
@@ -97,7 +99,7 @@ stemsRoutes.post("/:id/stems", requireAuth, async (c) => {
 
   const existing = await db.query.song_stems.findMany({
     where: (rows, { eq }) => eq(rows.song_id, found.song.id),
-    columns: { id: true, sort_order: true },
+    columns: { id: true, sort_order: true, kind: true, color: true },
   });
 
   // A version can hold one take per slot, so more slots than a version can
@@ -112,13 +114,26 @@ stemsRoutes.post("/:id/stems", requireAuth, async (c) => {
     );
   }
 
+  /**
+   * The second guitar of a kind gets a shade of its own rather than the same
+   * orange as the first. Written into the row like any other colour, so it is
+   * a starting point the band can override, not a rule.
+   */
+  const sameKind = existing.filter((row) => row.kind === body.kind).length;
+
+  const color =
+    body.color ??
+    (sameKind > 0
+      ? variantColor(stemColor({ kind: body.kind, color: null }), sameKind)
+      : null);
+
   const [stem] = await db
     .insert(song_stems)
     .values({
       song_id: found.song.id,
       name: name.slice(0, 80),
       kind: body.kind,
-      color: body.color ?? null,
+      color,
       sort_order: existing.reduce(
         (highest, row) => Math.max(highest, row.sort_order + 1),
         0,

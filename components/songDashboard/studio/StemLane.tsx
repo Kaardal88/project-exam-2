@@ -66,6 +66,16 @@ export function StemLane({
 
   const color = stemColor(stem);
 
+  /**
+   * The slot exists on the song but holds nothing in the version being shown.
+   *
+   * Kept on screen rather than hidden: the lane is where you upload into it and
+   * where you put it back, and a registry that disappears when you look at an
+   * older version is harder to work with than a dimmed row. It just has to say
+   * what it is.
+   */
+  const absent = take === null;
+
   // What you would actually hear right now. Solo anywhere on the song silences
   // every lane that is not soloed, which is what makes solo useful.
   const silenced = anySoloed ? !soloed : muted;
@@ -78,12 +88,19 @@ export function StemLane({
   }
 
   return (
-    <li className="flex flex-col gap-2 border-b border-neutral-800 px-3 py-3 last:border-b-0 sm:flex-row sm:items-center sm:gap-3">
+    <li
+      className={`flex flex-col gap-2 border-b border-neutral-800 px-3 py-3 last:border-b-0 sm:flex-row sm:items-center sm:gap-3 ${
+        absent ? "opacity-45" : ""
+      }`}
+    >
       {/* The colour is an edge accent, never the text colour. */}
       <span
         aria-hidden
         className="hidden w-1 shrink-0 self-stretch rounded-full sm:block"
-        style={{ backgroundColor: color, opacity: silenced ? 0.3 : 1 }}
+        style={{
+          backgroundColor: color,
+          opacity: absent || silenced ? 0.3 : 1,
+        }}
       />
 
       <div className="flex w-full items-center gap-2 sm:w-44 sm:shrink-0">
@@ -127,7 +144,7 @@ export function StemLane({
           )}
 
           <p className="truncate text-[11px] text-neutral-500">
-            {take ? take.label : `${stemKindLabel(stem.kind)} — empty`}
+            {take ? take.label : `${stemKindLabel(stem.kind)} — not in this version`}
           </p>
         </div>
       </div>
@@ -135,9 +152,10 @@ export function StemLane({
       <div className="flex shrink-0 items-center gap-1">
         <button
           onClick={onToggleSolo}
-          title={soloed ? "Unsolo" : "Solo"}
+          disabled={absent}
+          title={absent ? "Nothing to solo in this version" : soloed ? "Unsolo" : "Solo"}
           aria-pressed={soloed}
-          className={`h-6 w-6 rounded-sm border text-[10px] font-bold transition hover:cursor-pointer ${
+          className={`h-6 w-6 rounded-sm border text-[10px] font-bold transition hover:cursor-pointer disabled:cursor-not-allowed ${
             soloed
               ? "border-yellow-100 bg-yellow-100 text-black"
               : "border-neutral-700 text-neutral-400 hover:border-yellow-200 hover:text-yellow-100"
@@ -148,9 +166,10 @@ export function StemLane({
 
         <button
           onClick={onToggleMute}
-          title={muted ? "Unmute" : "Mute"}
+          disabled={absent}
+          title={absent ? "Nothing to mute in this version" : muted ? "Unmute" : "Mute"}
           aria-pressed={muted}
-          className={`h-6 w-6 rounded-sm border text-[10px] font-bold transition hover:cursor-pointer ${
+          className={`h-6 w-6 rounded-sm border text-[10px] font-bold transition hover:cursor-pointer disabled:cursor-not-allowed ${
             muted
               ? "border-red-400 bg-red-400/20 text-red-300"
               : "border-neutral-700 text-neutral-400 hover:border-yellow-200 hover:text-yellow-100"
@@ -166,7 +185,8 @@ export function StemLane({
           progress={progress}
           color={color}
           dimmed={silenced}
-          onSeekFraction={onSeekFraction}
+          absent={absent}
+          onSeekFraction={absent ? undefined : onSeekFraction}
         />
       </div>
 
