@@ -80,6 +80,15 @@ current take for the same shape of reason.
 Uploads are presigned. The browser asks `POST /songs/:id/presign-upload`, gets
 a URL, and PUTs the file to R2 directly.
 
+Stems land under `songs/<songId>/stems/`, which is the same prefix rule and so
+needs no new validation — any future key path must go *through* `isKeyForSong`
+rather than alongside it.
+
+**A download URL carries its own filename.** `getDownloadUrl` takes an optional
+`filename` and signs it into `ResponseContentDisposition`. Without it the file
+saves as the R2 key — a uuid — because the object is on another origin and a
+`download` attribute on the link is ignored cross-origin.
+
 **Keys are always scoped `songs/<songId>/…`, and that is checked on the way
 back in.** `getDownloadUrl` signs whatever key it is handed and `deleteObject`
 deletes whatever key it is handed — neither asks who owns the object. Since
@@ -88,18 +97,68 @@ request body is a request to read or destroy any object in the bucket. See
 `isKeyForSong()` in `server/r2.ts`, and use it on **any** new path that accepts
 a key.
 
-## Audio versions
+## Stems and versions
 
-`song_audio_versions` holds every take a song has had. `songs.audio_url` stays
-as the pointer to the current one, and **which row is current is derived** from
-`r2_key === songs.audio_url` rather than stored, so the two cannot disagree.
+A song is layers. `song_stems` is the slot registry — one row per lane, with
+the band's name for it and its colour. `song_stem_takes` is the audio: every
+file anyone has handed in for a slot. `song_versions` is the history, and
+`song_version_stems` says which take was in which slot in which version.
 
-Uploading a version changes nothing audible; promoting one is a band leader's
-decision. This is what lets a guest musician contribute without overruling the
-band. `PUT /songs/:id` rejects `audio_url` outright and names the route that
-does the job.
+**A version is a commit on main, not a branch.** `songs.current_version_id` is
+main. Each version holds its own complete set of rows, copied from the previous
+one **at write time** and overwriting only the slot that changed — so
+correcting a take in v1 can never change what an already approved v4 sounds
+like. Restoring an older version writes a *new* version rather than moving the
+pointer backwards, which is what keeps the log a straight line.
 
-Nothing is deleted on promote. The old take stays in the log.
+**Uploading a take is not committing a version.** Anyone with project access
+can hand one in and nothing audible changes; only a band leader moves main.
+That is the same split `song_audio_versions` was built on, and the reason a
+guest musician can contribute without overruling the band.
+
+`songs.audio_url` survives as a *cache* of the mix slot's take in the current
+version — nullable, written only by `commitVersion()`. A song built from stems
+with no "Full mix" slot has none, and the dashboard player falls back to
+playing the stems.
+
+`song_audio_versions` is still in the database and read by nothing.
+`scripts/add-song-stems.ts` carried every row of it into that song's "Full mix"
+stem as a take. It stays as the ground truth behind that backfill until the new
+tables have carried real use; dropping it is its own script.
+
+The full reasoning, including the places where building it changed the plan, is
+in `docs/decisions/stems-and-versioning.md`.
+
+### Playback
+
+One `AudioContext`, every stem decoded up front, all sources started against
+the same clock. Several `<audio>` elements would each keep their own clock and
+drift audibly apart within a chorus. Consequences worth knowing before touching
+`useStemPlayer.ts`:
+
+- **Seeking stops and restarts every source.** A buffer source cannot be sought
+  and cannot be restarted once stopped.
+- **Memory is the limit, not storage.** Decoded PCM is duration x sample rate x
+  channels x 4 bytes, so a four-minute stereo stem is about 40MB whatever the
+  mp3 weighed. `MAX_STEMS_PER_VERSION` exists for that reason and is not to be
+  raised because the files turned out small.
+- Mute and solo are one gain node per lane, which is why they were nearly free.
+
+The studio decodes on arrival; the dashboard decodes only when play is pressed,
+because it is the page you land on.
+
+## Comments
+
+`song_comments` carries two nullable, independent columns:
+`timestamp_seconds` and `song_version_id`. That gives four shapes and all four
+are used — a note about the song, a moment in the song whatever the version, a
+moment in one version, and one version as a whole.
+
+Waveform markers are the ones written about the version being played plus the
+version-less ones, since those are true whatever is playing.
+
+A version carrying comments cannot be deleted, the same shape as the rule for
+takes. See `docs/decisions/comments-on-versions.md`.
 
 ## Admin
 
@@ -125,11 +184,36 @@ data.
 
 Apply changes by hand in a `scripts/*.ts` one-off: `db.execute(sql\`…\`)` with
 `CREATE TABLE IF NOT EXISTS` and inline foreign keys so it is idempotent, plus a
-`--dry` flag. `scripts/add-song-audio-versions.ts` and `scripts/add-feedback.ts`
-are the worked examples.
+`--dry` flag. `scripts/add-song-stems.ts` is the fullest worked example, with
+`add-comment-versions.ts` and `add-feedback.ts` beside it.
+
+**There are no interactive transactions.** `db.transaction()` throws on the
+neon-http driver. `db.batch()` is the way through — Neon runs a batch as one
+transaction, verified in `scripts/probe-batch.ts` including that a failure
+partway rolls the whole thing back. A batch has to know every statement up
+front, which is why `commitVersion()` generates its version id in code rather
+than letting the database do it.
+
+**`NO ACTION`, not `RESTRICT`, for a reference inside a cascade tree.** Both
+refuse a delete; `RESTRICT` checks immediately and `NO ACTION` at the end of
+the statement. Deleting a song cascades into several stem tables at once, so
+under `RESTRICT` the check fires against rows the same statement is about to
+remove — and whether deleting a song, project or band works at all comes down
+to the order Postgres happens to fire the constraints in.
 
 Regenerating the snapshot properly is unfinished business, and worth doing
 before the schema grows much further.
+
+## The API route file
+
+`app/api/[[...route]]/route.ts` mounts the Hono app **and must re-export every
+HTTP method the app answers.** Next.js replies 405 before Hono sees the request
+otherwise. PATCH was missing for a while and the routes behind it looked
+correct, were mounted correctly, and were simply unreachable.
+
+Two routers share the `/songs` base path — `songs.routes.ts` and
+`stems.routes.ts`. Hono matches in registration order, so **they must never
+define the same route**; the first one registered wins silently.
 
 ## Conventions that are load-bearing
 
