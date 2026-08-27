@@ -72,10 +72,6 @@ export default function HomePage() {
           </div>
 
           <section className="flex flex-col items-center gap-4 pt-10 md:items-start md:gap-5">
-            <h1 className="max-w-[12ch] font-[family-name:var(--font-marker)] text-2xl uppercase tracking-wide md:text-4xl lg:text-5xl">
-              Make music. Not mess.
-            </h1>
-
             <p className="max-w-xl font-[family-name:var(--font-caveat)] text-1xl leading-relaxed text-[#e6d98d] md:text-2xl lg:text-3xl">
               Plan, share and track progress with your band — or by yourself.
             </p>
@@ -104,6 +100,9 @@ export default function HomePage() {
           <HeroMockStage />
         </div>
       </div>
+      <h1 className=" font-[family-name:var(--font-marker)] text-2xl uppercase tracking-wide md:text-4xl lg:text-5xl mx-auto mt-20 text-center text-yellow-100">
+        Make music! Not mess!
+      </h1>
 
       <PreviewMixer />
 

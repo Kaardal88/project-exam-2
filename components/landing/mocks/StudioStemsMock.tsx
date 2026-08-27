@@ -94,7 +94,14 @@ export function StudioStemsMock() {
           </span>
 
           <div className="mt-1.5 flex items-start gap-2">
-            <span className="h-7 w-7 shrink-0 rounded-sm bg-[linear-gradient(145deg,#3f3f46,#0a0a0a)] sm:h-9 sm:w-9" />
+            <span />
+            {mockStudioSong.image && (
+              <img
+                src={mockStudioSong.image}
+                alt={mockStudioSong.title}
+                className="h-7 w-7 shrink-0 rounded-sm sm:h-9 sm:w-9"
+              />
+            )}
 
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold sm:text-base">
@@ -131,7 +138,9 @@ export function StudioStemsMock() {
               ].map(([label, value]) => (
                 <p key={label} className="mt-0.5 flex gap-2 text-[8px]">
                   <span className="shrink-0 text-neutral-400">{label}</span>
-                  <span className="ml-auto truncate font-semibold">{value}</span>
+                  <span className="ml-auto truncate font-semibold">
+                    {value}
+                  </span>
                 </p>
               ))}
             </div>

@@ -145,14 +145,17 @@ const sustained = (
   );
 
 export const mockStudioSong = {
-  title: "Stem Test",
-  album: "Dømt Til Bål Og Brann",
+  title: "Kong Vidar",
+  album: "Kong Vidar",
   status: "Work in progress",
   createdBy: "Kim-Andre",
   createdAt: "24.8.2026",
   updatedAt: "27.8.2026",
-  contributors: "Kim-Andre, Fisherman",
-  guests: "GuitarMan (Guest musician)",
+  contributors: "Kim-Andre, Jan Magne",
+  guests: "Silje (Guest musician)",
+  bpm: 120,
+  timeSignature: "4/4",
+  image: "/kongVidarMockImg.jpg", // "./public/kongVidarMockImg.jpg",
 };
 
 export const mockStudioVersion = {
@@ -221,15 +224,19 @@ export const mockStems: {
     take: "Clean",
     peaks: leadPeaks(0.31, 0.61, 23),
   },
-  { id: "s7", name: "Drums", kind: "drums", take: "Kick", peaks: kickPeaks(36) },
+  {
+    id: "s7",
+    name: "Drums",
+    kind: "drums",
+    take: "Kick",
+    peaks: kickPeaks(36),
+  },
   {
     id: "s8",
     name: "Bass",
     kind: "bass",
     take: "Added bass",
-    peaks: peaksFrom((p) =>
-      p < 0.62 ? 0.06 : 0.45 + 0.45 * pulse(p, 70, 3),
-    ),
+    peaks: peaksFrom((p) => (p < 0.62 ? 0.06 : 0.45 + 0.45 * pulse(p, 70, 3))),
   },
   {
     id: "s9",
