@@ -593,6 +593,7 @@ function SongDashboardPageContent() {
           ) : activeTab === "Studio" ? (
             <StudioTab
               songId={song.id}
+              songTitle={song.title}
               isLeader={role === "band_leader"}
               currentUserId={currentUserId}
               onSongChanged={fetchSong}

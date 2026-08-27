@@ -42,10 +42,18 @@ type Variables = { userId: string };
  */
 export const stemsRoutes = new Hono<{ Variables: Variables }>();
 
-/** Filenames a mix engineer can sort: 01_Drums_v7.mp3. */
-function downloadName(position: number, stemName: string, version: number) {
-  const safe = stemName.replace(/[^a-zA-Z0-9\-_]/g, "_").slice(0, 40);
-  return `${String(position + 1).padStart(2, "0")}_${safe}_v${version}.mp3`;
+/**
+ * Filenames that sort themselves in a Downloads folder holding several songs:
+ * "Kong Vidar - 01 Drums - v8.mp3".
+ */
+function downloadName(
+  song: string,
+  position: number,
+  stemName: string,
+  version: number,
+) {
+  const order = String(position + 1).padStart(2, "0");
+  return `${song} - ${order} ${stemName} - v${version}.mp3`;
 }
 
 /* ------------------------------------------------------------------ slots */
@@ -566,17 +574,12 @@ stemsRoutes.post("/:id/versions", requireAuth, async (c) => {
 
   const body = await c.req.json();
 
+  // Optional. Left out, the service writes one from the difference between
+  // this arrangement and the last -- "Added Kick" rather than "Kick".
   const label =
     typeof body.label === "string" && body.label.trim() !== ""
       ? body.label.trim().slice(0, 255)
-      : "";
-
-  if (!label) {
-    return c.json(
-      { error: "label is required — say what changed, like a commit message" },
-      400,
-    );
-  }
+      : undefined;
 
   if (!Array.isArray(body.stems)) {
     return c.json({ error: "stems must be an array of changes" }, 400);
@@ -596,6 +599,49 @@ stemsRoutes.post("/:id/versions", requireAuth, async (c) => {
     { ...result.version, stem_count: result.stemCount, is_current: true },
     201,
   );
+});
+
+/**
+ * Rewrite a version's message.
+ *
+ * Commit messages get better in hindsight, and the generated ones do not always
+ * land. Band leaders only, the same as writing the version in the first place.
+ * Renaming does not touch the arrangement -- only what the log says about it.
+ */
+stemsRoutes.patch("/:id/versions/:versionId", requireAuth, async (c) => {
+  const userId = c.get("userId");
+  const found = await requireSongAccess(c.req.param("id"), userId);
+  if (!found.ok) return c.json({ error: found.error }, found.status);
+
+  if (!found.access.isLeader) {
+    return c.json({ error: "Only band leaders can rename a version" }, 403);
+  }
+
+  const versionId = c.req.param("versionId");
+  const body = await c.req.json();
+
+  const version = await db.query.song_versions.findFirst({
+    where: (rows, { and, eq }) =>
+      and(eq(rows.id, versionId), eq(rows.song_id, found.song.id)),
+  });
+
+  if (!version) return c.json({ error: "Version not found" }, 404);
+
+  const label =
+    typeof body.label === "string" ? body.label.trim().slice(0, 255) : undefined;
+
+  if (label === "") return c.json({ error: "label cannot be empty" }, 400);
+
+  const [updated] = await db
+    .update(song_versions)
+    .set({
+      label: label ?? version.label,
+      note: body.note === undefined ? version.note : body.note,
+    })
+    .where(eq(song_versions.id, versionId))
+    .returning();
+
+  return c.json(updated, 200);
 });
 
 /**
@@ -786,6 +832,7 @@ stemsRoutes.get("/:id/versions/:versionId/download", requireAuth, async (c) => {
   const files = await Promise.all(
     arrangement.map(async (row, position) => {
       const filename = downloadName(
+        found.song.title,
         position,
         row.stem.name,
         version.version_number,

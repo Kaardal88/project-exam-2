@@ -1,11 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, LockOpen, RotateCcw, Download, Trash2 } from "lucide-react";
+import {
+  Lock,
+  LockOpen,
+  RotateCcw,
+  Download,
+  Trash2,
+  Pencil,
+} from "lucide-react";
 import type { Version } from "./types";
 
 type VersionHistoryProps = {
   songId: string;
+  songTitle: string;
   versions: Version[];
   loading: boolean;
   selectedId: string | null;
@@ -27,6 +35,7 @@ function formatWhen(value: string | null) {
 
 export function VersionHistory({
   songId,
+  songTitle,
   versions,
   loading,
   selectedId,
@@ -38,6 +47,33 @@ export function VersionHistory({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<"mix" | "stems" | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [draftLabel, setDraftLabel] = useState("");
+
+  /**
+   * Rewrite a version's message. Commit messages get better in hindsight, and
+   * the generated ones do not always land.
+   */
+  async function rename(version: Version, label: string) {
+    setError(null);
+
+    const response = await fetch(
+      `/api/songs/${songId}/versions/${version.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label }),
+      },
+    );
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setError(body.error ?? "Could not rename that version");
+      return;
+    }
+
+    await onChanged();
+  }
 
   async function call(
     versionId: string,
@@ -126,8 +162,10 @@ export function VersionHistory({
   return (
     <section className="rounded-md border border-neutral-700 bg-neutral-900/60">
       <header className="border-b border-neutral-800 px-4 py-3">
+        {/* The song is named once here rather than on every row -- the panel
+            already sits inside that song's dashboard. */}
         <h2 className="text-sm font-bold uppercase tracking-wide text-yellow-100">
-          History
+          History · <span className="normal-case">{songTitle}</span>
         </h2>
         <p className="mt-0.5 text-[11px] text-neutral-500">
           Every version is the whole arrangement at one moment. Newest on top.
@@ -170,6 +208,14 @@ export function VersionHistory({
 
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-x-2">
+                      {/* The version's identity leads; the message describes
+                          what it did. Before this the message was the take's
+                          own name, so a version read as though the whole
+                          arrangement had been renamed after one layer. */}
+                      <span className="font-mono text-xs text-neutral-500">
+                        v{version.version_number}
+                      </span>
+
                       <span className="truncate text-sm font-semibold text-yellow-100">
                         {version.label}
                       </span>
@@ -189,8 +235,6 @@ export function VersionHistory({
                     </span>
 
                     <span className="block text-[11px] text-neutral-500">
-                      v{version.version_number}
-                      {" · "}
                       {version.creator?.username ?? "a departed member"}
                       {version.created_at && ` · ${formatWhen(version.created_at)}`}
                       {version.stem_count != null &&
@@ -224,8 +268,44 @@ export function VersionHistory({
                   </span>
                 </button>
 
+                {selected && renamingId === version.id && (
+                  <div className="px-4 pb-2">
+                    <input
+                      autoFocus
+                      value={draftLabel}
+                      onChange={(event) => setDraftLabel(event.target.value)}
+                      onBlur={() => {
+                        const trimmed = draftLabel.trim();
+                        if (trimmed && trimmed !== version.label) {
+                          void rename(version, trimmed);
+                        }
+                        setRenamingId(null);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") event.currentTarget.blur();
+                        if (event.key === "Escape") setRenamingId(null);
+                      }}
+                      className="w-full rounded-sm border border-neutral-700 bg-neutral-950 px-2 py-1 text-sm text-yellow-100 outline-none focus:border-yellow-200"
+                    />
+                  </div>
+                )}
+
                 {selected && (
                   <div className="flex flex-wrap gap-1.5 px-4 pb-3">
+                    {isLeader && renamingId !== version.id && (
+                      <button
+                        onClick={() => {
+                          setRenamingId(version.id);
+                          setDraftLabel(version.label);
+                        }}
+                        title="Rewrite this version's message"
+                        className="flex items-center gap-1 rounded-md border border-neutral-700 px-2 py-1 text-[11px] text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Rename
+                      </button>
+                    )}
+
                     {selectedHasMix && (
                       <button
                         onClick={() => download(version, "mix")}

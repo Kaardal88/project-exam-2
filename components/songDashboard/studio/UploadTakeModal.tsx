@@ -135,8 +135,10 @@ export function UploadTakeModal({
         const commitResponse = await fetch(`/api/songs/${songId}/versions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          // No label: the server writes one from what actually changed, so
+          // uploading a stem called "Kick" produces "Added Kick" rather than a
+          // version named after one of its layers.
           body: JSON.stringify({
-            label: label.trim(),
             note: note.trim() || null,
             stems: [{ stem_id: stem.id, take_id: take.id }],
           }),

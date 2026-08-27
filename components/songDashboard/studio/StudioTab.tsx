@@ -1,8 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Play, Pause, Plus, Volume2, VolumeX, Music } from "lucide-react";
+import {
+  Play,
+  Pause,
+  Plus,
+  Volume2,
+  VolumeX,
+  Music,
+  Download,
+} from "lucide-react";
 import { formatSongTime } from "@/lib/utils";
+import { bounceToMp3, saveBlob } from "@/lib/bounce";
 import { MAX_STEMS_PER_VERSION, MIX_KIND } from "@/lib/stemKinds";
 import { useStemPlayer, type PlayerLane } from "./useStemPlayer";
 import { StemLane } from "./StemLane";
@@ -13,6 +22,7 @@ import type { Stem, Take, Version, VersionDetail } from "./types";
 
 type StudioTabProps = {
   songId: string;
+  songTitle: string;
   isLeader: boolean;
   currentUserId: string | null;
   /** the song's audio pointer may have moved, so the page reloads the song */
@@ -21,6 +31,7 @@ type StudioTabProps = {
 
 export function StudioTab({
   songId,
+  songTitle,
   isLeader,
   currentUserId,
   onSongChanged,
@@ -38,6 +49,8 @@ export function StudioTab({
 
   const [takesByStem, setTakesByStem] = useState<Record<string, Take[]>>({});
   const [takesLoading, setTakesLoading] = useState<string | null>(null);
+
+  const [bouncing, setBouncing] = useState<number | null>(null);
 
   const loadStems = useCallback(async () => {
     const response = await fetch(`/api/songs/${songId}/stems`);
@@ -168,7 +181,6 @@ export function StudioTab({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        label: take.label,
         note: null,
         stems: [{ stem_id: stem.id, take_id: take.id }],
       }),
@@ -193,7 +205,6 @@ export function StudioTab({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        label: `${stem.name} out`,
         note: null,
         stems: [{ stem_id: stem.id, take_id: null }],
       }),
@@ -260,6 +271,39 @@ export function StudioTab({
     }
 
     await loadTakes(take.stem_id);
+  }
+
+  /**
+   * Render what is playing down to one MP3, in the browser.
+   *
+   * A song built only from stems has no single file anywhere, so there is
+   * nothing to drop into a DAW and play along to. This makes one, honours mute
+   * and solo — mute your own part and you get a backing track to record it
+   * against — and never touches the server.
+   */
+  async function bounce() {
+    if (player.state !== "ready" || !detail) return;
+
+    setBouncing(0);
+    setError(null);
+
+    try {
+      const sources = player.bounceSources();
+
+      if (sources.length === 0) {
+        throw new Error("Nothing is audible — unmute a lane first.");
+      }
+
+      const blob = await bounceToMp3(sources, player.duration, (fraction) =>
+        setBouncing(Math.round(fraction * 100)),
+      );
+
+      saveBlob(blob, `${songTitle} - v${detail.version_number} (bounce).mp3`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not bounce");
+    } finally {
+      setBouncing(null);
+    }
   }
 
   const showingOldVersion = Boolean(detail && !detail.is_current);
@@ -443,6 +487,16 @@ export function StudioTab({
               {formatSongTime(player.duration)}
             </span>
 
+            <button
+              onClick={bounce}
+              disabled={player.state !== "ready" || bouncing !== null}
+              title="Render what you are hearing to a single MP3, to play along to in a DAW"
+              className="flex items-center gap-1.5 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Download className="h-3 w-3" />
+              {bouncing !== null ? `Bouncing ${bouncing}%` : "Bounce to MP3"}
+            </button>
+
             <div className="ml-auto flex items-center gap-2">
               <button
                 onClick={() =>
@@ -476,6 +530,7 @@ export function StudioTab({
 
         <VersionHistory
           songId={songId}
+          songTitle={songTitle}
           versions={versions}
           loading={loading}
           selectedId={selectedId}
