@@ -238,12 +238,36 @@ songsRoutes.post("/:id/comments", requireAuth, async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  if (typeof body.timestamp_seconds !== "number") {
-    return c.json({ error: "timestamp_seconds is required" }, 400);
-  }
-
   if (!body.body) {
     return c.json({ error: "body is required" }, 400);
+  }
+
+  /**
+   * Both optional and independent. Null timestamp is a note about the song
+   * rather than a moment in it; null version is a note that holds whatever
+   * version is current.
+   */
+  const timestamp =
+    typeof body.timestamp_seconds === "number" &&
+    Number.isFinite(body.timestamp_seconds)
+      ? Math.max(0, Math.round(body.timestamp_seconds))
+      : null;
+
+  const versionId =
+    typeof body.song_version_id === "string" ? body.song_version_id : null;
+
+  // A comment pinned to another song's version would show up in a history it
+  // has no business in, so the id is checked rather than trusted.
+  if (versionId) {
+    const version = await db.query.song_versions.findFirst({
+      where: (versions, { and, eq }) =>
+        and(eq(versions.id, versionId), eq(versions.song_id, songId)),
+      columns: { id: true },
+    });
+
+    if (!version) {
+      return c.json({ error: "That version is not part of this song" }, 404);
+    }
   }
 
   const [comment] = await db
@@ -251,7 +275,8 @@ songsRoutes.post("/:id/comments", requireAuth, async (c) => {
     .values({
       song_id: songId,
       author_id: userId,
-      timestamp_seconds: body.timestamp_seconds,
+      timestamp_seconds: timestamp,
+      song_version_id: versionId,
       body: body.body,
       assignee_id: body.assignee_id ?? null,
       status: "open",
@@ -300,8 +325,49 @@ songsRoutes.put("/:id/comments/:commentId", requireAuth, async (c) => {
   const wantsReassign =
     "assignee_id" in body && body.assignee_id !== comment.assignee_id;
 
-  if (!wantsStatusChange && !wantsReassign) {
+  /**
+   * Re-pinning a comment to the version that is current now.
+   *
+   * An open comment from v5 that still applies at v9 is the case that decides
+   * whether versioned comments are useful or infuriating: without this, every
+   * new version buries the outstanding work one row deeper in "earlier
+   * versions". Deliberately a decision somebody makes rather than something
+   * that happens automatically -- a comment about a take that has since been
+   * replaced usually *is* resolved, and dragging everything forward would make
+   * the current list meaningless.
+   */
+  const wantsRepin =
+    "song_version_id" in body && body.song_version_id !== comment.song_version_id;
+
+  if (!wantsStatusChange && !wantsReassign && !wantsRepin) {
     return c.json({ error: "Nothing to update" }, 400);
+  }
+
+  if (wantsRepin) {
+    if (!isAssignee && !isLeader && comment.author_id !== userId) {
+      return c.json(
+        {
+          error:
+            "Only the author, the assignee or a band leader can move this comment",
+        },
+        403,
+      );
+    }
+
+    if (body.song_version_id !== null) {
+      const version = await db.query.song_versions.findFirst({
+        where: (versions, { and, eq }) =>
+          and(
+            eq(versions.id, body.song_version_id),
+            eq(versions.song_id, songId),
+          ),
+        columns: { id: true },
+      });
+
+      if (!version) {
+        return c.json({ error: "That version is not part of this song" }, 404);
+      }
+    }
   }
 
   if (wantsStatusChange) {
@@ -330,6 +396,8 @@ songsRoutes.put("/:id/comments/:commentId", requireAuth, async (c) => {
     updates.status = body.status;
     updates.resolved_at = body.status === "done" ? new Date() : null;
   }
+
+  if (wantsRepin) updates.song_version_id = body.song_version_id;
 
   if (wantsReassign) {
     updates.assignee_id = body.assignee_id ?? null;

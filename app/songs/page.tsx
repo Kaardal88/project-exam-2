@@ -37,6 +37,7 @@ type Song = {
   key: string | null;
   time_signature: string | null;
   audio_url: string | null;
+  current_version_id: string | null;
   artwork_url: string | null;
   created_by: string | null;
   created_at: string | null;
@@ -66,7 +67,8 @@ type BandMember = {
 
 type Comment = {
   id: string;
-  timestamp_seconds: number;
+  timestamp_seconds: number | null;
+  song_version_id: string | null;
   body: string;
   status: TicketStatus;
   resolved_at: string | null;
@@ -138,6 +140,12 @@ function SongDashboardPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<SongTab>("Dashboard");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** Set when a dashboard preview card is clicked. The nonce makes clicking
+      the same card twice a fresh request rather than a no-op. */
+  const [focusComment, setFocusComment] = useState<{
+    id: string;
+    nonce: number;
+  } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [seekSignal, setSeekSignal] = useState<{
     seconds: number;
@@ -419,7 +427,12 @@ function SongDashboardPageContent() {
               {song.project.type === "album" ? "Album" : "Single"}:{" "}
               {song.project.title}
             </Link>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            {/* The metadata card used to hang underneath everything, pinned
+                to the right with a wide empty strip beside it. It answers
+                header questions -- who made this, when was it touched -- so it
+                belongs level with the header rather than below it. */}
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+              <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-start">
               <div className="relative h-20 w-20 shrink-0">
                 {artworkDisplayUrl ? (
                   <img
@@ -510,10 +523,9 @@ function SongDashboardPageContent() {
                   </span>
                 </div>
               </div>
-            </div>
+              </div>
 
-            <div className="mt-6 flex justify-end">
-              <div className="w-full max-w-sm rounded-md border border-neutral-700 bg-neutral-900/80 p-4 shadow-2xl">
+              <div className="w-full shrink-0 rounded-md border border-neutral-700 bg-neutral-900/80 p-4 shadow-2xl lg:w-80">
                 <p className="mb-3 text-center text-xs uppercase tracking-[0.3em] text-neutral-500">
                   — Song dashboard —
                 </p>
@@ -589,10 +601,18 @@ function SongDashboardPageContent() {
               onSeek={requestSeekAndShow}
               audioUrl={audioPlaybackUrl}
               onAudioUrlExpired={fetchAudioUrl}
+              currentVersionId={song.current_version_id}
+              onFocusComment={(commentId) => {
+                setFocusComment({ id: commentId, nonce: Date.now() });
+                setActiveTab("Comments");
+              }}
             />
           ) : activeTab === "Studio" ? (
             <StudioTab
               songId={song.id}
+              songTitle={song.title}
+              bandMembers={members}
+              onCommentsChanged={refreshComments}
               isLeader={role === "band_leader"}
               currentUserId={currentUserId}
               onSongChanged={fetchSong}
@@ -606,6 +626,8 @@ function SongDashboardPageContent() {
               currentUserId={currentUserId}
               onCommentsChanged={refreshComments}
               onSeekAndShow={requestSeekAndShow}
+              currentVersionId={song.current_version_id}
+              focusComment={focusComment}
             />
           ) : activeTab === "Lyrics" ? (
             <NotesTab

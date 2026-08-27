@@ -30,7 +30,7 @@ branches at all. **"Rhythm guitar v1" is not a branch. It is a commit message.**
 
 So the vocabulary maps like this:
 
-| Git | BandStructure | In the database |
+| Git | StemLock | In the database |
 | --- | --- | --- |
 | `main` / HEAD | the song as it stands | `songs.current_version_id` |
 | a commit | one layer added to the arrangement | a row in `song_versions` |

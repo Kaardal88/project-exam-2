@@ -1,18 +1,36 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Play, Pause, Plus, Volume2, VolumeX, Music } from "lucide-react";
+import {
+  Play,
+  Pause,
+  Plus,
+  Volume2,
+  VolumeX,
+  Music,
+  Download,
+} from "lucide-react";
 import { formatSongTime } from "@/lib/utils";
+import { bounceToMp3, saveBlob } from "@/lib/bounce";
 import { MAX_STEMS_PER_VERSION, MIX_KIND } from "@/lib/stemKinds";
 import { useStemPlayer, type PlayerLane } from "./useStemPlayer";
 import { StemLane } from "./StemLane";
-import { VersionHistory } from "./VersionHistory";
+import { VersionBar } from "./VersionBar";
 import { AddStemModal } from "./AddStemModal";
 import { UploadTakeModal } from "./UploadTakeModal";
+import { AddCommentModal } from "../AddCommentModal";
 import type { Stem, Take, Version, VersionDetail } from "./types";
+
+type BandMember = {
+  user_id: string;
+  user: { id: string; username: string };
+};
 
 type StudioTabProps = {
   songId: string;
+  songTitle: string;
+  bandMembers: BandMember[];
+  onCommentsChanged: () => void;
   isLeader: boolean;
   currentUserId: string | null;
   /** the song's audio pointer may have moved, so the page reloads the song */
@@ -21,6 +39,9 @@ type StudioTabProps = {
 
 export function StudioTab({
   songId,
+  songTitle,
+  bandMembers,
+  onCommentsChanged,
   isLeader,
   currentUserId,
   onSongChanged,
@@ -38,6 +59,9 @@ export function StudioTab({
 
   const [takesByStem, setTakesByStem] = useState<Record<string, Take[]>>({});
   const [takesLoading, setTakesLoading] = useState<string | null>(null);
+
+  const [bouncing, setBouncing] = useState<number | null>(null);
+  const [commentOn, setCommentOn] = useState<Version | null>(null);
 
   const loadStems = useCallback(async () => {
     const response = await fetch(`/api/songs/${songId}/stems`);
@@ -168,7 +192,6 @@ export function StudioTab({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        label: take.label,
         note: null,
         stems: [{ stem_id: stem.id, take_id: take.id }],
       }),
@@ -193,7 +216,6 @@ export function StudioTab({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        label: `${stem.name} out`,
         note: null,
         stems: [{ stem_id: stem.id, take_id: null }],
       }),
@@ -262,7 +284,38 @@ export function StudioTab({
     await loadTakes(take.stem_id);
   }
 
-  const showingOldVersion = Boolean(detail && !detail.is_current);
+  /**
+   * Render what is playing down to one MP3, in the browser.
+   *
+   * A song built only from stems has no single file anywhere, so there is
+   * nothing to drop into a DAW and play along to. This makes one, honours mute
+   * and solo — mute your own part and you get a backing track to record it
+   * against — and never touches the server.
+   */
+  async function bounce() {
+    if (player.state !== "ready" || !detail) return;
+
+    setBouncing(0);
+    setError(null);
+
+    try {
+      const sources = player.bounceSources();
+
+      if (sources.length === 0) {
+        throw new Error("Nothing is audible — unmute a lane first.");
+      }
+
+      const blob = await bounceToMp3(sources, player.duration, (fraction) =>
+        setBouncing(Math.round(fraction * 100)),
+      );
+
+      saveBlob(blob, `${songTitle} - v${detail.version_number} (bounce).mp3`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not bounce");
+    } finally {
+      setBouncing(null);
+    }
+  }
 
   /* ------------------------------------------------------------ empty */
 
@@ -317,6 +370,7 @@ export function StudioTab({
           onClose={() => setAddStemOpen(false)}
           songId={songId}
           initialKind={addStemKind}
+          existingNames={stems.map((stem) => stem.name)}
           onAdded={async (stem) => {
             await reload();
             // An empty lane is not what anyone came for. Naming the stem and
@@ -334,29 +388,28 @@ export function StudioTab({
     <div className="space-y-4">
       {error && <p className="form-error">{error}</p>}
 
-      {showingOldVersion && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border border-yellow-200/30 bg-yellow-100/5 px-3 py-2">
-          <span className="text-xs text-neutral-300">
-            Listening to{" "}
-            <span className="font-semibold text-yellow-100">
-              {detail?.label}
-            </span>
-            {" — not the song as it stands."}
-          </span>
+      {/* Above the lanes and the full width of them: which version you are
+          hearing is one line of information, and the lanes want the room. */}
+      <VersionBar
+        songId={songId}
+        songTitle={songTitle}
+        versions={versions}
+        loading={loading}
+        selectedId={selectedId}
+        selectedHasMix={
+          detail?.stems.some((row) => row.stem.kind === MIX_KIND) ?? false
+        }
+        isLeader={isLeader}
+        onSelect={(version) => loadDetail(version.id)}
+        onChanged={async () => {
+          setSelectedId(null);
+          await reload();
+          onSongChanged();
+        }}
+        onComment={(version) => setCommentOn(version)}
+      />
 
-          <button
-            onClick={() => {
-              const current = versions.find((version) => version.is_current);
-              if (current) void loadDetail(current.id);
-            }}
-            className="rounded-md border border-neutral-700 px-2 py-0.5 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100"
-          >
-            Back to current
-          </button>
-        </div>
-      )}
-
-      <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
+      <div className="grid gap-4">
         <section className="min-w-0 rounded-md border border-neutral-700 bg-neutral-900/60">
           <header className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800 px-4 py-3">
             <div>
@@ -443,6 +496,16 @@ export function StudioTab({
               {formatSongTime(player.duration)}
             </span>
 
+            <button
+              onClick={bounce}
+              disabled={player.state !== "ready" || bouncing !== null}
+              title="Render what you are hearing to a single MP3, to play along to in a DAW"
+              className="flex items-center gap-1.5 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Download className="h-3 w-3" />
+              {bouncing !== null ? `Bouncing ${bouncing}%` : "Bounce to MP3"}
+            </button>
+
             <div className="ml-auto flex items-center gap-2">
               <button
                 onClick={() =>
@@ -474,19 +537,6 @@ export function StudioTab({
           </footer>
         </section>
 
-        <VersionHistory
-          songId={songId}
-          versions={versions}
-          loading={loading}
-          selectedId={selectedId}
-          isLeader={isLeader}
-          onSelect={(version) => loadDetail(version.id)}
-          onChanged={async () => {
-            setSelectedId(null);
-            await reload();
-            onSongChanged();
-          }}
-        />
       </div>
 
       <AddStemModal
@@ -494,9 +544,28 @@ export function StudioTab({
         onClose={() => setAddStemOpen(false)}
         songId={songId}
         initialKind={addStemKind}
+        existingNames={stems.map((stem) => stem.name)}
         onAdded={async (stem) => {
           await reload(true);
           setUploadInto(stem);
+        }}
+      />
+
+      {/* A comment about one version as a whole — "this mix is too bright".
+          No timestamp, because it is not about a moment. */}
+      <AddCommentModal
+        isOpen={commentOn !== null}
+        onClose={() => setCommentOn(null)}
+        songId={songId}
+        timestampSeconds={null}
+        versionId={commentOn?.id ?? null}
+        versionLabel={
+          commentOn ? `v${commentOn.version_number} · ${commentOn.label}` : null
+        }
+        bandMembers={bandMembers}
+        onCreated={() => {
+          setCommentOn(null);
+          onCommentsChanged();
         }}
       />
 
@@ -506,6 +575,7 @@ export function StudioTab({
         songId={songId}
         stem={uploadInto}
         isLeader={isLeader}
+        songDuration={player.duration}
         onUploaded={async (committed) => {
           if (uploadInto) await loadTakes(uploadInto.id);
           if (committed) {

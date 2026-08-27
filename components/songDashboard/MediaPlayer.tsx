@@ -42,7 +42,12 @@ async function computeWaveformPeaks(audioUrl: string): Promise<number[]> {
   }
 }
 
-type Comment = { id: string; timestamp_seconds: number; status: TicketStatus };
+type Comment = {
+  id: string;
+  timestamp_seconds: number | null;
+  song_version_id: string | null;
+  status: TicketStatus;
+};
 
 type SeekSignal = { seconds: number; nonce: number };
 
@@ -58,6 +63,8 @@ type MediaPlayerProps = {
   onOpenStudio: () => void;
   /** Hides the card until the page is reloaded. */
   onClose: () => void;
+  /** the version this card is playing, for deciding which markers apply */
+  versionId: string | null;
 };
 
 /**
@@ -91,8 +98,28 @@ export function MediaPlayer({
   onAudioUrlExpired,
   onOpenStudio,
   onClose,
+  versionId,
 }: MediaPlayerProps) {
   const hasRealAudio = Boolean(audioUrl);
+
+  /**
+   * Which comments belong on this waveform.
+   *
+   * A comment written about v5 points at a moment in v5, and on a v9 of a
+   * different length it would land somewhere it does not mean. So markers are
+   * the ones written about this version, plus the version-less ones -- those
+   * are about the song whatever is playing, so they are always true.
+   *
+   * This replaces the old blunt rule of hiding every marker the moment you
+   * listened to anything but the current audio, which threw away feedback that
+   * was perfectly valid.
+   */
+  const markers = comments.filter(
+    (comment) =>
+      comment.timestamp_seconds !== null &&
+      (comment.song_version_id === null ||
+        comment.song_version_id === versionId),
+  );
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSeconds, setCurrentSeconds] = useState(0);
@@ -414,10 +441,10 @@ export function MediaPlayer({
   }
 
   function jumpToComment(direction: "prev" | "next") {
-    if (comments.length === 0) return;
+    if (markers.length === 0) return;
 
-    const sorted = comments
-      .map((comment) => comment.timestamp_seconds)
+    const sorted = markers
+      .map((comment) => comment.timestamp_seconds!)
       .sort((a, b) => a - b);
 
     let target: number;
@@ -537,17 +564,17 @@ export function MediaPlayer({
         </div>
 
         <div className="pointer-events-none absolute inset-x-0 -bottom-1.5 h-2">
-          {comments.map((comment) => (
+          {markers.map((comment) => (
             <button
               key={comment.id}
               onClick={(e) => {
                 e.stopPropagation();
-                seekTo(comment.timestamp_seconds);
+                seekTo(comment.timestamp_seconds!);
                 setPendingSeconds(null);
               }}
-              title={`${TICKET_STATUS_STYLES[comment.status].label} ticket at ${formatSongTime(comment.timestamp_seconds)}`}
+              title={`${TICKET_STATUS_STYLES[comment.status].label} ticket at ${formatSongTime(comment.timestamp_seconds!)}`}
               style={{
-                left: `${(comment.timestamp_seconds / total) * 100}%`,
+                left: `${(comment.timestamp_seconds! / total) * 100}%`,
               }}
               className={`pointer-events-auto absolute h-2 w-2 -translate-x-1/2 rounded-full ring-1 ring-neutral-950 hover:cursor-pointer ${TICKET_STATUS_STYLES[comment.status].dot}`}
             />

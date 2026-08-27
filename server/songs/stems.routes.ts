@@ -24,7 +24,10 @@ import {
 import {
   isStemKind,
   isHexColor,
+  stemColor,
+  variantColor,
   MAX_STEMS_PER_VERSION,
+  MIX_KIND,
 } from "@/lib/stemKinds";
 
 type Variables = { userId: string };
@@ -41,10 +44,18 @@ type Variables = { userId: string };
  */
 export const stemsRoutes = new Hono<{ Variables: Variables }>();
 
-/** Filenames a mix engineer can sort: 01_Drums_v7.mp3. */
-function downloadName(position: number, stemName: string, version: number) {
-  const safe = stemName.replace(/[^a-zA-Z0-9\-_]/g, "_").slice(0, 40);
-  return `${String(position + 1).padStart(2, "0")}_${safe}_v${version}.mp3`;
+/**
+ * Filenames that sort themselves in a Downloads folder holding several songs:
+ * "Kong Vidar - 01 Drums - v8.mp3".
+ */
+function downloadName(
+  song: string,
+  position: number,
+  stemName: string,
+  version: number,
+) {
+  const order = String(position + 1).padStart(2, "0");
+  return `${song} - ${order} ${stemName} - v${version}.mp3`;
 }
 
 /* ------------------------------------------------------------------ slots */
@@ -88,7 +99,7 @@ stemsRoutes.post("/:id/stems", requireAuth, async (c) => {
 
   const existing = await db.query.song_stems.findMany({
     where: (rows, { eq }) => eq(rows.song_id, found.song.id),
-    columns: { id: true, sort_order: true },
+    columns: { id: true, sort_order: true, kind: true, color: true },
   });
 
   // A version can hold one take per slot, so more slots than a version can
@@ -103,13 +114,26 @@ stemsRoutes.post("/:id/stems", requireAuth, async (c) => {
     );
   }
 
+  /**
+   * The second guitar of a kind gets a shade of its own rather than the same
+   * orange as the first. Written into the row like any other colour, so it is
+   * a starting point the band can override, not a rule.
+   */
+  const sameKind = existing.filter((row) => row.kind === body.kind).length;
+
+  const color =
+    body.color ??
+    (sameKind > 0
+      ? variantColor(stemColor({ kind: body.kind, color: null }), sameKind)
+      : null);
+
   const [stem] = await db
     .insert(song_stems)
     .values({
       song_id: found.song.id,
       name: name.slice(0, 80),
       kind: body.kind,
-      color: body.color ?? null,
+      color,
       sort_order: existing.reduce(
         (highest, row) => Math.max(highest, row.sort_order + 1),
         0,
@@ -565,17 +589,12 @@ stemsRoutes.post("/:id/versions", requireAuth, async (c) => {
 
   const body = await c.req.json();
 
+  // Optional. Left out, the service writes one from the difference between
+  // this arrangement and the last -- "Added Kick" rather than "Kick".
   const label =
     typeof body.label === "string" && body.label.trim() !== ""
       ? body.label.trim().slice(0, 255)
-      : "";
-
-  if (!label) {
-    return c.json(
-      { error: "label is required — say what changed, like a commit message" },
-      400,
-    );
-  }
+      : undefined;
 
   if (!Array.isArray(body.stems)) {
     return c.json({ error: "stems must be an array of changes" }, 400);
@@ -595,6 +614,49 @@ stemsRoutes.post("/:id/versions", requireAuth, async (c) => {
     { ...result.version, stem_count: result.stemCount, is_current: true },
     201,
   );
+});
+
+/**
+ * Rewrite a version's message.
+ *
+ * Commit messages get better in hindsight, and the generated ones do not always
+ * land. Band leaders only, the same as writing the version in the first place.
+ * Renaming does not touch the arrangement -- only what the log says about it.
+ */
+stemsRoutes.patch("/:id/versions/:versionId", requireAuth, async (c) => {
+  const userId = c.get("userId");
+  const found = await requireSongAccess(c.req.param("id"), userId);
+  if (!found.ok) return c.json({ error: found.error }, found.status);
+
+  if (!found.access.isLeader) {
+    return c.json({ error: "Only band leaders can rename a version" }, 403);
+  }
+
+  const versionId = c.req.param("versionId");
+  const body = await c.req.json();
+
+  const version = await db.query.song_versions.findFirst({
+    where: (rows, { and, eq }) =>
+      and(eq(rows.id, versionId), eq(rows.song_id, found.song.id)),
+  });
+
+  if (!version) return c.json({ error: "Version not found" }, 404);
+
+  const label =
+    typeof body.label === "string" ? body.label.trim().slice(0, 255) : undefined;
+
+  if (label === "") return c.json({ error: "label cannot be empty" }, 400);
+
+  const [updated] = await db
+    .update(song_versions)
+    .set({
+      label: label ?? version.label,
+      note: body.note === undefined ? version.note : body.note,
+    })
+    .where(eq(song_versions.id, versionId))
+    .returning();
+
+  return c.json(updated, 200);
 });
 
 /**
@@ -736,6 +798,26 @@ stemsRoutes.delete("/:id/versions/:versionId", requireAuth, async (c) => {
     );
   }
 
+  /**
+   * Same shape as the rule for takes: something people have reacted to does not
+   * vanish because somebody tidied up. The foreign key is NO ACTION behind
+   * this, so the database refuses too -- but a count is a better answer than a
+   * constraint violation.
+   */
+  const comments = await db.query.song_comments.findMany({
+    where: (rows, { eq }) => eq(rows.song_version_id, versionId),
+    columns: { id: true },
+  });
+
+  if (comments.length > 0) {
+    return c.json(
+      {
+        error: `${comments.length} comment${comments.length === 1 ? "" : "s"} ${comments.length === 1 ? "is" : "are"} written about this version. Removing it would take ${comments.length === 1 ? "it" : "them"} with it.`,
+      },
+      409,
+    );
+  }
+
   const [deleted] = await db
     .delete(song_versions)
     .where(eq(song_versions.id, versionId))
@@ -745,15 +827,25 @@ stemsRoutes.delete("/:id/versions/:versionId", requireAuth, async (c) => {
 });
 
 /**
- * Everything a mix engineer needs to pull one version's stems down.
+ * Everything needed to take one version away and work on it.
  *
- * A manifest of signed URLs rather than a zip. A real archive wants a queue,
- * a worker and somewhere to park the result, and this stack has none of the
- * three -- so the endpoint is shaped so that a zip can replace the body later
+ * Written first with a mix engineer in mind, but the real user turned out to
+ * be a band member overdubbing at home: download the latest version, open it
+ * in a DAW, play a solo over it, render that track on its own and upload it
+ * back as the next version. That is the loop this whole feature exists to
+ * close, and it needs two different things --
+ *
+ * - `mix`, a single file to drop in as a guide track. Null when the song has
+ *   no "Full mix" slot, because then no such file exists.
+ * - `files`, every stem separately, for anyone who wants the parts.
+ *
+ * A manifest of signed URLs rather than a zip. A real archive wants a queue, a
+ * worker and somewhere to park the result, and this stack has none of the
+ * three -- so the endpoint is shaped so a zip can replace the body later
  * without the client or the model changing.
  *
- * Open to anyone with project access, which is how a guest engineer invited to
- * the project already reaches it. No new access model.
+ * Open to anyone with project access, which is how a guest invited to the
+ * project already reaches it. No new access model.
  */
 stemsRoutes.get("/:id/versions/:versionId/download", requireAuth, async (c) => {
   const found = await requireSongAccess(c.req.param("id"), c.get("userId"));
@@ -773,14 +865,49 @@ stemsRoutes.get("/:id/versions/:versionId/download", requireAuth, async (c) => {
   arrangement.sort((a, b) => a.stem.sort_order - b.stem.sort_order);
 
   const files = await Promise.all(
-    arrangement.map(async (row, position) => ({
-      filename: downloadName(position, row.stem.name, version.version_number),
-      stem: row.stem.name,
-      // The master, never the proxy: the proxy exists so the app can play
-      // cheaply, and a mix engineer wants what was actually recorded.
-      url: await getDownloadUrl(row.take.r2_key, AUDIO_DOWNLOAD_TTL_SECONDS),
-    })),
+    arrangement.map(async (row, position) => {
+      const filename = downloadName(
+        found.song.title,
+        position,
+        row.stem.name,
+        version.version_number,
+      );
+
+      return {
+        filename,
+        stem: row.stem.name,
+        kind: row.stem.kind,
+        // The master, never the proxy: the proxy exists so the app can play
+        // cheaply, and someone recording against this wants what was actually
+        // recorded.
+        url: await getDownloadUrl(
+          row.take.r2_key,
+          AUDIO_DOWNLOAD_TTL_SECONDS,
+          filename,
+        ),
+      };
+    }),
   );
+
+  // The guide track, when the arrangement has one. Named after the song rather
+  // than the slot, because this is the file somebody drops into a DAW and it
+  // should say which song it is.
+  const mixRow = arrangement.find((row) => row.stem.kind === MIX_KIND);
+
+  const mix = mixRow
+    ? await (async () => {
+        const filename = `${found.song.title} - v${version.version_number}.mp3`;
+
+        return {
+          filename,
+          url: await getDownloadUrl(
+            mixRow.take.r2_key,
+            AUDIO_DOWNLOAD_TTL_SECONDS,
+            filename,
+          ),
+        };
+      })()
+    : null;
 
   return c.json(
     {
@@ -788,6 +915,7 @@ stemsRoutes.get("/:id/versions/:versionId/download", requireAuth, async (c) => {
       version: version.version_number,
       label: version.label,
       expires_in_seconds: AUDIO_DOWNLOAD_TTL_SECONDS,
+      mix,
       files,
     },
     200,

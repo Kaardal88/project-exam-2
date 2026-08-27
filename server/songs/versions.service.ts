@@ -18,6 +18,56 @@ export type StemChange = { stem_id: string; take_id: string | null };
 
 type CommitFailure = { ok: false; status: 400 | 404 | 409; error: string };
 
+/** "Kick", "Kick and Snare", "Kick, Snare and 2 more". */
+function nameList(names: string[]) {
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names[0]}, ${names[1]} and ${names.length - 2} more`;
+}
+
+/**
+ * What a version says it did, when nobody wrote a message for it.
+ *
+ * A version's label is a commit message: it describes the change, not the
+ * contents. The first cut of this passed the *take's* name straight through,
+ * so uploading a stem called "Kick" produced a version called "Kick" -- which
+ * reads as though the whole arrangement is now named after one layer of it.
+ * Comparing the two arrangements says the true thing instead: "Added Kick".
+ */
+function describeChange(
+  before: Map<string, string>,
+  after: Map<string, string>,
+  nameOf: (stemId: string) => string,
+): string {
+  const added: string[] = [];
+  const replaced: string[] = [];
+  const removed: string[] = [];
+
+  for (const [stemId, takeId] of after) {
+    if (!before.has(stemId)) added.push(nameOf(stemId));
+    else if (before.get(stemId) !== takeId) replaced.push(nameOf(stemId));
+  }
+
+  for (const stemId of before.keys()) {
+    if (!after.has(stemId)) removed.push(nameOf(stemId));
+  }
+
+  const parts: string[] = [];
+
+  if (added.length) parts.push(`Added ${nameList(added)}`);
+  if (replaced.length) {
+    parts.push(
+      `${parts.length ? "replaced" : "Replaced"} ${nameList(replaced)}`,
+    );
+  }
+  if (removed.length) {
+    parts.push(`${parts.length ? "removed" : "Removed"} ${nameList(removed)}`);
+  }
+
+  // Reachable only through a restore, which supplies its own label anyway.
+  return parts.length ? parts.join(", ") : "Updated the arrangement";
+}
+
 type CommitSuccess = {
   ok: true;
   version: typeof song_versions.$inferSelect;
@@ -90,7 +140,8 @@ export async function commitVersion({
 }: {
   song: typeof songs.$inferSelect;
   userId: string;
-  label: string;
+  /** The commit message. Generated from the diff when nobody wrote one. */
+  label?: string;
   note: string | null;
   changes: StemChange[];
   /** What to copy from. Defaults to main; a restore passes the old version. */
@@ -141,6 +192,8 @@ export async function commitVersion({
   }
 
   const previous = base ? await getArrangementRows(base) : [];
+
+  const before = new Map(previous.map((row) => [row.stem_id, row.take_id]));
 
   // stem_id -> take_id. Start from what the base version held, then apply the
   // changes over the top; a null take_id removes the slot entirely.
@@ -218,6 +271,14 @@ export async function commitVersion({
     }
   }
 
+  const finalLabel =
+    label?.trim() ||
+    describeChange(
+      before,
+      arrangement,
+      (stemId) => stemById.get(stemId)?.name ?? "a stem",
+    );
+
   const versionId = crypto.randomUUID();
 
   const statements = [
@@ -229,7 +290,7 @@ export async function commitVersion({
         // Computed in the database so two commits cannot pick the same number
         // and lose the UNIQUE race.
         version_number: sql`(SELECT COALESCE(MAX(${song_versions.version_number}), 0) + 1 FROM ${song_versions} WHERE ${song_versions.song_id} = ${song.id})`,
-        label,
+        label: finalLabel.slice(0, 255),
         note,
         created_by: userId,
       })

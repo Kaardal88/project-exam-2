@@ -1,12 +1,12 @@
-# BandStructure
+# StemLock
 
 ## Project Overview
 
-BandStructure is a modern web platform designed for musicians, bands, producers, managers and other music industry professionals. But all hobby bands, home-studio warriors and garage bands are very welcome too.
+StemLock (formerly BandStructure) is a modern web platform designed for musicians, bands, producers, managers and other music industry professionals. But all hobby bands, home-studio warriors and garage bands are very welcome too.
 
 The goal is to provide one place where a band can organize everything related to their music project, from members and releases to planning, collaboration and communication.
 
-Rather than being another social media platform, BandStructure is intended to become an internal workspace for creative teams while still allowing selected information to be shared publicly.
+Rather than being another social media platform, StemLock is intended to become an internal workspace for creative teams while still allowing selected information to be shared publicly.
 
 The project began as a school exam but is intended to continue as a long-term portfolio project and potentially evolve into a real product.
 
@@ -14,7 +14,7 @@ The project began as a school exam but is intended to continue as a long-term po
 
 # Target Audience
 
-BandStructure is built for:
+StemLock is built for:
 
 - Bands
 - Solo artists
@@ -43,7 +43,7 @@ Examples include:
 - Shared calendars
 - Social media for public presence
 
-BandStructure aims to collect these workflows into a single platform designed specifically for musicians.
+StemLock aims to collect these workflows into a single platform designed specifically for musicians.
 
 The platform should reduce administrative work so artists can spend more time creating music.
 
@@ -51,7 +51,7 @@ The platform should reduce administrative work so artists can spend more time cr
 
 # Product Vision
 
-BandStructure should become the central workspace for a music project.
+StemLock should become the central workspace for a music project.
 
 Each band has its own workspace containing everything related to that band.
 
@@ -87,20 +87,36 @@ The platform should feel modern, clean, intuitive and enjoyable to use.
 ### The song dashboard
 
 - Audio upload and playback with a decoded waveform
-- **Audio version history** — every take is kept; a band leader chooses which
-  one is the song
-- Comments pinned to a timestamp, which double as tickets with a status and an
-  assignee
+- Comments as tickets with a status and an assignee — about the song as a
+  whole, about a moment in it, or about one particular version
 - Comment history: who changed a status, who reassigned it
 - Notes and lyrics with a rich text editor
 - File management: project files, artwork, press photos, contracts
 - Artwork per song, falling back to the project cover
 
+### The studio
+
+- **A song is stems** — separate files for the drums, a guitar, a vocal —
+  decoded into one AudioContext and played together, with mute and solo per
+  lane. A song that is just one finished mp3 is a song with one stem, and
+  behaves identically in every other respect.
+- **Versions are commits on main.** Each one is the whole arrangement at a
+  moment, held as its own complete set of rows, so correcting a take in v1 can
+  never change what an approved v4 sounds like.
+- Uploading a take and deciding what the song is stay separate acts: anyone
+  with project access can hand one in, only a band leader moves main
+- Restoring an older version writes a new one rather than moving the pointer
+  backwards, so the history stays a straight line
+- Band-chosen colours per lane, following DAW convention by default
+- Lock a version for mix — frozen as the reference, without stopping the band
+- Download a version as one mixdown or as separate stems, or bounce what you
+  are hearing to a single MP3 in the browser
+
 ### Collaboration
 
 - **Project-scoped guests** — a session musician, producer, engineer or manager
   invited to one project sees nothing else the band is doing
-- Guests can upload a take without being able to replace the song's audio
+- Guests can upload a take without being able to decide what the song is
 - One inbox for band invitations and project invitations alike
 
 ### Feedback
@@ -128,6 +144,11 @@ Potential future features include:
 - SEO metadata, which was waiting on the move to cookies and is now unblocked
 - Sorting and filtering on Connect and Artists
 - Tablature sheets in the song dashboard
+- Comments attached to a **stem** rather than to the song — "the guitar is out
+  of tune at 2:14" wants to point at the guitar lane
+- WAV masters behind a subscription plan, played back through an MP3 proxy;
+  the schema already carries the columns for it
+- A real zip of a version's stems, which needs a queue this stack does not have
 
 ### Music Management
 
@@ -200,7 +221,7 @@ Favor reusable UI components over page-specific implementations.
 
 # Long-Term Vision
 
-BandStructure is intended to grow beyond a portfolio project.
+StemLock is intended to grow beyond a portfolio project.
 
 The long-term goal is to become a complete collaboration platform for musicians and creative teams.
 

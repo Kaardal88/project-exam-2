@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { peaksFromBuffer } from "@/lib/waveform";
+import type { BounceSource } from "@/lib/bounce";
 
 export type PlayerLane = {
   /** stem id — what mute, solo and colour are keyed on */
@@ -357,6 +358,31 @@ export function useStemPlayer(
     };
   }, [stopSources]);
 
+  /**
+   * The decoded buffers, at the levels currently being heard.
+   *
+   * Mute and solo are honoured deliberately: muting your own guitar and
+   * bouncing gives you a backing track to record that guitar against, which is
+   * the reason somebody wants a single file in the first place.
+   *
+   * Reads the buffers already in memory for playback, so a bounce costs a
+   * render pass and no fetching.
+   */
+  const bounceSources = useCallback((): BounceSource[] => {
+    const anySoloed = soloed.size > 0;
+
+    return lanes.flatMap((lane) => {
+      const buffer = buffersRef.current.get(lane.takeId);
+      if (!buffer) return [];
+
+      const audible = anySoloed ? soloed.has(lane.id) : !muted.has(lane.id);
+      if (!audible) return [];
+
+      return [{ buffer, gain: 1 }];
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [laneKey, muted, soloed]);
+
   const toggleMute = useCallback((stemId: string) => {
     setMuted((current) => {
       const next = new Set(current);
@@ -394,5 +420,6 @@ export function useStemPlayer(
     toggleSolo,
     masterVolume,
     setMasterVolume,
+    bounceSources,
   };
 }

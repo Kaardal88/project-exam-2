@@ -454,7 +454,35 @@ export const song_comments = pgTable("song_comments", {
     onDelete: "set null",
   }),
 
-  timestamp_seconds: integer("timestamp_seconds").notNull(),
+  /**
+   * Where in the song this is about, or null for a comment about the song as a
+   * whole -- "we need a bridge" is not a moment.
+   *
+   * Nullable since versions arrived. Before that every comment was pinned to a
+   * timestamp because there was nowhere else to put one.
+   */
+  timestamp_seconds: integer("timestamp_seconds"),
+
+  /**
+   * Which version this is about, or null when it is about the song whatever
+   * version is current.
+   *
+   * These two columns are deliberately independent, which gives four shapes and
+   * all four are things bands say: a note about the song (neither), a moment in
+   * the song whatever the version (timestamp only), a moment in one version
+   * (both), and one version as a whole (version only). That last is the one a
+   * mix engineer uses most.
+   *
+   * no action rather than cascade or set null. Cascade would delete an open
+   * ticket assigned to somebody because a leader tidied up a version; set null
+   * is worse still, leaving the comment alive but stripped of the context that
+   * made it mean anything. A version carrying comments simply cannot be
+   * deleted, and the route says so.
+   */
+  song_version_id: uuid("song_version_id").references(
+    (): AnyPgColumn => song_versions.id,
+    { onDelete: "no action" },
+  ),
 
   body: text("body").notNull(),
 

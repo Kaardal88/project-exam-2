@@ -1,12 +1,18 @@
 @AGENTS.md
 
-# BandStructure
+# StemLock
+
+Formerly BandStructure, and the repository is still `project-exam-2`. The
+wordmark reads from `NEXT_PUBLIC_APP_NAME` with a `"StemLock"` fallback —
+`components/Stemlock.tsx` is the only place it is written down.
 
 Before making changes, read:
 
 - docs/project.md
 - docs/design.md
 - docs/architecture.md
+- docs/decisions/ — the reasoning behind stems, versions and comments, kept in
+  step with the code
 
 If continuing previous work:
 
@@ -29,6 +35,20 @@ Known gotchas:
   session from JavaScript — it isn't reachable. `bs_signed_in` is a readable
   hint for rendering only and must never gate access to anything.
 - Reuse existing Tailwind colors already in use; don't introduce new palette values.
+  Stem colours are the exception and are not a counter-example: they are *data*
+  a band chose, stored per row and rendered as an inline style, never as a
+  class.
+- **Every HTTP method has to be re-exported from `app/api/[[...route]]/route.ts`.**
+  Next.js answers 405 before Hono ever sees the request otherwise. PATCH was
+  missing for a while, and the routes behind it looked correct and were simply
+  unreachable.
+- **Do not run `drizzle-kit generate` or `push`.** The snapshot in `drizzle/`
+  is still the initial migration while the schema has drifted far past it.
+  Schema changes go in a hand-written idempotent `scripts/*.ts` one-off with a
+  `--dry` flag — `add-song-stems.ts` is the fullest worked example.
+- `db.transaction()` throws on the neon-http driver. Use `db.batch()`, which
+  Neon runs as one transaction, and generate ids in code so every statement is
+  known up front.
 
 Commands:
 
