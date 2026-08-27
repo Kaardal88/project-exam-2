@@ -93,9 +93,13 @@ Added Bass Ref", or "the song as a whole · whichever version is current"),
 because a comment meant for the current mix that quietly lands on last week's
 version is worse than no comment.
 
-The waveform case is the one to get right: if you are previewing v5, the button
-should say so, because a comment you meant for the current mix landing on an
-old one is worse than no comment.
+**One shape of the four is not reachable yet: a timestamped comment on an
+*older* version.** The dashboard player only ever plays the current version, so
+its waveform pins to that; the studio can play an older version but has no
+"Comment?" affordance on its timeline. Nothing is wrong — the data model holds
+it, the markers already render it, and the group is already there to put it in.
+It just has no way in until the studio grows a comment target of its own, which
+is the same piece of work as attaching comments to a lane (§4).
 
 ### Markers
 
