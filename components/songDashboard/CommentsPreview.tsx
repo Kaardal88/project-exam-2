@@ -5,7 +5,7 @@ import { TICKET_STATUS_STYLES, type TicketStatus } from "./ticketStatus";
 
 type Comment = {
   id: string;
-  timestamp_seconds: number;
+  timestamp_seconds: number | null;
   body: string;
   status: TicketStatus;
   created_at: string | null;
@@ -74,10 +74,13 @@ export function CommentsPreview({
 
               <div className="mt-1 flex gap-2">
                 <button
-                  onClick={() => onSeek(comment.timestamp_seconds)}
+                  onClick={() => comment.timestamp_seconds !== null &&
+                  onSeek(comment.timestamp_seconds)}
                   className="rounded-full border border-neutral-700 px-2 py-0.5 text-xs text-neutral-400 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100"
                 >
-                  {formatSongTime(comment.timestamp_seconds)}
+                  {comment.timestamp_seconds !== null
+                    ? formatSongTime(comment.timestamp_seconds)
+                    : "—"}
                 </button>
 
                 {comment.assignee && (

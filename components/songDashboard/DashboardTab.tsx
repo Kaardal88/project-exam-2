@@ -16,7 +16,8 @@ type BandMember = {
 
 type Comment = {
   id: string;
-  timestamp_seconds: number;
+  timestamp_seconds: number | null;
+  song_version_id: string | null;
   body: string;
   status: TicketStatus;
   resolved_at: string | null;
@@ -54,6 +55,8 @@ type DashboardTabProps = {
   onSeek: (seconds: number) => void;
   audioUrl: string | null;
   onAudioUrlExpired: () => void;
+  /** the version the song currently is — what the player is playing */
+  currentVersionId: string | null;
 };
 
 export function DashboardTab({
@@ -68,6 +71,7 @@ export function DashboardTab({
   onSeek,
   audioUrl,
   onAudioUrlExpired,
+  currentVersionId,
 }: DashboardTabProps) {
   const [playerPosition, setPlayerPosition] = useState(0);
   // Closing hides the card for this visit rather than persisting a preference:
@@ -97,6 +101,7 @@ export function DashboardTab({
           onAudioUrlExpired={onAudioUrlExpired}
           onOpenStudio={() => setActiveTab("Studio")}
           onClose={() => setPlayerClosed(true)}
+          versionId={currentVersionId}
         />
       )}
 
@@ -120,6 +125,9 @@ export function DashboardTab({
           onClose={() => setAddCommentSeconds(null)}
           songId={songId}
           timestampSeconds={addCommentSeconds}
+          // The dashboard player always plays the current version, so anything
+          // pinned to a moment here is pinned to that version.
+          versionId={currentVersionId}
           bandMembers={bandMembers}
           onCreated={() => {
             setAddCommentSeconds(null);

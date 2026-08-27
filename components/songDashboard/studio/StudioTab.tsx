@@ -18,11 +18,19 @@ import { StemLane } from "./StemLane";
 import { VersionBar } from "./VersionBar";
 import { AddStemModal } from "./AddStemModal";
 import { UploadTakeModal } from "./UploadTakeModal";
+import { AddCommentModal } from "../AddCommentModal";
 import type { Stem, Take, Version, VersionDetail } from "./types";
+
+type BandMember = {
+  user_id: string;
+  user: { id: string; username: string };
+};
 
 type StudioTabProps = {
   songId: string;
   songTitle: string;
+  bandMembers: BandMember[];
+  onCommentsChanged: () => void;
   isLeader: boolean;
   currentUserId: string | null;
   /** the song's audio pointer may have moved, so the page reloads the song */
@@ -32,6 +40,8 @@ type StudioTabProps = {
 export function StudioTab({
   songId,
   songTitle,
+  bandMembers,
+  onCommentsChanged,
   isLeader,
   currentUserId,
   onSongChanged,
@@ -51,6 +61,7 @@ export function StudioTab({
   const [takesLoading, setTakesLoading] = useState<string | null>(null);
 
   const [bouncing, setBouncing] = useState<number | null>(null);
+  const [commentOn, setCommentOn] = useState<Version | null>(null);
 
   const loadStems = useCallback(async () => {
     const response = await fetch(`/api/songs/${songId}/stems`);
@@ -395,6 +406,7 @@ export function StudioTab({
           await reload();
           onSongChanged();
         }}
+        onComment={(version) => setCommentOn(version)}
       />
 
       <div className="grid gap-4">
@@ -536,6 +548,24 @@ export function StudioTab({
         onAdded={async (stem) => {
           await reload(true);
           setUploadInto(stem);
+        }}
+      />
+
+      {/* A comment about one version as a whole — "this mix is too bright".
+          No timestamp, because it is not about a moment. */}
+      <AddCommentModal
+        isOpen={commentOn !== null}
+        onClose={() => setCommentOn(null)}
+        songId={songId}
+        timestampSeconds={null}
+        versionId={commentOn?.id ?? null}
+        versionLabel={
+          commentOn ? `v${commentOn.version_number} · ${commentOn.label}` : null
+        }
+        bandMembers={bandMembers}
+        onCreated={() => {
+          setCommentOn(null);
+          onCommentsChanged();
         }}
       />
 

@@ -798,6 +798,26 @@ stemsRoutes.delete("/:id/versions/:versionId", requireAuth, async (c) => {
     );
   }
 
+  /**
+   * Same shape as the rule for takes: something people have reacted to does not
+   * vanish because somebody tidied up. The foreign key is NO ACTION behind
+   * this, so the database refuses too -- but a count is a better answer than a
+   * constraint violation.
+   */
+  const comments = await db.query.song_comments.findMany({
+    where: (rows, { eq }) => eq(rows.song_version_id, versionId),
+    columns: { id: true },
+  });
+
+  if (comments.length > 0) {
+    return c.json(
+      {
+        error: `${comments.length} comment${comments.length === 1 ? "" : "s"} ${comments.length === 1 ? "is" : "are"} written about this version. Removing it would take ${comments.length === 1 ? "it" : "them"} with it.`,
+      },
+      409,
+    );
+  }
+
   const [deleted] = await db
     .delete(song_versions)
     .where(eq(song_versions.id, versionId))

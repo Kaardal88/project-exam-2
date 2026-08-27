@@ -37,6 +37,7 @@ type Song = {
   key: string | null;
   time_signature: string | null;
   audio_url: string | null;
+  current_version_id: string | null;
   artwork_url: string | null;
   created_by: string | null;
   created_at: string | null;
@@ -66,7 +67,8 @@ type BandMember = {
 
 type Comment = {
   id: string;
-  timestamp_seconds: number;
+  timestamp_seconds: number | null;
+  song_version_id: string | null;
   body: string;
   status: TicketStatus;
   resolved_at: string | null;
@@ -593,11 +595,14 @@ function SongDashboardPageContent() {
               onSeek={requestSeekAndShow}
               audioUrl={audioPlaybackUrl}
               onAudioUrlExpired={fetchAudioUrl}
+              currentVersionId={song.current_version_id}
             />
           ) : activeTab === "Studio" ? (
             <StudioTab
               songId={song.id}
               songTitle={song.title}
+              bandMembers={members}
+              onCommentsChanged={refreshComments}
               isLeader={role === "band_leader"}
               currentUserId={currentUserId}
               onSongChanged={fetchSong}
@@ -611,6 +616,7 @@ function SongDashboardPageContent() {
               currentUserId={currentUserId}
               onCommentsChanged={refreshComments}
               onSeekAndShow={requestSeekAndShow}
+              currentVersionId={song.current_version_id}
             />
           ) : activeTab === "Lyrics" ? (
             <NotesTab

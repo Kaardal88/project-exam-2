@@ -13,7 +13,12 @@ type AddCommentModalProps = {
   isOpen: boolean;
   onClose: () => void;
   songId: string;
-  timestampSeconds: number;
+  /** null for a comment about the song rather than a moment in it */
+  timestampSeconds: number | null;
+  /** null for a comment that holds whatever version is current */
+  versionId: string | null;
+  /** shown so nobody is surprised which version they just wrote about */
+  versionLabel?: string | null;
   bandMembers: BandMember[];
   onCreated: () => void;
 };
@@ -23,6 +28,8 @@ export function AddCommentModal({
   onClose,
   songId,
   timestampSeconds,
+  versionId,
+  versionLabel,
   bandMembers,
   onCreated,
 }: AddCommentModalProps) {
@@ -49,6 +56,7 @@ export function AddCommentModal({
       },
       body: JSON.stringify({
         timestamp_seconds: timestampSeconds,
+        song_version_id: versionId,
         body,
         assignee_id: assigneeId || undefined,
       }),
@@ -69,21 +77,38 @@ export function AddCommentModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="w-[90vw] max-w-md">
-        <h2 className="mb-4 text-xl font-bold text-yellow-100">Add comment</h2>
+        <h2 className="mb-4 text-xl font-bold text-yellow-100">
+          {timestampSeconds === null && versionId === null
+            ? "Note about the song"
+            : "Add comment"}
+        </h2>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && <p className="form-error">{error}</p>}
 
+          {/*
+            What this comment is going to be attached to, in words. A comment
+            meant for the current mix that quietly lands on last week's version
+            is worse than no comment, so the two facts are stated rather than
+            implied.
+          */}
           <div>
             <label className="mb-2 block text-sm font-semibold text-yellow-100">
-              Timestamp
+              This is about
             </label>
-            <input
-              type="text"
-              value={formatSongTime(timestampSeconds)}
-              readOnly
-              className="w-full rounded-md border border-neutral-800 bg-neutral-950/60 px-4 py-2 text-sm text-neutral-400 outline-none"
-            />
+            <p className="rounded-md border border-neutral-800 bg-neutral-950/60 px-4 py-2 text-sm text-neutral-400">
+              {timestampSeconds !== null
+                ? formatSongTime(timestampSeconds)
+                : "the song as a whole"}
+              {versionLabel ? (
+                <span className="text-neutral-300"> · {versionLabel}</span>
+              ) : (
+                <span className="text-neutral-600">
+                  {" "}
+                  · whichever version is current
+                </span>
+              )}
+            </p>
           </div>
 
           <div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   ChevronDown,
+  MessageSquarePlus,
   Lock,
   LockOpen,
   RotateCcw,
@@ -26,6 +27,8 @@ type VersionBarProps = {
   isLeader: boolean;
   onSelect: (version: Version) => void;
   onChanged: () => Promise<void> | void;
+  /** opens a comment about this version as a whole — no timestamp */
+  onComment: (version: Version) => void;
 };
 
 /** Above this many, finding one by eye stops working and a filter earns itself. */
@@ -62,6 +65,7 @@ export function VersionBar({
   isLeader,
   onSelect,
   onChanged,
+  onComment,
 }: VersionBarProps) {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -381,6 +385,19 @@ export function VersionBar({
                 />
 
                 <div className="absolute right-0 z-40 mt-1 w-52 rounded-md border border-neutral-700 bg-neutral-900 p-1 shadow-2xl">
+                  {/* Not gated on leader: anyone working on the project can say
+                      what they think of a mix. */}
+                  <button
+                    onClick={() => {
+                      if (selected) onComment(selected);
+                      setMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-neutral-300 transition hover:cursor-pointer hover:bg-neutral-800 hover:text-yellow-100"
+                  >
+                    <MessageSquarePlus className="h-3 w-3" />
+                    Comment on this version
+                  </button>
+
                   {isLeader ? (
                     <>
                       <button

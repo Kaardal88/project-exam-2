@@ -1,6 +1,7 @@
 # Comments: about the song, and about a version
 
-**Proposed 2026-08-26. Not built — this is for reading before we build it.**
+**Decided 2026-08-26, built 2026-08-27.** Kept in step with the code; the two
+things marked as still open at the bottom are the only parts not in.
 
 Comments are timestamped against the song. Once a song is a stack of versions
 that can differ in length and content, "the vocal is flat at 1:23" stops being
@@ -79,8 +80,18 @@ are collapsed.**
 | Action | Produces |
 | --- | --- |
 | Click the waveform → "Comment?" | timestamp + **the version you are hearing** |
-| "+ Note" in the Comments tab | no timestamp, no version |
-| "Comment on this version" in the history row | version, no timestamp |
+| "+ Note about the song" in the Comments tab | no timestamp, no version |
+| "Comment on this version" in the version bar's ⋯ menu | version, no timestamp |
+
+Built as sketched, with one change of address: the history row became the
+version bar, so the third entry lives in its overflow menu. It is the one of
+the three not gated on being a leader — anyone working on the project can say
+what they think of a mix.
+
+The modal states both facts in words before you write anything ("1:23 · v9 ·
+Added Bass Ref", or "the song as a whole · whichever version is current"),
+because a comment meant for the current mix that quietly lands on last week's
+version is worse than no comment.
 
 The waveform case is the one to get right: if you are previewing v5, the button
 should say so, because a comment you meant for the current mix landing on an
