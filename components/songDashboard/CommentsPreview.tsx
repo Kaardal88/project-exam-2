@@ -18,21 +18,35 @@ type CommentsPreviewProps = {
   onNewComment: () => void;
   onViewAll: () => void;
   onSeek: (seconds: number) => void;
+  /** takes the reader to this comment in the Comments tab */
+  onOpenComment: (commentId: string) => void;
 };
+
+/**
+ * Two, and no more.
+ *
+ * This sits in a row of three cards on the dashboard, so its height is shared
+ * with its neighbours -- a card that grows with the number of comments pushes
+ * the page around for reasons that have nothing to do with what the reader is
+ * looking at. Two, each clamped to two lines, is a fixed and predictable box.
+ * "View all comments" is right there for the rest.
+ */
+const PREVIEW_COUNT = 2;
 
 export function CommentsPreview({
   comments,
   onNewComment,
   onViewAll,
   onSeek,
+  onOpenComment,
 }: CommentsPreviewProps) {
-  const preview = comments.slice(0, 3);
+  const preview = comments.slice(0, PREVIEW_COUNT);
 
   return (
     <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-4 shadow-2xl">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-bold uppercase tracking-wide text-yellow-100">
-          Comments
+          Latest comments
         </h3>
         <button
           onClick={onNewComment}
@@ -48,7 +62,14 @@ export function CommentsPreview({
         <ul className="space-y-3">
           {preview.map((comment) => (
             <li key={comment.id} className="text-sm">
-              <div className="flex items-center gap-2">
+              {/* The whole card opens it in the Comments tab. The timestamp
+                  below stays its own control -- one seeks, the other reads --
+                  and a button inside a button is not valid markup anyway. */}
+              <button
+                onClick={() => onOpenComment(comment.id)}
+                className="w-full rounded-sm text-left transition hover:cursor-pointer hover:opacity-80"
+              >
+                <div className="flex items-center gap-2">
                 {comment.author?.image_url ? (
                   <img
                     src={comment.author.image_url}
@@ -63,14 +84,17 @@ export function CommentsPreview({
                 <span className="font-semibold text-yellow-100">
                   {comment.author?.username ?? "Unknown"}
                 </span>
-                <span className="text-xs text-neutral-500">
-                  {comment.created_at
-                    ? new Date(comment.created_at).toLocaleDateString("no-NO")
-                    : ""}
-                </span>
-              </div>
+                  <span className="text-xs text-neutral-500">
+                    {comment.created_at
+                      ? new Date(comment.created_at).toLocaleDateString("no-NO")
+                      : ""}
+                  </span>
+                </div>
 
-              <p className="mt-1 text-neutral-300">{comment.body}</p>
+                <p className="mt-1 line-clamp-2 text-neutral-300">
+                  {comment.body}
+                </p>
+              </button>
 
               <div className="mt-1 flex gap-2">
                 <button

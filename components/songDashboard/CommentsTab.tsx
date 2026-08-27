@@ -45,6 +45,14 @@ type CommentsTabProps = {
   onSeekAndShow: (seconds: number) => void;
   /** the version the song currently is, for grouping */
   currentVersionId: string | null;
+  /**
+   * A comment to scroll to and highlight, sent from the dashboard preview.
+   *
+   * Carries a nonce for the same reason the player's seek signal does: clicking
+   * the same card twice is a real request, and an id alone would look
+   * unchanged and do nothing the second time.
+   */
+  focusComment?: { id: string; nonce: number } | null;
 };
 
 const FILTERS: { label: string; value: "all" | TicketStatus }[] = [
@@ -95,6 +103,7 @@ export function CommentsTab({
   onCommentsChanged,
   onSeekAndShow,
   currentVersionId,
+  focusComment,
 }: CommentsTabProps) {
   const [filter, setFilter] = useState<"all" | TicketStatus>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -103,6 +112,7 @@ export function CommentsTab({
 
   const [showEarlier, setShowEarlier] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
+  const [appliedFocus, setAppliedFocus] = useState(focusComment);
 
   // Only needed to print "v7" next to a comment and to name the current
   // version in a heading, so it is fetched here rather than threaded through
@@ -157,8 +167,49 @@ export function CommentsTab({
     (version) => version.id === currentVersionId,
   );
 
-  function versionNumber(id: string) {
-    return versions.find((version) => version.id === id)?.version_number;
+  /**
+   * Arriving from the dashboard preview.
+   *
+   * Adjusting state during render rather than in an effect, the same pattern
+   * the media player uses for its seek signal. Both adjustments matter: the
+   * wanted comment may be filtered out by the status buttons, or folded away
+   * under "earlier versions", and scrolling to something that is not rendered
+   * lands on nothing at all.
+   */
+  if (focusComment && focusComment.nonce !== appliedFocus?.nonce) {
+    setAppliedFocus(focusComment);
+
+    const target = comments.find(
+      (comment) => comment.id === focusComment.id,
+    );
+
+    if (target) {
+      if (filter !== "all" && target.status !== filter) setFilter("all");
+
+      if (
+        target.song_version_id !== null &&
+        target.song_version_id !== currentVersionId
+      ) {
+        setShowEarlier(true);
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!appliedFocus) return;
+
+    // After paint, so the group it lives in has actually been expanded.
+    const frame = requestAnimationFrame(() => {
+      document
+        .getElementById(`comment-${appliedFocus.id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [appliedFocus]);
+
+  function versionOf(id: string) {
+    return versions.find((version) => version.id === id);
   }
 
   async function toggleHistory(commentId: string) {
@@ -225,7 +276,12 @@ export function CommentsTab({
     return (
               <li
                 key={comment.id}
-                className="rounded-md border border-neutral-800 bg-neutral-950/40 p-3 text-sm"
+                id={`comment-${comment.id}`}
+                className={`rounded-md border bg-neutral-950/40 p-3 text-sm transition ${
+                  comment.id === focusComment?.id
+                    ? "border-yellow-200 ring-1 ring-yellow-200/40"
+                    : "border-neutral-800"
+                }`}
               >
                 <div className="flex flex-wrap items-center gap-2">
                   {comment.author?.image_url ? (
@@ -248,9 +304,15 @@ export function CommentsTab({
                       : ""}
                   </span>
 
+                  {/* This was neutral-500 on neutral-700 and effectively
+                      invisible, which is a poor showing for the one label that
+                      says which arrangement the comment is about. */}
                   {comment.song_version_id && (
-                    <span className="rounded-full border border-neutral-700 px-1.5 py-0.5 font-mono text-[10px] text-neutral-500">
-                      v{versionNumber(comment.song_version_id) ?? "?"}
+                    <span
+                      title={versionOf(comment.song_version_id)?.label}
+                      className="rounded-full border border-neutral-600 bg-neutral-800 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-neutral-200"
+                    >
+                      v{versionOf(comment.song_version_id)?.version_number ?? "?"}
                     </span>
                   )}
 

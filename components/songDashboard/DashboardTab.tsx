@@ -57,6 +57,8 @@ type DashboardTabProps = {
   onAudioUrlExpired: () => void;
   /** the version the song currently is — what the player is playing */
   currentVersionId: string | null;
+  /** switches to the Comments tab and scrolls to this one */
+  onFocusComment: (commentId: string) => void;
 };
 
 export function DashboardTab({
@@ -72,6 +74,7 @@ export function DashboardTab({
   audioUrl,
   onAudioUrlExpired,
   currentVersionId,
+  onFocusComment,
 }: DashboardTabProps) {
   const [playerPosition, setPlayerPosition] = useState(0);
   // Closing hides the card for this visit rather than persisting a preference:
@@ -111,6 +114,7 @@ export function DashboardTab({
           onNewComment={() => setAddCommentSeconds(playerPosition)}
           onViewAll={() => setActiveTab("Comments")}
           onSeek={onSeek}
+          onOpenComment={onFocusComment}
         />
         <TasksPreview tasks={tasks} onViewAll={() => setActiveTab("Tasks")} />
         <NotesPreview

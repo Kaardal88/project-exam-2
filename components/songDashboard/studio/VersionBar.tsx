@@ -343,6 +343,21 @@ export function VersionBar({
 
         {/* ------------------------------------------------------ actions */}
         <div className="ml-auto flex items-center gap-1.5">
+          {/*
+            Out of the overflow menu and into the bar. Saying what you think of
+            a mix is the most ordinary thing anyone does to a version, and it
+            was behind the same click as deleting one. Not gated on leader
+            either: anyone working on the project has an opinion worth hearing.
+          */}
+          <button
+            onClick={() => selected && onComment(selected)}
+            title="A comment about this version as a whole"
+            className="flex items-center gap-1 rounded-md border border-neutral-700 px-2 py-1 text-[11px] text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100"
+          >
+            <MessageSquarePlus className="h-3 w-3" />
+            Comment
+          </button>
+
           {selectedHasMix && (
             <button
               onClick={() => download("mix")}
@@ -385,19 +400,6 @@ export function VersionBar({
                 />
 
                 <div className="absolute right-0 z-40 mt-1 w-52 rounded-md border border-neutral-700 bg-neutral-900 p-1 shadow-2xl">
-                  {/* Not gated on leader: anyone working on the project can say
-                      what they think of a mix. */}
-                  <button
-                    onClick={() => {
-                      if (selected) onComment(selected);
-                      setMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs text-neutral-300 transition hover:cursor-pointer hover:bg-neutral-800 hover:text-yellow-100"
-                  >
-                    <MessageSquarePlus className="h-3 w-3" />
-                    Comment on this version
-                  </button>
-
                   {isLeader ? (
                     <>
                       <button

@@ -140,6 +140,12 @@ function SongDashboardPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<SongTab>("Dashboard");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** Set when a dashboard preview card is clicked. The nonce makes clicking
+      the same card twice a fresh request rather than a no-op. */
+  const [focusComment, setFocusComment] = useState<{
+    id: string;
+    nonce: number;
+  } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [seekSignal, setSeekSignal] = useState<{
     seconds: number;
@@ -596,6 +602,10 @@ function SongDashboardPageContent() {
               audioUrl={audioPlaybackUrl}
               onAudioUrlExpired={fetchAudioUrl}
               currentVersionId={song.current_version_id}
+              onFocusComment={(commentId) => {
+                setFocusComment({ id: commentId, nonce: Date.now() });
+                setActiveTab("Comments");
+              }}
             />
           ) : activeTab === "Studio" ? (
             <StudioTab
@@ -617,6 +627,7 @@ function SongDashboardPageContent() {
               onCommentsChanged={refreshComments}
               onSeekAndShow={requestSeekAndShow}
               currentVersionId={song.current_version_id}
+              focusComment={focusComment}
             />
           ) : activeTab === "Lyrics" ? (
             <NotesTab
