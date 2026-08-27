@@ -509,6 +509,7 @@ export function StudioTab({
         songId={songId}
         stem={uploadInto}
         isLeader={isLeader}
+        songDuration={player.duration}
         onUploaded={async (committed) => {
           if (uploadInto) await loadTakes(uploadInto.id);
           if (committed) {

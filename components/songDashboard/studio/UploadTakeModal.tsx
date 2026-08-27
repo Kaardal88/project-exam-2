@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/Modal";
+import { formatSongTime } from "@/lib/utils";
 import { uploadToR2 } from "@/lib/uploadToR2";
 import { UploadProgress } from "../UploadProgress";
 import type { Stem } from "./types";
@@ -14,6 +15,8 @@ type UploadTakeModalProps = {
   songId: string;
   stem: Stem | null;
   isLeader: boolean;
+  /** Length of the version currently loaded, for the comparison below. 0 when nothing is. */
+  songDuration: number;
   /** committed: whether the take was put straight into a new version */
   onUploaded: (committed: boolean) => Promise<void> | void;
 };
@@ -42,9 +45,11 @@ export function UploadTakeModal({
   songId,
   stem,
   isLeader,
+  songDuration,
   onUploaded,
 }: UploadTakeModalProps) {
   const [file, setFile] = useState<File | null>(null);
+  const [fileDuration, setFileDuration] = useState<number | null>(null);
   const [label, setLabel] = useState("");
   const [note, setNote] = useState("");
   /**
@@ -60,6 +65,7 @@ export function UploadTakeModal({
 
   function reset() {
     setFile(null);
+    setFileDuration(null);
     setLabel("");
     setNote("");
     setMakeCurrent(true);
@@ -91,7 +97,7 @@ export function UploadTakeModal({
     setProgress(0);
 
     try {
-      const duration = await readDuration(file);
+      const duration = fileDuration ?? (await readDuration(file));
 
       // Uploaded only once the form is valid, so abandoning it never leaves an
       // orphaned object in the bucket with nothing pointing at it.
@@ -170,31 +176,44 @@ export function UploadTakeModal({
 
         {error && <p className="form-error">{error}</p>}
 
-        {/*
-          The one thing that silently ruins the overdub loop. Every stem in a
-          version is started against the same clock at the same offset, so a
-          take rendered from the middle of a DAW timeline lines up exactly as
-          wrong as the gap in front of it. There is no way for the app to
-          detect this -- a solo that genuinely begins at 1:12 and a file
-          missing its first 1:12 are the same bytes -- so it has to be said
-          before the upload rather than diagnosed after.
-        */}
-        <p className="rounded-md border border-neutral-800 bg-neutral-950/50 px-3 py-2 text-xs leading-relaxed text-neutral-400">
-          <span className="font-semibold text-neutral-300">
-            Render from the very start.
-          </span>{" "}
-          Stems are played together from 0:00, so export the full length of the
-          song with silence where your part is not playing — not just the bars
-          you recorded. Anything trimmed off the front will play early by
-          exactly that much.
-        </p>
-
         <input
           type="file"
           accept="audio/mpeg,.mp3"
-          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          onChange={async (event) => {
+            const picked = event.target.files?.[0] ?? null;
+            setFile(picked);
+            setFileDuration(picked ? await readDuration(picked) : null);
+          }}
           className="block w-full text-xs text-neutral-400 file:mr-3 file:rounded-md file:border file:border-neutral-700 file:bg-neutral-900 file:px-3 file:py-1 file:text-xs file:text-yellow-100 hover:file:cursor-pointer"
         />
+
+        {/*
+          A fact, not a warning. A stem rendered out of a DAW is full project
+          length and silent until the part comes in, which is the whole point
+          of rendering one -- so telling people to "export from the start" is
+          explaining their own job back to them. What is worth showing is the
+          one number that catches a genuinely truncated file: how long this is
+          against how long the song is. Different is not wrong -- some DAWs
+          trim trailing silence -- so it says what it sees and leaves the call
+          to the person who made the file.
+        */}
+        {fileDuration !== null && (
+          <p className="rounded-md border border-neutral-800 bg-neutral-950/50 px-3 py-2 text-xs text-neutral-400">
+            This take is {formatSongTime(fileDuration)}
+            {songDuration > 0 && (
+              <>
+                {" · the song is "}
+                {formatSongTime(songDuration)}
+                {Math.abs(fileDuration - songDuration) > 1.5 && (
+                  <span className="mt-1 block text-neutral-500">
+                    Stems play together from 0:00, so a different length usually
+                    means a trimmed render rather than a shorter part.
+                  </span>
+                )}
+              </>
+            )}
+          </p>
+        )}
 
         <input
           value={label}
