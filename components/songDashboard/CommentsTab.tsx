@@ -112,7 +112,19 @@ export function CommentsTab({
 
   const [showEarlier, setShowEarlier] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
-  const [appliedFocus, setAppliedFocus] = useState(focusComment);
+  /**
+   * Starts empty, deliberately, and not from the prop.
+   *
+   * This tab is only mounted while it is the active one, so a click in the
+   * dashboard preview mounts it with focusComment already set. Seeding this
+   * from the prop made the first signal compare equal to itself: the scroll
+   * fired but the unfolding never did, so a comment on an earlier version was
+   * scrolled to while still folded away.
+   */
+  const [appliedFocus, setAppliedFocus] = useState<{
+    id: string;
+    nonce: number;
+  } | null>(null);
 
   // Only needed to print "v7" next to a comment and to name the current
   // version in a heading, so it is fetched here rather than threaded through
