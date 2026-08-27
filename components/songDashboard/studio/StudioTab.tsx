@@ -15,7 +15,7 @@ import { bounceToMp3, saveBlob } from "@/lib/bounce";
 import { MAX_STEMS_PER_VERSION, MIX_KIND } from "@/lib/stemKinds";
 import { useStemPlayer, type PlayerLane } from "./useStemPlayer";
 import { StemLane } from "./StemLane";
-import { VersionHistory } from "./VersionHistory";
+import { VersionBar } from "./VersionBar";
 import { AddStemModal } from "./AddStemModal";
 import { UploadTakeModal } from "./UploadTakeModal";
 import type { Stem, Take, Version, VersionDetail } from "./types";
@@ -306,8 +306,6 @@ export function StudioTab({
     }
   }
 
-  const showingOldVersion = Boolean(detail && !detail.is_current);
-
   /* ------------------------------------------------------------ empty */
 
   if (!loading && stems.length === 0) {
@@ -378,29 +376,27 @@ export function StudioTab({
     <div className="space-y-4">
       {error && <p className="form-error">{error}</p>}
 
-      {showingOldVersion && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border border-yellow-200/30 bg-yellow-100/5 px-3 py-2">
-          <span className="text-xs text-neutral-300">
-            Listening to{" "}
-            <span className="font-semibold text-yellow-100">
-              {detail?.label}
-            </span>
-            {" — not the song as it stands."}
-          </span>
+      {/* Above the lanes and the full width of them: which version you are
+          hearing is one line of information, and the lanes want the room. */}
+      <VersionBar
+        songId={songId}
+        songTitle={songTitle}
+        versions={versions}
+        loading={loading}
+        selectedId={selectedId}
+        selectedHasMix={
+          detail?.stems.some((row) => row.stem.kind === MIX_KIND) ?? false
+        }
+        isLeader={isLeader}
+        onSelect={(version) => loadDetail(version.id)}
+        onChanged={async () => {
+          setSelectedId(null);
+          await reload();
+          onSongChanged();
+        }}
+      />
 
-          <button
-            onClick={() => {
-              const current = versions.find((version) => version.is_current);
-              if (current) void loadDetail(current.id);
-            }}
-            className="rounded-md border border-neutral-700 px-2 py-0.5 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100"
-          >
-            Back to current
-          </button>
-        </div>
-      )}
-
-      <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
+      <div className="grid gap-4">
         <section className="min-w-0 rounded-md border border-neutral-700 bg-neutral-900/60">
           <header className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800 px-4 py-3">
             <div>
@@ -528,23 +524,6 @@ export function StudioTab({
           </footer>
         </section>
 
-        <VersionHistory
-          songId={songId}
-          songTitle={songTitle}
-          versions={versions}
-          loading={loading}
-          selectedId={selectedId}
-          selectedHasMix={
-            detail?.stems.some((row) => row.stem.kind === MIX_KIND) ?? false
-          }
-          isLeader={isLeader}
-          onSelect={(version) => loadDetail(version.id)}
-          onChanged={async () => {
-            setSelectedId(null);
-            await reload();
-            onSongChanged();
-          }}
-        />
       </div>
 
       <AddStemModal
