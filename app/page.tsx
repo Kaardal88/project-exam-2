@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PreviewMixer } from "@/components/home/PreviewMixer";
 import { FeatureShowcase } from "@/components/landing/FeatureShowcase";
 import { LandingNav } from "@/components/landing/LandingNav";
+import { HeroMockStage } from "@/components/landing/HeroMockStage";
 import { appName } from "@/components/Stemlock";
 
 type Band = {
@@ -41,57 +42,67 @@ export default function HomePage() {
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(255,229,150,0.10),transparent_28%),linear-gradient(to_bottom,#0a0a0a,#171717)] text-yellow-100">
       <LandingNav />
 
-      {/*Hero section*/}
+      {/*Hero section — two columns from md up: the pitch on the left,
+         a look at the song dashboard on the right. Log in and Sign up
+         used to live under the text and now sit in LandingNav, so this
+         column carries the two calls to action instead: start an account,
+         or read on. */}
       <div
         id="home"
-        className="mx-auto flex max-w-5xl scroll-mt-20 flex-col items-center justify-center px-6 pt-20 pb-10 text-center sm:pt-24 sm:pb-14 md:min-h-screen md:py-16"
+        className="mx-auto grid max-w-7xl scroll-mt-20 items-center gap-10 px-6 pt-24 pb-12 sm:pt-28 md:min-h-screen md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] md:gap-14 md:py-20 lg:gap-20"
       >
         {/* extra top padding above clears the fixed LandingNav, which
-            otherwise sits directly on top of this badge on mobile where
-            the nav is centered instead of tucked into the corner */}
-        <div
-          className="
-        flex  items-center justify-center
+            otherwise sits directly on top of the wordmark on mobile */}
+        <div className="flex flex-col items-center text-center md:items-start md:text-left">
+          <div
+            className="
+        flex items-center justify-center
         bg-[#f3e7b6] text-neutral-950
-        px-10 py-4
+        px-8 py-4
         font-[family-name:var(--font-marker)]
          font-black tracking-tight
         shadow-[0_8px_25px_rgba(0,0,0,0.45)]
         -rotate-2 text-3xl
-        sm:px-16 sm:py-6 sm:text-4xl
-        md:px-24 md:py-8 md:text-5xl lg:text-8xl
+        sm:px-12 sm:py-5 sm:text-4xl
+        md:px-10 md:py-6 md:text-4xl lg:px-14 lg:text-6xl
         [clip-path:polygon(6%_0%,94%_0%,98%_8%,95%_18%,99%_28%,94%_42%,97%_56%,93%_72%,98%_88%,95%_100%,6%_100%,2%_92%,5%_80%,1%_68%,6%_54%,2%_38%,5%_22%,1%_10%)]
       "
-        >
-          {appName}
+          >
+            {appName}
+          </div>
+
+          <section className="flex flex-col items-center gap-4 pt-10 md:items-start md:gap-5">
+            <p className="max-w-xl font-[family-name:var(--font-caveat)] text-1xl leading-relaxed text-[#e6d98d] md:text-2xl lg:text-3xl">
+              Plan, share and track progress with your band — or by yourself.
+            </p>
+
+            <div className="mt-4 flex w-full max-w-xs items-center justify-center gap-3 sm:max-w-none sm:gap-4 md:justify-start">
+              <Link
+                href="/register"
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-[#4b432d] bg-yellow-100 px-4 py-2 text-sm font-bold !text-black transition duration-300 ease-in-out hover:-translate-y-1 hover:scale-105 hover:bg-yellow-200 sm:min-h-12 sm:px-5 sm:py-3 sm:text-base"
+              >
+                Get started
+              </Link>
+
+              <a
+                href="#features"
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-[#4b432d] bg-neutral-900 px-4 py-2 text-sm font-semibold text-[#f5f0d8] transition hover:bg-neutral-800 sm:min-h-12 sm:px-5 sm:py-3 sm:text-base"
+              >
+                More info
+              </a>
+            </div>
+          </section>
         </div>
 
-        <section className="pt-12 flex flex-col items-center gap-4 sm:mt-12 sm:gap-6">
-          <h1 className="max-w-[12ch] text-2xl md:text-4xl lg:text-5xl font-[family-name:var(--font-marker)]  uppercase tracking-wide">
-            Make music. Not mess.
-          </h1>
-
-          <p className="max-w-xl font-[family-name:var(--font-caveat)] text-1xl md:text-2xl  leading-relaxed text-[#e6d98d] md:text-3xl ">
-            Plan, share and track progress with your band — or by yourself.
-          </p>
-
-          <div className="mt-6 flex w-full max-w-xs items-center justify-center gap-3 sm:max-w-none sm:mt-8 sm:gap-6">
-            <Link
-              href="/login"
-              className="inline-flex min-h-10 items-center justify-center rounded-md border border-[#4b432d] bg-neutral-900 px-4 py-2 text-sm font-semibold text-[#f5f0d8] transition hover:bg-neutral-800 sm:min-h-12 sm:px-5 sm:py-3 sm:text-base"
-            >
-              Log in
-            </Link>
-
-            <Link
-              href="/register"
-              className="inline-flex min-h-10 items-center justify-center rounded-md border border-[#4b432d] bg-yellow-100 px-4 py-2 text-sm font-bold !text-black transition duration-300 ease-in-out hover:-translate-y-1 hover:scale-105 hover:bg-yellow-200 sm:min-h-12 sm:px-5 sm:py-3 sm:text-base"
-            >
-              Create account
-            </Link>
-          </div>
-        </section>
+        {/* Extra bottom room on mobile: the stage's shadow and glow sit
+            outside its box, and would otherwise crowd the section below. */}
+        <div className="w-full pb-10 md:pb-0">
+          <HeroMockStage />
+        </div>
       </div>
+      <h1 className=" font-[family-name:var(--font-marker)] text-2xl uppercase tracking-wide md:text-4xl lg:text-5xl mx-auto mt-20 text-center text-yellow-100">
+        Make music! Not mess!
+      </h1>
 
       <PreviewMixer />
 
