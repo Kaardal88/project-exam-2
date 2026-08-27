@@ -45,16 +45,8 @@ export function CommentsPreview({
   return (
     <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-4 shadow-2xl">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-yellow-100">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-yellow-100">
           Latest comments
-          {/* Two cards say nothing about whether there are twenty behind them.
-              The count is the only thing that makes the card honest about
-              being a preview. */}
-          {comments.length > 0 && (
-            <span className="rounded-full border border-neutral-600 bg-neutral-800 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-200">
-              {comments.length}
-            </span>
-          )}
         </h3>
         <button
           onClick={onNewComment}
@@ -136,6 +128,9 @@ export function CommentsPreview({
         onClick={onViewAll}
         className="mt-4 text-xs font-semibold text-yellow-200 transition hover:cursor-pointer hover:text-yellow-100"
       >
+        {/* Two cards say nothing about whether there are twenty behind them.
+            The number belongs here rather than beside the heading: it is the
+            answer to "is there more", which is the question this link is. */}
         {comments.length > PREVIEW_COUNT
           ? `View all ${comments.length} comments →`
           : "View all comments →"}
