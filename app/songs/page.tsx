@@ -27,6 +27,7 @@ import { StudioTab } from "@/components/songDashboard/studio/StudioTab";
 import { CommentsTab } from "@/components/songDashboard/CommentsTab";
 import { NotesTab } from "@/components/songDashboard/NotesTab";
 import { FilesTab } from "@/components/songDashboard/FilesTab";
+import { TasksTab } from "@/components/songDashboard/TasksTab";
 import { UploadProgress } from "@/components/songDashboard/UploadProgress";
 import type { TicketStatus } from "@/components/songDashboard/ticketStatus";
 import { uploadToR2 } from "@/lib/uploadToR2";
@@ -120,11 +121,16 @@ type SongFile = {
 const PHASE_NOTES: Record<
   Exclude<
     SongTab,
-    "Dashboard" | "Studio" | "Comments" | "Lyrics" | "Notes & Ideas" | "Files"
+    | "Dashboard"
+    | "Studio"
+    | "Comments"
+    | "Lyrics"
+    | "Notes & Ideas"
+    | "Files"
+    | "Tasks"
   >,
   string
 > = {
-  Tasks: "Task creation and lifecycle coming in Phase 2.",
   Activity: "Activity feed coming soon.",
   "Song Info": "Editable BPM/key/time signature coming soon.",
 };
@@ -297,6 +303,14 @@ function SongDashboardPageContent() {
     const response = await fetch(`/api/songs/${song.id}/comments`);
 
     if (response.ok) setComments(await response.json());
+  }, [song]);
+
+  const refreshTasks = useCallback(async () => {
+    if (!song) return;
+
+    const response = await fetch(`/api/songs/${song.id}/tasks`);
+
+    if (response.ok) setTasks(await response.json());
   }, [song]);
 
   const refreshNotes = useCallback(async () => {
@@ -683,6 +697,7 @@ function SongDashboardPageContent() {
               tasks={tasks}
               notes={notes}
               onCommentsChanged={refreshComments}
+              onTasksChanged={refreshTasks}
               setActiveTab={setActiveTab}
               seekSignal={seekSignal}
               onSeek={requestSeekAndShow}
@@ -715,6 +730,13 @@ function SongDashboardPageContent() {
               onSeekAndShow={requestSeekAndShow}
               currentVersionId={song.current_version_id}
               focusComment={focusComment}
+            />
+          ) : activeTab === "Tasks" ? (
+            <TasksTab
+              songId={song.id}
+              tasks={tasks}
+              bandMembers={members}
+              onTasksChanged={refreshTasks}
             />
           ) : activeTab === "Lyrics" ? (
             <NotesTab

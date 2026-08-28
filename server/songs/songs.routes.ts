@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { requireAuth } from "@/server/auth/auth.middleware";
 import { db } from "@/server/db";
 import {
@@ -43,6 +43,23 @@ const FILE_CATEGORIES = [
 // them back.
 const UPLOAD_TARGETS = ["audio", "stem", "artwork", "file"] as const;
 const IMAGE_FILE_CATEGORIES = ["artwork", "press_photo"];
+
+/**
+ * A due date arrives as an ISO string from a date input, or as null when it is
+ * being cleared. Telling "no date" apart from "not a date" matters: the first
+ * is an ordinary task, the second is a broken caller -- and letting an Invalid
+ * Date reach Postgres turns a 400 into a 500.
+ */
+const INVALID_DATE = Symbol("invalid-date");
+
+function parseDueDate(value: unknown): Date | null | typeof INVALID_DATE {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string") return INVALID_DATE;
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? INVALID_DATE : date;
+}
 
 function sanitizeFilename(filename: string) {
   return filename.replace(/[^a-zA-Z0-9.\-_]/g, "_").slice(0, 100);
@@ -526,7 +543,175 @@ songsRoutes.get("/:id/tasks", requireAuth, async (c) => {
   return c.json(tasks, 200);
 });
 
-// Phase 2: POST /:id/tasks to create tasks; PUT /:id/tasks/:taskId to toggle is_done.
+/**
+ * A task is the band's shared checklist for one song, and everybody with
+ * access to the song shares it.
+ *
+ * Deliberately flatter than a comment ticket, which has an author, a status
+ * with a history and a rule about who may move it. A task has no author column
+ * at all -- "re-amp the guitars" belongs to the song, not to whoever typed it
+ * -- so there is nobody to be the one allowed to tick it off. Anybody who can
+ * open the song can add, tick and remove. A band of four does not need
+ * permissions on a to-do list; it needs the list to be right.
+ */
+songsRoutes.post("/:id/tasks", requireAuth, async (c) => {
+  const songId = c.req.param("id");
+  const userId = c.get("userId");
+  const body = await c.req.json();
+
+  const context = await getSongContext(songId);
+
+  if (!context) {
+    return c.json({ error: "Song not found" }, 404);
+  }
+
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
+
+  if (!access) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+
+  if (!title) {
+    return c.json({ error: "title is required" }, 400);
+  }
+
+  const dueDate = parseDueDate(body.due_date);
+
+  if (dueDate === INVALID_DATE) {
+    return c.json({ error: "due_date must be a date" }, 400);
+  }
+
+  const [task] = await db
+    .insert(song_tasks)
+    .values({
+      song_id: songId,
+      title,
+      assignee_id: body.assignee_id ?? null,
+      due_date: dueDate,
+    })
+    .returning();
+
+  return c.json(task, 201);
+});
+
+songsRoutes.put("/:id/tasks/:taskId", requireAuth, async (c) => {
+  const songId = c.req.param("id");
+  const taskId = c.req.param("taskId");
+  const userId = c.get("userId");
+  const body = await c.req.json();
+
+  const context = await getSongContext(songId);
+
+  if (!context) {
+    return c.json({ error: "Song not found" }, 404);
+  }
+
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
+
+  if (!access) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  // Checked against this song, not just by id: a task id from another band's
+  // song would otherwise be editable by anyone who can open any song.
+  const task = await db.query.song_tasks.findFirst({
+    where: (song_tasks, { and, eq }) =>
+      and(eq(song_tasks.id, taskId), eq(song_tasks.song_id, songId)),
+  });
+
+  if (!task) {
+    return c.json({ error: "Task not found" }, 404);
+  }
+
+  const updates: Partial<typeof song_tasks.$inferInsert> = {};
+
+  if ("title" in body) {
+    const title = typeof body.title === "string" ? body.title.trim() : "";
+
+    if (!title) {
+      return c.json({ error: "title cannot be empty" }, 400);
+    }
+
+    updates.title = title;
+  }
+
+  if ("is_done" in body) {
+    if (typeof body.is_done !== "boolean") {
+      return c.json({ error: "is_done must be true or false" }, 400);
+    }
+
+    updates.is_done = body.is_done;
+  }
+
+  if ("assignee_id" in body) {
+    updates.assignee_id = body.assignee_id ?? null;
+  }
+
+  if ("due_date" in body) {
+    const dueDate = parseDueDate(body.due_date);
+
+    if (dueDate === INVALID_DATE) {
+      return c.json({ error: "due_date must be a date" }, 400);
+    }
+
+    updates.due_date = dueDate;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return c.json({ error: "Nothing to update" }, 400);
+  }
+
+  const [updatedTask] = await db
+    .update(song_tasks)
+    .set(updates)
+    .where(eq(song_tasks.id, taskId))
+    .returning();
+
+  return c.json(updatedTask, 200);
+});
+
+songsRoutes.delete("/:id/tasks/:taskId", requireAuth, async (c) => {
+  const songId = c.req.param("id");
+  const taskId = c.req.param("taskId");
+  const userId = c.get("userId");
+
+  const context = await getSongContext(songId);
+
+  if (!context) {
+    return c.json({ error: "Song not found" }, 404);
+  }
+
+  const access = await getProjectAccess(
+    context.project.id,
+    context.project.band_id,
+    userId,
+  );
+
+  if (!access) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const [deletedTask] = await db
+    .delete(song_tasks)
+    .where(and(eq(song_tasks.id, taskId), eq(song_tasks.song_id, songId)))
+    .returning();
+
+  if (!deletedTask) {
+    return c.json({ error: "Task not found" }, 404);
+  }
+
+  return c.json(deletedTask, 200);
+});
 
 songsRoutes.get("/:id/notes", requireAuth, async (c) => {
   const songId = c.req.param("id");

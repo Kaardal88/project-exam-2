@@ -8,6 +8,7 @@ import {
   projects,
   songs,
   song_comments,
+  song_tasks,
 } from "@/server/db/schema";
 import {
   updateBand,
@@ -680,6 +681,33 @@ bandsRoutes.get("/:id/songs", requireAuth, async (c) => {
     )
     .groupBy(song_comments.song_id);
 
+  // Ticked-off subtasks, counted the same way and for the same reason. Two
+  // numbers rather than a ratio, because "0/6" and "0 %" read very differently
+  // on a card: the first says six things are waiting, the second says nothing.
+  const taskRows = await db
+    .select({
+      song_id: song_tasks.song_id,
+      is_done: song_tasks.is_done,
+    })
+    .from(song_tasks)
+    .where(
+      inArray(
+        song_tasks.song_id,
+        bandSongs.map((song) => song.id),
+      ),
+    );
+
+  const tasksBySong = new Map<string, { total: number; done: number }>();
+
+  taskRows.forEach((row) => {
+    const tally = tasksBySong.get(row.song_id) ?? { total: 0, done: 0 };
+
+    tally.total++;
+    if (row.is_done) tally.done++;
+
+    tasksBySong.set(row.song_id, tally);
+  });
+
   const openBySong = new Map(openCounts.map((row) => [row.song_id, row.open]));
   const projectsById = new Map(
     bandProjects.map((project) => [project.id, project]),
@@ -689,6 +717,7 @@ bandsRoutes.get("/:id/songs", requireAuth, async (c) => {
     bandSongs.map((song) => ({
       ...song,
       open_comments: openBySong.get(song.id) ?? 0,
+      tasks: tasksBySong.get(song.id) ?? { total: 0, done: 0 },
       project: projectsById.get(song.project_id) ?? null,
     })),
     200,
