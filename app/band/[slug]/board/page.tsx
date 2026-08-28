@@ -231,22 +231,25 @@ export default function BandBoardPage() {
           </p>
         </header>
 
+        {/* A dropdown rather than a row of buttons: album titles are as long as
+            the band wants them to be, and a handful laid side by side pushes
+            the board itself down the page before it has been read. */}
         {projects.length > 1 && (
-          <nav className="mb-4 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <FilterButton
-              label="All"
-              active={projectFilter === "all"}
-              onClick={() => setProjectFilter("all")}
-            />
-            {projects.map((project) => (
-              <FilterButton
-                key={project.id}
-                label={project.title}
-                active={projectFilter === project.id}
-                onClick={() => setProjectFilter(project.id)}
-              />
-            ))}
-          </nav>
+          <label className="mb-4 flex w-fit items-center gap-2 text-xs text-neutral-400">
+            Project
+            <select
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
+              className="max-w-64 rounded-md border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-xs text-yellow-100 outline-none transition hover:border-neutral-600 focus:border-yellow-200"
+            >
+              <option value="all">All projects</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.title}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
 
         {moveError && <p className="form-error mb-4">{moveError}</p>}
@@ -284,29 +287,5 @@ export default function BandBoardPage() {
         )}
       </div>
     </main>
-  );
-}
-
-function FilterButton({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`shrink-0 whitespace-nowrap rounded-md border border-neutral-700 px-3 py-1.5 text-xs transition hover:cursor-pointer ${
-        active
-          ? "bg-yellow-100 text-black"
-          : "bg-neutral-900 text-neutral-300 hover:bg-neutral-800"
-      }`}
-    >
-      {label}
-    </button>
   );
 }

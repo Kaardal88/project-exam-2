@@ -1,5 +1,5 @@
+import { Fragment } from "react";
 import Link from "next/link";
-import { KanbanSquare } from "lucide-react";
 
 type Section =
   | "Home"
@@ -29,6 +29,8 @@ export function BandProfileNav({
   setActiveSection,
   boardHref,
 }: BandSectionNavProps) {
+  // Home stays first, and Board sits directly under it: the two things a
+  // member opens the profile for, before the sections that describe the band.
   const sections: Section[] = [
     "Home",
     "Albums",
@@ -38,6 +40,16 @@ export function BandProfileNav({
     "Tickets",
   ];
 
+  // One look for every entry in this list. Board navigates rather than
+  // switching a section, but a nav item that announces that with its own
+  // colours just reads as the odd one out.
+  const itemClass = (active: boolean) =>
+    `shrink-0 whitespace-nowrap rounded-md border border-neutral-700 px-4 py-2 text-center text-sm transition md:text-base ${
+      active
+        ? "bg-yellow-100 text-black"
+        : "bg-neutral-900 text-neutral-300 hover:bg-neutral-800"
+    }`;
+
   return (
     <nav
       className="
@@ -46,28 +58,21 @@ export function BandProfileNav({
     md:flex-col md:overflow-visible md:pb-0
   "
     >
-      <Link
-        href={boardHref}
-        className="flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-yellow-100 bg-neutral-900 px-4 py-2 text-sm text-yellow-100 transition hover:bg-yellow-100 hover:text-black md:text-base"
-      >
-        <KanbanSquare className="h-4 w-4" />
-        Board
-      </Link>
-
       {sections.map((section) => (
-        <button
-          key={section}
-          onClick={() => setActiveSection(section)}
-          className={`shrink-0 whitespace-nowrap rounded-md border border-neutral-700 px-4 py-2 text-sm transition md:text-base
-        ${
-          activeSection === section
-            ? "bg-yellow-100 text-black"
-            : "bg-neutral-900 text-neutral-300 hover:bg-neutral-800"
-        }
-      `}
-        >
-          {section}
-        </button>
+        <Fragment key={section}>
+          <button
+            onClick={() => setActiveSection(section)}
+            className={itemClass(activeSection === section)}
+          >
+            {section}
+          </button>
+
+          {section === "Home" && (
+            <Link href={boardHref} className={itemClass(false)}>
+              Board
+            </Link>
+          )}
+        </Fragment>
       ))}
     </nav>
   );
