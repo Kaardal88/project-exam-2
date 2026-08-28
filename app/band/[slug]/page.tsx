@@ -37,8 +37,6 @@ import { SocialLinks } from "@/components/bandProfile/SocialLinks";
 import { ProfileSection } from "@/components/bandProfile/ProfileSection";
 import { Albums } from "@/components/bandProfile/Albums";
 import { Singles } from "@/components/bandProfile/Singles";
-import { WIP } from "@/components/bandProfile/WIP";
-import { Finished } from "@/components/bandProfile/Finished";
 import { HomeNav } from "@/components/bandProfile/Home";
 import { Bio } from "@/components/bandProfile/Bio";
 import { Tickets } from "@/components/bandProfile/Tickets";
@@ -173,8 +171,6 @@ function BandProfileContent() {
   const [activeSection, setActiveSection] = useState<
     | "Home"
     | "Albums"
-    | "Wip"
-    | "Finished"
     | "Bio"
     | "Socials"
     | "Singles"
@@ -568,6 +564,7 @@ function BandProfileContent() {
           <BandProfileNav
             activeSection={activeSection}
             setActiveSection={setActiveSection}
+            boardHref={`/band/${slug}/board`}
           />
         </aside>
 
@@ -580,6 +577,7 @@ function BandProfileContent() {
               <BandProfileNav
                 activeSection={activeSection}
                 setActiveSection={setActiveSection}
+                boardHref={`/band/${slug}/board`}
               />
               <div
                 className="
@@ -996,8 +994,6 @@ function BandProfileContent() {
               {activeSection === "Singles" && (
                 <Singles projects={singleProjects} error={projectsError} />
               )}
-              {activeSection === "Wip" && <WIP />}
-              {activeSection === "Finished" && <Finished />}
               {activeSection === "Bio" && <Bio band={band} />}
               {activeSection === "Socials" && <SocialLinks band={band} />}
               {activeSection === "Tickets" && <Tickets />}

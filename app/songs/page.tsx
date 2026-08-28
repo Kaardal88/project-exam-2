@@ -30,6 +30,12 @@ import { FilesTab } from "@/components/songDashboard/FilesTab";
 import { UploadProgress } from "@/components/songDashboard/UploadProgress";
 import type { TicketStatus } from "@/components/songDashboard/ticketStatus";
 import { uploadToR2 } from "@/lib/uploadToR2";
+import {
+  SONG_STATUSES,
+  SONG_STATUS_STYLES,
+  toSongStatus,
+  type SongStatus,
+} from "@/lib/songStatus";
 
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 
@@ -167,6 +173,7 @@ function SongDashboardPageContent() {
     null,
   );
   const artworkInputRef = useRef<HTMLInputElement>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   /**
    * The tab is in the URL, not in state.
@@ -307,6 +314,28 @@ function SongDashboardPageContent() {
 
     if (response.ok) setFiles(await response.json());
   }, [song]);
+
+  const updateStatus = useCallback(
+    async (status: SongStatus) => {
+      if (!song || status === song.status) return;
+
+      setStatusError(null);
+
+      const response = await fetch(`/api/songs/${song.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        setStatusError("Couldn't change the status");
+        return;
+      }
+
+      await fetchSong();
+    },
+    [song, fetchSong],
+  );
 
   const fetchAudioUrl = useCallback(async () => {
     if (!song?.audio_url) {
@@ -538,19 +567,35 @@ function SongDashboardPageContent() {
                     {song.project.title}
                   </Link>
 
-                  <span className="flex items-center gap-1.5">
-                    Status:{" "}
-                    {song.status === "finished"
-                      ? "Finished"
-                      : "Work in progress"}
+                  {/* Settable here as well as on the board. Somebody who has
+                      just finished a mix is inside the song, not looking at a
+                      board, and making them go and find one to say so is how a
+                      stage stops being kept up to date. */}
+                  <label className="flex items-center gap-1.5">
+                    Status
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${
-                        song.status === "finished"
-                          ? "bg-green-400"
-                          : "bg-yellow-100"
+                        SONG_STATUS_STYLES[toSongStatus(song.status)].dot
                       }`}
                     />
-                  </span>
+                    <select
+                      value={toSongStatus(song.status)}
+                      onChange={(e) =>
+                        void updateStatus(e.target.value as SongStatus)
+                      }
+                      className="rounded-md border border-neutral-700 bg-neutral-950 px-2 py-1 text-xs text-yellow-100 outline-none transition focus:border-yellow-200"
+                    >
+                      {SONG_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {SONG_STATUS_STYLES[status].label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {statusError && (
+                    <span className="text-xs text-red-300">{statusError}</span>
+                  )}
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
