@@ -72,8 +72,15 @@ export default function HomePage() {
           </div>
 
           <section className="flex flex-col items-center gap-4 pt-10 md:items-start md:gap-5">
-            <p className="max-w-xl font-[family-name:var(--font-caveat)] text-1xl leading-relaxed text-[#e6d98d] md:text-2xl lg:text-3xl">
-              Plan, share and track progress with your band — or by yourself.
+            <h3 className="max-w-xl text-2xl  font-[family-name:var(--font-caveat)]  leading-snug text-[#e6d98d] md:text-3xl lg:text-4xl">
+              Stack your songs and stems. From first demo to final mix.
+            </h3>
+            <p className="max-w-xl font-[family-name:var(--font-caveat)] text-1xl leading-relaxed text-[#e6d98d] md:text-2xl lg:text-2xl">
+              One place for every song, stem, version, comment and collaborator.
+              <br />
+              <br />
+              StemLock keeps your music organized as it grows — so everyone
+              knows what’s current, what changed, and what comes next.
             </p>
 
             <div className="mt-4 flex w-full max-w-xs items-center justify-center gap-3 sm:max-w-none sm:gap-4 md:justify-start">
@@ -88,7 +95,7 @@ export default function HomePage() {
                 href="#features"
                 className="inline-flex min-h-10 items-center justify-center rounded-md border border-[#4b432d] bg-neutral-900 px-4 py-2 text-sm font-semibold text-[#f5f0d8] transition hover:bg-neutral-800 sm:min-h-12 sm:px-5 sm:py-3 sm:text-base"
               >
-                More info
+                How it works
               </a>
             </div>
           </section>
