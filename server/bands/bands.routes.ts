@@ -1,8 +1,14 @@
 import { Hono } from "hono";
-import { and, eq, asc } from "drizzle-orm";
+import { and, eq, asc, ne, count, inArray } from "drizzle-orm";
 import { requireAuth, optionalAuth } from "@/server/auth/auth.middleware";
 import { db } from "@/server/db";
-import { band_members, band_events, projects, songs } from "@/server/db/schema";
+import {
+  band_members,
+  band_events,
+  projects,
+  songs,
+  song_comments,
+} from "@/server/db/schema";
 import {
   updateBand,
   createBand,
@@ -608,6 +614,85 @@ bandsRoutes.get("/:id/projects", requireAuth, async (c) => {
   });
 
   return c.json(bandProjects, 200);
+});
+
+/**
+ * Every song the band has, across every album and single, for the board.
+ *
+ * A band works on an album and two singles at the same time, and "what are we
+ * working on" is one question -- so this crosses projects rather than making
+ * the reader open three boards and hold the answer in their head.
+ *
+ * Band members only, the same rule as /:id/projects. A project collaborator is
+ * a guest on one project and has no business reading the band's whole slate.
+ */
+bandsRoutes.get("/:id/songs", requireAuth, async (c) => {
+  const bandId = c.req.param("id");
+  const userId = c.get("userId");
+
+  const membership = await getMembership(bandId, userId);
+
+  if (!membership) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const bandProjects = await db.query.projects.findMany({
+    where: (projects, { eq }) => eq(projects.band_id, bandId),
+    columns: { id: true, title: true, type: true },
+  });
+
+  if (bandProjects.length === 0) return c.json([], 200);
+
+  const projectIds = bandProjects.map((project) => project.id);
+
+  const bandSongs = await db.query.songs.findMany({
+    where: (songs, { inArray }) => inArray(songs.project_id, projectIds),
+    columns: {
+      id: true,
+      title: true,
+      status: true,
+      project_id: true,
+      track_number: true,
+      updated_at: true,
+    },
+    orderBy: asc(songs.created_at),
+  });
+
+  if (bandSongs.length === 0) return c.json([], 200);
+
+  // What is still waiting on somebody. Counted here rather than on the client
+  // because the board would otherwise fetch comments per song, and a band with
+  // an album's worth of songs would open it with a dozen requests in flight.
+  const openCounts = await db
+    .select({
+      song_id: song_comments.song_id,
+      open: count(),
+    })
+    .from(song_comments)
+    .where(
+      and(
+        inArray(
+          song_comments.song_id,
+          bandSongs.map((song) => song.id),
+        ),
+        ne(song_comments.status, "done"),
+      ),
+    )
+    .groupBy(song_comments.song_id);
+
+  const openBySong = new Map(openCounts.map((row) => [row.song_id, row.open]));
+  const projectsById = new Map(
+    bandProjects.map((project) => [project.id, project]),
+  );
+
+  return c.json(
+    bandSongs.map((song) => ({
+      ...song,
+      open_comments: openBySong.get(song.id) ?? 0,
+      project: projectsById.get(song.project_id) ?? null,
+    })),
+    200,
+  );
 });
 
 bandsRoutes.post("/:id/projects", requireAuth, async (c) => {

@@ -27,6 +27,7 @@ import {
 } from "@/server/r2";
 import { getProjectAccess } from "@/server/projects/access";
 import { getSongContext } from "./songContext";
+import { isSongStatus, SONG_STATUSES } from "@/lib/songStatus";
 
 const TICKET_STATUSES = ["open", "wip", "done"] as const;
 const NOTE_KINDS = ["note", "lyrics"] as const;
@@ -111,6 +112,16 @@ songsRoutes.put("/:id", requireAuth, async (c) => {
         error:
           "Audio is set by promoting a version. POST /songs/:id/versions to upload one.",
       },
+      400,
+    );
+  }
+
+  // The board reads status back as a column, and an unrecognised value would
+  // put a song in a column that does not exist -- visible nowhere, and only
+  // findable by wondering where the song went.
+  if ("status" in body && !isSongStatus(body.status)) {
+    return c.json(
+      { error: `status must be one of: ${SONG_STATUSES.join(", ")}` },
       400,
     );
   }
