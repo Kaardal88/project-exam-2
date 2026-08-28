@@ -14,7 +14,7 @@ type SongTabsProps = {
   setActiveTab: (tab: SongTab) => void;
 };
 
-const tabs: SongTab[] = [
+export const SONG_TABS: SongTab[] = [
   "Dashboard",
   "Studio",
   "Lyrics",
@@ -26,6 +26,15 @@ const tabs: SongTab[] = [
   "Files",
 ];
 
+/**
+ * The active tab lives in the URL, and the URL is typed by hand as often as it
+ * is clicked. This is the one place that decides whether a `?tab=` value is a
+ * tab at all.
+ */
+export function isSongTab(value: string | null): value is SongTab {
+  return value !== null && (SONG_TABS as string[]).includes(value);
+}
+
 export function SongTabs({ activeTab, setActiveTab }: SongTabsProps) {
   return (
     <nav
@@ -34,7 +43,7 @@ export function SongTabs({ activeTab, setActiveTab }: SongTabsProps) {
     [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
   "
     >
-      {tabs.map((tab) => (
+      {SONG_TABS.map((tab) => (
         <button
           key={tab}
           onClick={() => setActiveTab(tab)}
