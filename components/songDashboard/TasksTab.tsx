@@ -6,7 +6,7 @@ import { Trash2 } from "lucide-react";
 export type Task = {
   id: string;
   title: string;
-  due_date: string | null;
+  created_at: string | null;
   is_done: boolean;
   assignee: { id: string; username: string } | null;
 };
@@ -42,7 +42,6 @@ export function TasksTab({
 }) {
   const [title, setTitle] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
-  const [dueDate, setDueDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<TaskFilter>("open");
@@ -67,7 +66,6 @@ export function TasksTab({
       body: JSON.stringify({
         title,
         assignee_id: assigneeId || null,
-        due_date: dueDate || null,
       }),
     });
 
@@ -81,6 +79,10 @@ export function TasksTab({
     // Only the title clears. Adding five tasks for the same person before a
     // rehearsal is the common case, and re-picking them each time is friction
     // for no reason.
+    //
+    // No due date field: a deadline is an agreement about when, which is a
+    // different conversation from what is left to do. The column is still in
+    // the table if the band ever asks for one.
     setTitle("");
     onTasksChanged();
   }
@@ -170,14 +172,6 @@ export function TasksTab({
           ))}
         </select>
 
-        <input
-          type="date"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-          aria-label="Due date"
-          className="rounded-md border border-neutral-700 bg-neutral-950 px-2 py-2 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
-        />
-
         <button
           type="submit"
           disabled={!title.trim() || saving}
@@ -230,9 +224,12 @@ export function TasksTab({
                 {task.assignee?.username ?? "Unassigned"}
               </span>
 
-              <span className="shrink-0 text-xs text-neutral-500">
-                {task.due_date
-                  ? new Date(task.due_date).toLocaleDateString("no-NO")
+              <span
+                className="shrink-0 text-xs text-neutral-500"
+                title="Added"
+              >
+                {task.created_at
+                  ? new Date(task.created_at).toLocaleDateString("no-NO")
                   : "—"}
               </span>
 

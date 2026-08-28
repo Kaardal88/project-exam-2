@@ -29,7 +29,7 @@ type Comment = {
 type Task = {
   id: string;
   title: string;
-  due_date: string | null;
+  created_at: string | null;
   is_done: boolean;
   assignee: { id: string; username: string } | null;
 };

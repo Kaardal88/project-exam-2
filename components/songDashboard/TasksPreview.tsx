@@ -1,7 +1,7 @@
 type Task = {
   id: string;
   title: string;
-  due_date: string | null;
+  created_at: string | null;
   is_done: boolean;
   assignee: { id: string; username: string } | null;
 };
@@ -83,9 +83,9 @@ export function TasksPreview({
               <span className="shrink-0 text-xs text-neutral-400">
                 {task.assignee?.username ?? "Unassigned"}
               </span>
-              <span className="shrink-0 text-xs text-neutral-500">
-                {task.due_date
-                  ? new Date(task.due_date).toLocaleDateString("no-NO")
+              <span className="shrink-0 text-xs text-neutral-500" title="Added">
+                {task.created_at
+                  ? new Date(task.created_at).toLocaleDateString("no-NO")
                   : "—"}
               </span>
             </li>
