@@ -29,7 +29,7 @@ type Comment = {
 type Task = {
   id: string;
   title: string;
-  due_date: string | null;
+  created_at: string | null;
   is_done: boolean;
   assignee: { id: string; username: string } | null;
 };
@@ -50,6 +50,7 @@ type DashboardTabProps = {
   tasks: Task[];
   notes: Note[];
   onCommentsChanged: () => void;
+  onTasksChanged: () => void;
   setActiveTab: (tab: SongTab) => void;
   seekSignal: { seconds: number; nonce: number } | null;
   onSeek: (seconds: number) => void;
@@ -68,6 +69,7 @@ export function DashboardTab({
   tasks,
   notes,
   onCommentsChanged,
+  onTasksChanged,
   setActiveTab,
   seekSignal,
   onSeek,
@@ -116,7 +118,12 @@ export function DashboardTab({
           onSeek={onSeek}
           onOpenComment={onFocusComment}
         />
-        <TasksPreview tasks={tasks} onViewAll={() => setActiveTab("Tasks")} />
+        <TasksPreview
+          songId={songId}
+          tasks={tasks}
+          onViewAll={() => setActiveTab("Tasks")}
+          onTasksChanged={onTasksChanged}
+        />
         <NotesPreview
           notes={notes}
           onViewAll={() => setActiveTab("Notes & Ideas")}

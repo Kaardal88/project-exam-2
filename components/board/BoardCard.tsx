@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useDraggable } from "@dnd-kit/core";
-import { GripVertical, MessageSquare } from "lucide-react";
+import { GripVertical, MessageSquare, ListChecks } from "lucide-react";
 import { SONG_STATUS_STYLES, type SongStatus } from "@/lib/songStatus";
 
 export type BoardSong = {
@@ -11,6 +11,7 @@ export type BoardSong = {
   status: SongStatus;
   updated_at: string | null;
   open_comments: number;
+  tasks: { total: number; done: number };
   project: { id: string; title: string; type: "album" | "single" } | null;
 };
 
@@ -83,6 +84,23 @@ export function BoardCard({
 
             {/* Only when there is something waiting. A "0 open" badge on every
                 card is noise on the one screen meant to be read at a glance. */}
+            {/* The reason WIP can be one broad column: the card says how far
+                into it the song is, so a stage that covers writing through
+                tracking still carries a number. */}
+            {song.tasks.total > 0 && (
+              <span
+                title={`${song.tasks.done} of ${song.tasks.total} tasks done`}
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
+                  song.tasks.done === song.tasks.total
+                    ? "border-green-400 text-green-300"
+                    : "border-neutral-600 text-neutral-300"
+                }`}
+              >
+                <ListChecks className="h-3 w-3" />
+                {song.tasks.done}/{song.tasks.total}
+              </span>
+            )}
+
             {song.open_comments > 0 && (
               <span
                 title={`${song.open_comments} unresolved comment${

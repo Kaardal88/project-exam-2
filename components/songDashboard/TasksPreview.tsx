@@ -1,29 +1,58 @@
 type Task = {
   id: string;
   title: string;
-  due_date: string | null;
+  created_at: string | null;
   is_done: boolean;
   assignee: { id: string; username: string } | null;
 };
 
 type TasksPreviewProps = {
+  songId: string;
   tasks: Task[];
   onViewAll: () => void;
+  onTasksChanged: () => void;
 };
 
-export function TasksPreview({ tasks, onViewAll }: TasksPreviewProps) {
-  const preview = tasks.slice(0, 3);
+export function TasksPreview({
+  songId,
+  tasks,
+  onViewAll,
+  onTasksChanged,
+}: TasksPreviewProps) {
+  // Open first. Three rows is barely a list, and spending them on things
+  // already ticked off would leave the card saying nothing.
+  const preview = [...tasks]
+    .sort((a, b) => Number(a.is_done) - Number(b.is_done))
+    .slice(0, 3);
+
+  const done = tasks.filter((task) => task.is_done).length;
+
+  async function toggle(task: Task) {
+    const response = await fetch(`/api/songs/${songId}/tasks/${task.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_done: !task.is_done }),
+    });
+
+    if (response.ok) onTasksChanged();
+  }
 
   return (
     <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-4 shadow-2xl">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-bold uppercase tracking-wide text-yellow-100">
-          Tasks
+          Tasks{" "}
+          {tasks.length > 0 && (
+            <span className="font-normal normal-case tracking-normal text-neutral-400">
+              {done}/{tasks.length}
+            </span>
+          )}
         </h3>
+        {/* The form lives on the tab. This is a preview, and giving it a second
+            place to type a task would be two things to keep in step. */}
         <button
-          disabled
-          title="Coming in Phase 2"
-          className="cursor-not-allowed rounded-md border border-neutral-800 px-3 py-1 text-xs text-neutral-600"
+          onClick={onViewAll}
+          className="rounded-md border border-neutral-700 px-3 py-1 text-xs text-yellow-100 transition hover:cursor-pointer hover:bg-neutral-800"
         >
           + New task
         </button>
@@ -38,9 +67,11 @@ export function TasksPreview({ tasks, onViewAll }: TasksPreviewProps) {
               <input
                 type="checkbox"
                 checked={task.is_done}
-                readOnly
-                disabled
-                className="h-4 w-4 shrink-0 rounded border-neutral-600 accent-yellow-100"
+                onChange={() => void toggle(task)}
+                aria-label={`Mark "${task.title}" as ${
+                  task.is_done ? "not done" : "done"
+                }`}
+                className="h-4 w-4 shrink-0 rounded border-neutral-600 accent-yellow-100 hover:cursor-pointer"
               />
               <span
                 className={`flex-1 truncate ${
@@ -52,9 +83,9 @@ export function TasksPreview({ tasks, onViewAll }: TasksPreviewProps) {
               <span className="shrink-0 text-xs text-neutral-400">
                 {task.assignee?.username ?? "Unassigned"}
               </span>
-              <span className="shrink-0 text-xs text-neutral-500">
-                {task.due_date
-                  ? new Date(task.due_date).toLocaleDateString("no-NO")
+              <span className="shrink-0 text-xs text-neutral-500" title="Added">
+                {task.created_at
+                  ? new Date(task.created_at).toLocaleDateString("no-NO")
                   : "—"}
               </span>
             </li>
