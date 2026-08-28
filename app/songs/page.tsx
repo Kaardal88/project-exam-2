@@ -16,7 +16,11 @@ import { SongSidebar } from "@/components/songDashboard/SongSidebar";
 import { type Collaborator } from "@/components/collaborators/CollaboratorList";
 import { collaboratorRoleLabel } from "@/lib/collaboratorRoles";
 import { SettingsModal } from "@/components/songDashboard/SettingsModal";
-import { SongTabs, type SongTab } from "@/components/songDashboard/SongTabs";
+import {
+  SongTabs,
+  isSongTab,
+  type SongTab,
+} from "@/components/songDashboard/SongTabs";
 import { PlaceholderTab } from "@/components/songDashboard/PlaceholderTab";
 import { DashboardTab } from "@/components/songDashboard/DashboardTab";
 import { StudioTab } from "@/components/songDashboard/studio/StudioTab";
@@ -138,7 +142,6 @@ function SongDashboardPageContent() {
   const [files, setFiles] = useState<SongFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<SongTab>("Dashboard");
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** Set when a dashboard preview card is clicked. The nonce makes clicking
       the same card twice a fresh request rather than a no-op. */
@@ -165,10 +168,49 @@ function SongDashboardPageContent() {
   );
   const artworkInputRef = useRef<HTMLInputElement>(null);
 
-  const requestSeekAndShow = useCallback((seconds: number) => {
-    setActiveTab("Dashboard");
-    setSeekSignal({ seconds, nonce: Date.now() });
-  }, []);
+  /**
+   * The tab is in the URL, not in state.
+   *
+   * As state, the whole dashboard was a single history entry: moving through
+   * five tabs and pressing back left the song altogether and landed on the
+   * project, so getting back to where you were meant clicking in from the top
+   * again. Read from `?tab=` and written with pushState, each tab is an entry
+   * of its own -- back steps one tab at a time, and a tab can be linked to.
+   *
+   * pushState rather than router.push because Next syncs the native history
+   * API into the router: useSearchParams re-renders and this component stays
+   * mounted, so switching tabs still costs nothing -- no refetch of the song,
+   * its comments, notes or files.
+   */
+  const tabParam = searchParams.get("tab");
+  const activeTab: SongTab = isSongTab(tabParam) ? tabParam : "Dashboard";
+
+  const setActiveTab = useCallback(
+    (tab: SongTab) => {
+      // Asking for the tab already open is not a navigation. Pushing it anyway
+      // would stack duplicate entries, and a back button that has to be
+      // pressed twice before anything moves looks broken.
+      if (tab === activeTab) return;
+
+      const params = new URLSearchParams(searchParams.toString());
+
+      // Dashboard is the default, so it stays out of the URL: the address a
+      // song is normally shared under keeps the shape it has always had.
+      if (tab === "Dashboard") params.delete("tab");
+      else params.set("tab", tab);
+
+      window.history.pushState(null, "", `?${params.toString()}`);
+    },
+    [activeTab, searchParams],
+  );
+
+  const requestSeekAndShow = useCallback(
+    (seconds: number) => {
+      setActiveTab("Dashboard");
+      setSeekSignal({ seconds, nonce: Date.now() });
+    },
+    [setActiveTab],
+  );
 
   const fetchSong = useCallback(async () => {
     if (!songId) {
