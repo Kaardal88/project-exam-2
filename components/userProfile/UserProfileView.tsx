@@ -133,8 +133,17 @@ export function UserProfileView({
       // resolves from the reader's own token, so a shared /user link shows the
       // recipient their own profile instead of this one -- silently wrong
       // rather than broken, which is worse.
+      //
+      // The native history API rather than router.replace, and that is the
+      // whole fix for the double spinner: /user and /user/<handle> are two
+      // routes, so a router navigation unmounts this component and mounts a
+      // second copy that starts at loading = true and fetches everything
+      // again. The reader saw the loader run, stop, and start over. Next
+      // syncs pushState/replaceState into the router, so the address changes,
+      // a refresh and a shared link still land on the handle route, and
+      // nothing remounts.
       if (!profileUserId && data.user.handle) {
-        router.replace(`/user/${data.user.handle}`);
+        window.history.replaceState(null, "", `/user/${data.user.handle}`);
       }
 
       setUsername(data.user.username ?? "");
