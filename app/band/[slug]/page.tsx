@@ -56,6 +56,7 @@ export type Band = {
   created_by: string;
   created_at: string | null;
   country: string | null;
+  genre: string | null;
   spotify_url: string | null;
   bandcamp_url: string | null;
   youtube_url: string | null;
@@ -137,6 +138,10 @@ function BandProfileContent() {
   );
   const [bandSlug, setBandSlug] = useState("");
   const [bio, setBio] = useState("");
+  // Named apart from `countryInfo`, which is the *saved* country rendered on
+  // the profile. These two are the edit form's copies.
+  const [bandCountry, setBandCountry] = useState("");
+  const [bandGenre, setBandGenre] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [headerImageUrl, setHeaderImageUrl] = useState("");
   const [showEventForm, setShowEventForm] = useState(false);
@@ -218,6 +223,8 @@ function BandProfileContent() {
       router.replace(`/band/${data.band.slug}`);
     }
         setBio(data.band?.bio ?? "");
+        setBandCountry(data.band?.country ?? "");
+        setBandGenre(data.band?.genre ?? "");
         setImageUrl(data.band?.image_url ?? "");
         setHeaderImageUrl(data.band?.header_image_url ?? "");
         setSpotifyUrl(data.band?.spotify_url ?? "");
@@ -259,7 +266,8 @@ function BandProfileContent() {
         bio,
         image_url: imageUrl,
         header_image_url: headerImageUrl,
-        country: countryInfo?.value,
+        country: bandCountry,
+        genre: bandGenre,
         spotify_url: spotifyUrl,
         bandcamp_url: bandcampUrl,
         youtube_url: youtubeUrl,
@@ -285,6 +293,8 @@ function BandProfileContent() {
     setVisibility(data.band?.visibility ?? DEFAULT_BAND_VISIBILITY);
     setBandSlug(data.band?.slug ?? "");
     setBio(data.band?.bio ?? "");
+    setBandCountry(data.band?.country ?? "");
+    setBandGenre(data.band?.genre ?? "");
     setImageUrl(data.band?.image_url ?? "");
     setHeaderImageUrl(data.band?.header_image_url ?? "");
     setSpotifyUrl(data.band?.spotify_url ?? "");
@@ -809,6 +819,10 @@ function BandProfileContent() {
                   }}
                   bio={bio}
                   setBio={setBio}
+                  country={bandCountry}
+                  setCountry={setBandCountry}
+                  genre={bandGenre}
+                  setGenre={setBandGenre}
                   imageUrl={imageUrl}
                   setImageUrl={setImageUrl}
                   headerImageUrl={headerImageUrl}

@@ -18,6 +18,14 @@ import {
   deleteBand,
 } from "@/server/bands/bands.service";
 import { isBandVisibility, bandVisibilityValues } from "@/lib/bandVisibility";
+import { getPublicBands } from "@/server/bands/bands.directory";
+import {
+  BAND_PAGE_SIZE,
+  DEFAULT_BAND_SORT,
+  bandSortValues,
+  isBandSort,
+  isGenre,
+} from "@/lib/bandFilters";
 import { getMembership, getMembershipRow, isLastLeader } from "@/server/bands/membership";
 import { ACCEPTED, PENDING } from "@/lib/inviteStatus";
 import { getBandCollaborators } from "@/server/projects/access";
@@ -42,33 +50,73 @@ type BandsVariables = {
   website_url: string | null;
 };
 
+/** The most rows one directory request will ever return. The grid asks for 12. */
+const MAX_DIRECTORY_LIMIT = 48;
+
 export const bandsRoutes = new Hono<{ Variables: BandsVariables }>();
 
+/** `?genres=Rock,Metal` -- one param, several values, no repeated keys. */
+function csv(value: string | undefined) {
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+/**
+ * The public band directory behind the Artists page.
+ *
+ * Searched, filtered, sorted and paged in the query (see bands.directory.ts).
+ * It used to return every public band and let the browser do the rest.
+ *
+ * **Unauthenticated on purpose** -- a signed-out visitor browses the same
+ * directory a member does. Unlisted and private bands are excluded in the
+ * query, not here, so no caller can forget.
+ *
+ * Unknown genres and sorts are rejected rather than ignored: a chip the reader
+ * believes is narrowing the list must never quietly do nothing.
+ */
 bandsRoutes.get("/public", async (c) => {
-  const allBands = await db.query.bands.findMany({
-    // unlisted and private bands are reachable by link / membership, but must
-    // never appear in the public directory
-    where: (bands, { eq }) => eq(bands.visibility, "public"),
-    columns: {
-      id: true,
-      slug: true,
-      band_name: true,
-      bio: true,
-      image_url: true,
-      country: true,
-      genre: true,
-      spotify_url: true,
-      bandcamp_url: true,
-      youtube_url: true,
-      tidal_url: true,
-      instagram_url: true,
-      facebook_url: true,
-      tiktok_url: true,
-      website_url: true,
-    },
+  const query = c.req.query();
+
+  const genres = csv(query.genres);
+
+  const unknownGenre = genres.find((genre) => !isGenre(genre));
+
+  if (unknownGenre) {
+    return c.json({ error: `Unknown genre: ${unknownGenre}` }, 400);
+  }
+
+  if (query.sort && !isBandSort(query.sort)) {
+    return c.json(
+      { error: `sort must be one of: ${bandSortValues.join(", ")}` },
+      400,
+    );
+  }
+
+  // Clamped rather than trusted, the same as the people directory: a
+  // hand-written limit=100000 would turn a paged listing back into the
+  // whole-table dump this route existed to stop being.
+  const requestedLimit = Number(query.limit);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(Math.max(Math.trunc(requestedLimit), 1), MAX_DIRECTORY_LIMIT)
+    : BAND_PAGE_SIZE;
+
+  const requestedOffset = Number(query.offset);
+  const offset = Number.isFinite(requestedOffset)
+    ? Math.max(Math.trunc(requestedOffset), 0)
+    : 0;
+
+  const result = await getPublicBands({
+    q: query.q,
+    genres,
+    country: query.country?.trim() || undefined,
+    sort: isBandSort(query.sort) ? query.sort : DEFAULT_BAND_SORT,
+    limit,
+    offset,
   });
 
-  return c.json(allBands, 200);
+  return c.json(result, 200);
 });
 
 bandsRoutes.post("/", requireAuth, async (c) => {
@@ -85,8 +133,13 @@ bandsRoutes.post("/", requireAuth, async (c) => {
     bio: body.bio,
     image_url: body.image_url,
     header_image_url: body.header_image_url,
-    country: body.country,
-    genre: body.genre,
+    // Same normalisation as updateBand: an unanswered select posts "", and the
+    // directory must never see an empty string where it expects a code.
+    country:
+      typeof body.country === "string"
+        ? body.country.toUpperCase() || null
+        : null,
+    genre: typeof body.genre === "string" ? body.genre || null : null,
     spotify_url: body.spotify_url,
     bandcamp_url: body.bandcamp_url,
     youtube_url: body.youtube_url,
@@ -396,6 +449,12 @@ bandsRoutes.put("/:id", requireAuth, async (c) => {
     );
   }
 
+  // "" is clearing it. Anything else has to be a genre the app knows, or the
+  // band lands in a value no filter chip can ever select for.
+  if (body.genre !== undefined && body.genre !== "" && !isGenre(body.genre)) {
+    return c.json({ error: `Unknown genre: ${body.genre}` }, 400);
+  }
+
   // Slug is edited on its own, never derived from the band name on rename: a
   // typo fix in the name should not silently retire a shared URL.
   if (typeof body.slug === "string" && body.slug.trim() !== "") {
@@ -413,6 +472,7 @@ bandsRoutes.put("/:id", requireAuth, async (c) => {
     image_url: body.image_url,
     header_image_url: body.header_image_url,
     country: body.country,
+    genre: body.genre,
     spotify_url: body.spotify_url,
     bandcamp_url: body.bandcamp_url,
     youtube_url: body.youtube_url,

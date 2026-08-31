@@ -193,7 +193,8 @@ export async function updateBand(
     header_image_url?: string;
     slug?: string;
     visibility?: string;
-    country?: string;
+    country?: string | null;
+    genre?: string | null;
     spotify_url?: string;
     bandcamp_url?: string;
     youtube_url?: string;
@@ -213,7 +214,14 @@ export async function updateBand(
       header_image_url: data.header_image_url,
       slug: data.slug,
       visibility: data.visibility,
-      country: data.country,
+      // undefined leaves the column alone -- drizzle drops undefined keys from
+      // .set() -- while "" is a leader clearing the field, which has to land as
+      // null or the public directory's filters would match an empty string.
+      country:
+        data.country === undefined
+          ? undefined
+          : data.country?.toUpperCase() || null,
+      genre: data.genre === undefined ? undefined : data.genre || null,
       spotify_url: data.spotify_url,
       bandcamp_url: data.bandcamp_url,
       youtube_url: data.youtube_url,

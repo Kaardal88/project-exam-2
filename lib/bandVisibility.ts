@@ -34,6 +34,15 @@ export const bandVisibilityValues = bandVisibilityOptions.map(
 
 export const DEFAULT_BAND_VISIBILITY: BandVisibility = "public";
 
+/**
+ * The only visibility a listing may show, named the way ACCEPTED is named in
+ * lib/inviteStatus.ts. Distinct from DEFAULT_BAND_VISIBILITY even though they
+ * hold the same string: one is what a new band gets, the other is what the
+ * public directory is allowed to return, and changing the default must never
+ * quietly widen the directory.
+ */
+export const PUBLIC_VISIBILITY: BandVisibility = "public";
+
 export function isBandVisibility(value: unknown): value is BandVisibility {
   return (
     typeof value === "string" &&
