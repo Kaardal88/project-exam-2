@@ -1,7 +1,14 @@
 "use client";
 
+import countries from "world-countries";
 import { SuccessMessage } from "@/components/SuccessMessage";
 import { TagCombobox } from "@/components/userProfile/userMusInstTitle";
+
+// Same cca2 list the band pages use, sorted by name because a select is read
+// alphabetically and world-countries is not in that order.
+const countryOptions = countries
+  .map((country) => ({ value: country.cca2, label: country.name.common }))
+  .sort((a, b) => a.label.localeCompare(b.label));
 
 type EditUserProfileModalProps = {
   isOpen: boolean;
@@ -21,6 +28,9 @@ type EditUserProfileModalProps = {
 
   tags: string[];
   setTags: (value: string[]) => void;
+
+  country: string;
+  setCountry: (value: string) => void;
 };
 
 export function EditUserProfileModal({
@@ -37,6 +47,8 @@ export function EditUserProfileModal({
   setHeaderImageUrl,
   tags,
   setTags,
+  country,
+  setCountry,
 }: EditUserProfileModalProps) {
   if (!isOpen) return null;
 
@@ -94,6 +106,28 @@ export function EditUserProfileModal({
               onChange={(e) => setHeaderImageUrl(e.target.value)}
               className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
             />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-yellow-100">
+              Where you are
+            </label>
+
+            <select
+              value={country}
+              onChange={(event) => setCountry(event.target.value)}
+              className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            >
+              {/* Blank is a real answer, not a missing one -- Connect filters
+                  on this, and nobody has to publish where they live. */}
+              <option value="">Rather not say</option>
+
+              {countryOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="text-yellow-100">

@@ -11,8 +11,17 @@ import {
   deleteAccountSchema,
   changePasswordSchema,
 } from "@/server/users/users.schemas";
+import { getDirectory } from "@/server/users/users.directory";
 import { requireAuth } from "../auth/auth.middleware";
 import { ACCEPTED, PENDING, DECLINED } from "@/lib/inviteStatus";
+import { userTagValues } from "@/lib/userTags";
+import {
+  CONNECT_PAGE_SIZE,
+  DEFAULT_CONNECT_SORT,
+  connectSortValues,
+  isConnectRole,
+  isConnectSort,
+} from "@/lib/connectFilters";
 import { getCollabProjectsForUser } from "@/server/projects/access";
 import { verifyPassword, hashPassword } from "../auth/password";
 import { createToken } from "../auth/jwt";
@@ -31,24 +40,91 @@ type Variables = {
   userId: string;
 };
 
+/**
+ * The most rows one directory request will ever return. The grid asks for
+ * twelve; this is the ceiling on anyone asking for more by hand.
+ */
+const MAX_DIRECTORY_LIMIT = 48;
+
 export const usersRoutes = new Hono<{ Variables: Variables }>();
 
-// The people directory. Email is deliberately absent: this route hands every
-// signed-in user the whole table, and nothing in the UI shows anyone's address
-// but your own -- which comes from /auth/me. Listing it here would have made
-// one test account enough to harvest every tester's email.
+/** `?tags=drummer,singer` -- one param, several values, no repeated keys. */
+function csv(value: string | undefined) {
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+/**
+ * The people directory behind Connect.
+ *
+ * Search, filtering, sorting and paging all happen in the query (see
+ * users.directory.ts). This route used to return every row in the table and
+ * let the browser filter them, which is why the old band invite modal could
+ * only ever be a list of everyone.
+ *
+ * Unknown filter values are rejected rather than ignored: a chip the reader
+ * believes is narrowing the list must never quietly do nothing.
+ *
+ * Email is deliberately absent, as it always was here. Nothing in the UI shows
+ * anyone's address but your own -- which comes from /auth/me -- and listing it
+ * would make one test account enough to harvest every tester's email.
+ */
 usersRoutes.get("/", requireAuth, async (c) => {
-  const users = await db.query.users.findMany({
-    columns: {
-      id: true,
-      handle: true,
-      username: true,
-      image_url: true,
-      header_image_url: true,
-      tags: true,
+  const callerId = c.get("userId");
+  const query = c.req.query();
+
+  const tags = csv(query.tags);
+  const roles = csv(query.roles);
+
+  const unknownTag = tags.find((tag) => !userTagValues.includes(tag as never));
+
+  if (unknownTag) {
+    return c.json({ error: `Unknown tag: ${unknownTag}` }, 400);
+  }
+
+  const unknownRole = roles.find((role) => !isConnectRole(role));
+
+  if (unknownRole) {
+    return c.json({ error: `Unknown role: ${unknownRole}` }, 400);
+  }
+
+  if (query.sort && !isConnectSort(query.sort)) {
+    return c.json(
+      { error: `sort must be one of: ${connectSortValues.join(", ")}` },
+      400,
+    );
+  }
+
+  // Clamped rather than trusted. The page asks for CONNECT_PAGE_SIZE or the
+  // preview row; a hand-written limit=100000 would turn a paged directory back
+  // into the whole-table dump this route existed to stop being.
+  const requestedLimit = Number(query.limit);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(Math.max(Math.trunc(requestedLimit), 1), MAX_DIRECTORY_LIMIT)
+    : CONNECT_PAGE_SIZE;
+
+  const requestedOffset = Number(query.offset);
+  const offset = Number.isFinite(requestedOffset)
+    ? Math.max(Math.trunc(requestedOffset), 0)
+    : 0;
+
+  const result = await getDirectory(
+    {
+      q: query.q,
+      tags,
+      roles,
+      country: query.country?.trim() || undefined,
+      sort: isConnectSort(query.sort) ? query.sort : DEFAULT_CONNECT_SORT,
+      limit,
+      offset,
+      bandId: query.band_id?.trim() || undefined,
     },
-  });
-  return c.json(users);
+    callerId,
+  );
+
+  return c.json(result);
 });
 
 usersRoutes.get("/:id", requireAuth, async (c) => {
@@ -72,6 +148,8 @@ usersRoutes.get("/:id", requireAuth, async (c) => {
       image_url: true,
       header_image_url: true,
       tags: true,
+      country: true,
+      created_at: true,
     },
   });
   const bandMembers = await db.query.band_members.findMany({
@@ -100,7 +178,8 @@ usersRoutes.put(
     const id = c.req.param("id");
     const userId = c.get("userId");
 
-    const { username, image_url, header_image_url, tags } = c.req.valid("json");
+    const { username, image_url, header_image_url, tags, country } =
+      c.req.valid("json");
 
     if (userId !== id) {
       return c.json({ error: "Users can only update their own account" }, 403);
@@ -111,6 +190,7 @@ usersRoutes.put(
       image_url,
       header_image_url,
       tags,
+      country,
     });
 
     return c.json({ user: updatedUser });

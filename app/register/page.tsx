@@ -3,10 +3,17 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import countries from "world-countries";
 import { TagCombobox } from "@/components/userProfile/userMusInstTitle";
 import { SuccessMessage } from "@/components/SuccessMessage";
 import { registerSchema } from "@/server/auth/auth.schemas";
 import { appName } from "@/components/Stemlock";
+
+// Same cca2 list and same sort as /bands/new, so the two registration forms
+// offer the same names in the same order.
+const countryOptions = countries
+  .map((country) => ({ value: country.cca2, label: country.name.common }))
+  .sort((a, b) => a.label.localeCompare(b.label));
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -18,6 +25,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
+  const [country, setCountry] = useState("");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,7 +43,7 @@ export default function RegisterPage() {
     const response = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email, password, tags }),
+      body: JSON.stringify({ username, email, password, tags, country }),
     });
 
     const data = await response.json();
@@ -82,6 +90,26 @@ export default function RegisterPage() {
           </label>
 
           <TagCombobox value={tags} onChange={setTags} />
+
+          <label>
+            Where you are
+            <select
+              value={country}
+              onChange={(event) => setCountry(event.target.value)}
+            >
+              {/* Not required, unlike the country on a band. A band is a public
+                  act with a home scene; a person is a person, and Connect
+                  filters on this -- so it stays something you publish rather
+                  than a toll on signing up. Editable later on the profile. */}
+              <option value="">Rather not say</option>
+
+              {countryOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <label>
             Email

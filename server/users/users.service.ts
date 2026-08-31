@@ -28,6 +28,7 @@ export async function updateUser(
     image_url?: string;
     header_image_url?: string;
     tags?: string[];
+    country?: string | null;
   },
 ) {
   const [updatedUser] = await db
@@ -37,6 +38,13 @@ export async function updateUser(
       image_url: data.image_url,
       header_image_url: data.header_image_url,
       tags: data.tags,
+      // undefined leaves the column alone -- drizzle drops undefined keys from
+      // .set() -- while an empty string is someone clearing the field, which
+      // has to land as null so the directory's country filter cannot match it.
+      country:
+        data.country === undefined
+          ? undefined
+          : data.country?.toUpperCase() || null,
     })
     .where(eq(users.id, id))
     .returning({
@@ -46,6 +54,7 @@ export async function updateUser(
       image_url: users.image_url,
       header_image_url: users.header_image_url,
       tags: users.tags,
+      country: users.country,
     });
 
   return updatedUser;

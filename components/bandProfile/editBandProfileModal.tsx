@@ -1,10 +1,18 @@
 "use client";
 
+import countries from "world-countries";
 import { SuccessMessage } from "@/components/SuccessMessage";
 import {
   bandVisibilityOptions,
   type BandVisibility,
 } from "@/lib/bandVisibility";
+import { genreOptions } from "@/lib/genres";
+
+// Same list and same sort as /bands/new, so a band edits the field it was
+// created with rather than a second version of it.
+const countryOptions = countries
+  .map((country) => ({ value: country.cca2, label: country.name.common }))
+  .sort((a, b) => a.label.localeCompare(b.label));
 
 type EditBandProfileModalProps = {
   isOpen: boolean;
@@ -27,6 +35,12 @@ type EditBandProfileModalProps = {
 
   bio: string;
   setBio: (value: string) => void;
+
+  country: string;
+  setCountry: (value: string) => void;
+
+  genre: string;
+  setGenre: (value: string) => void;
 
   imageUrl: string;
   setImageUrl: (value: string) => void;
@@ -75,6 +89,10 @@ export function EditBandProfileModal({
   onRequestDelete,
   bio,
   setBio,
+  country,
+  setCountry,
+  genre,
+  setGenre,
   imageUrl,
   setImageUrl,
   headerImageUrl,
@@ -191,6 +209,52 @@ export function EditBandProfileModal({
               onChange={(e) => setBio(e.target.value)}
               className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
             />
+          </div>
+
+          {/* Country and genre were askable when the band was created and
+              nowhere after, so a band set up before either field existed --
+              most of them -- could never appear under a filter on the Artists
+              page. They are edited here now, and blank is allowed: a band
+              that does not think of itself as one genre should not have to
+              pick one. */}
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-yellow-100">
+              Country
+            </label>
+
+            <select
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            >
+              <option value="">Not set</option>
+
+              {countryOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-yellow-100">
+              Genre
+            </label>
+
+            <select
+              value={genre}
+              onChange={(e) => setGenre(e.target.value)}
+              className="w-full border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            >
+              <option value="">Not set</option>
+
+              {genreOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

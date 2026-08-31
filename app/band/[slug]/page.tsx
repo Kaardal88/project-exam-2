@@ -25,7 +25,6 @@ import { UserPlus, UserX, LucidePanelBottomOpen } from "lucide-react";
 import { Suspense } from "react";
 import { BandProfileNav } from "@/components/bandProfile/BandProfileNav";
 import { BackButton } from "@/components/BackButton";
-import { SuccessMessage } from "@/components/SuccessMessage";
 import {
   DEFAULT_BAND_VISIBILITY,
   type BandVisibility,
@@ -57,6 +56,7 @@ export type Band = {
   created_by: string;
   created_at: string | null;
   country: string | null;
+  genre: string | null;
   spotify_url: string | null;
   bandcamp_url: string | null;
   youtube_url: string | null;
@@ -65,14 +65,6 @@ export type Band = {
   facebook_url: string | null;
   tiktok_url: string | null;
   website_url: string | null;
-};
-
-type User = {
-  id: string;
-  handle: string | null;
-  username: string;
-  email: string;
-  image_url?: string | null;
 };
 
 type BandMember = {
@@ -135,24 +127,23 @@ function BandProfileContent() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
-  const [showModal, setShowModal] = useState(false);
   const [members, setMembers] = useState<BandMember[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [editBandModalOpen, setEditBandModalOpen] = useState(false);
   const [savingBand, setSavingBand] = useState(false);
   const [bandSaveSuccess, setBandSaveSuccess] = useState(false);
-  const [memberAddSuccess, setMemberAddSuccess] = useState(false);
   const [band_name, setBandName] = useState("");
   const [visibility, setVisibility] = useState<BandVisibility>(
     DEFAULT_BAND_VISIBILITY,
   );
   const [bandSlug, setBandSlug] = useState("");
   const [bio, setBio] = useState("");
+  // Named apart from `countryInfo`, which is the *saved* country rendered on
+  // the profile. These two are the edit form's copies.
+  const [bandCountry, setBandCountry] = useState("");
+  const [bandGenre, setBandGenre] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [headerImageUrl, setHeaderImageUrl] = useState("");
-  const [search, setSearch] = useState("");
-  const [visibleCount, setVisibleCount] = useState(8);
   const [showEventForm, setShowEventForm] = useState(false);
   const [events, setEvents] = useState<BandEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
@@ -184,12 +175,6 @@ function BandProfileContent() {
   const countryInfo = countryOptions.find(
     (option) => option.value === band?.country,
   );
-
-  const filteredUsers = users.filter((user) =>
-    user.username.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  const visibleUsers = filteredUsers.slice(0, visibleCount);
 
   // the avatar strip is the band line-up, so people who have been asked but
   // have not answered do not belong in it
@@ -238,6 +223,8 @@ function BandProfileContent() {
       router.replace(`/band/${data.band.slug}`);
     }
         setBio(data.band?.bio ?? "");
+        setBandCountry(data.band?.country ?? "");
+        setBandGenre(data.band?.genre ?? "");
         setImageUrl(data.band?.image_url ?? "");
         setHeaderImageUrl(data.band?.header_image_url ?? "");
         setSpotifyUrl(data.band?.spotify_url ?? "");
@@ -279,7 +266,8 @@ function BandProfileContent() {
         bio,
         image_url: imageUrl,
         header_image_url: headerImageUrl,
-        country: countryInfo?.value,
+        country: bandCountry,
+        genre: bandGenre,
         spotify_url: spotifyUrl,
         bandcamp_url: bandcampUrl,
         youtube_url: youtubeUrl,
@@ -305,6 +293,8 @@ function BandProfileContent() {
     setVisibility(data.band?.visibility ?? DEFAULT_BAND_VISIBILITY);
     setBandSlug(data.band?.slug ?? "");
     setBio(data.band?.bio ?? "");
+    setBandCountry(data.band?.country ?? "");
+    setBandGenre(data.band?.genre ?? "");
     setImageUrl(data.band?.image_url ?? "");
     setHeaderImageUrl(data.band?.header_image_url ?? "");
     setSpotifyUrl(data.band?.spotify_url ?? "");
@@ -322,56 +312,6 @@ function BandProfileContent() {
       setBandSaveSuccess(false);
       setEditBandModalOpen(false);
     }, 900);
-  }
-
-  useEffect(() => {
-    async function loadUsers() {
-      try {
-        setActionError(null);
-
-        const response = await fetch(`/api/users`);
-
-        if (!response.ok) {
-          setActionError("Failed to load users");
-          return;
-        }
-
-        const data = await response.json();
-        setUsers(data.users ?? data);
-      } catch (error) {
-        setActionError("Failed to load users");
-      }
-    }
-
-    if (showModal) {
-      loadUsers();
-    }
-  }, [showModal, users.length]);
-
-  async function handleAddMember(userId: string) {
-    try {
-      setActionError(null);
-
-      const response = await fetch(`/api/bands/${bandId}/members`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ user_id: userId }),
-      });
-
-      if (!response.ok) {
-        setActionError("Failed to add member");
-        return;
-      }
-
-      setMemberAddSuccess(true);
-      setTimeout(() => {
-        window.location.reload();
-      }, 900);
-    } catch (error) {
-      setActionError("Failed to add member");
-    }
   }
 
   async function handleChangeRole(memberUserId: string, nextRole: string) {
@@ -423,7 +363,6 @@ function BandProfileContent() {
         return;
       }
 
-      setShowModal(false);
       window.location.reload(); // Reload the page to show the new member in the list
     } catch (error) {
       setActionError("Failed to remove member");
@@ -717,18 +656,20 @@ function BandProfileContent() {
                       </button>
                     )}
 
-                    {role === "band_leader" && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMemberAddSuccess(false);
-                          setShowModal(true);
-                        }}
+                    {/* Inviting happens on Connect, which carries the band
+                        in the URL. This used to open a modal listing every
+                        account on the platform, which could not scale and
+                        could only ever invite band members -- a guest belongs
+                        to a project, and a modal over the band page has
+                        nowhere to ask which one. */}
+                    {role === "band_leader" && bandId && (
+                      <Link
+                        href={`/users?inviteFor=${bandId}`}
                         className="flex items-center gap-0.5 rounded-full border border-yellow-100 px-1.5 py-0.5 text-[9px] font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-200 hover:text-black"
                       >
                         <UserPlus className="h-2.5 w-2.5" />
                         Add member
-                      </button>
+                      </Link>
                     )}
                   </div>
                 </div>
@@ -878,6 +819,10 @@ function BandProfileContent() {
                   }}
                   bio={bio}
                   setBio={setBio}
+                  country={bandCountry}
+                  setCountry={setBandCountry}
+                  genre={bandGenre}
+                  setGenre={setBandGenre}
                   imageUrl={imageUrl}
                   setImageUrl={setImageUrl}
                   headerImageUrl={headerImageUrl}
@@ -901,79 +846,6 @@ function BandProfileContent() {
                 />
               )}
 
-            {showModal && (
-              <Modal isOpen={showModal} onClose={() => setShowModal(false)}>
-                <div className="w-[90vw] max-w-3xl max-h-[85vh] overflow-y-auto">
-                  <h2 className="mb-4 text-xl font-bold text-yellow-100">
-                    Invite new member
-                  </h2>
-
-                  {actionError && (
-                    <p className="mb-4 rounded-md border border-red-900/60 bg-red-950/20 px-3 py-2 text-sm text-red-300">
-                      {actionError}
-                    </p>
-                  )}
-
-                  {memberAddSuccess && (
-                    <SuccessMessage message="Invitation sent" className="mb-4" />
-                  )}
-
-                  <input
-                    type="text"
-                    placeholder="Search users..."
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value);
-                      setVisibleCount(20);
-                    }}
-                    className="mb-6 w-full rounded-md border border-neutral-700 bg-neutral-950 px-4 py-2 text-sm text-yellow-100 outline-none placeholder:text-neutral-500 focus:border-yellow-200"
-                  />
-
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                    {visibleUsers.map((user) => (
-                      <div
-                        key={user.id}
-                        className="flex flex-col items-center rounded-md  p-4 text-center shadow-xl"
-                      >
-                        <Link href={`/user/${user.handle ?? user.id}`}>
-                          {user.image_url ? (
-                            <img
-                              src={user.image_url}
-                              alt={user.username}
-                              className="mb-3 h-20 w-20 rounded-full object-cover border border-neutral-600"
-                            />
-                          ) : (
-                            <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-full border border-neutral-600 bg-neutral-950 text-lg font-bold text-yellow-100">
-                              {user.username.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-
-                          <div className="mb-3 max-w-full truncate text-sm font-semibold text-yellow-100">
-                            {user.username}
-                          </div>
-                        </Link>
-
-                        <button
-                          className="rounded-md border border-yellow-100 px-3 py-1 text-xs text-yellow-100 transition hover:bg-yellow-100 hover:text-black hover:cursor-pointer"
-                          onClick={() => handleAddMember(user.id)}
-                        >
-                          Invite
-                        </button>
-                      </div>
-                    ))}
-
-                    {visibleCount < filteredUsers.length && (
-                      <button
-                        onClick={() => setVisibleCount((prev) => prev + 20)}
-                        className="mx-auto mt-6 block rounded-md border border-neutral-600 px-4 py-2 text-sm text-yellow-100 transition hover:border-yellow-100 hover:bg-neutral-800 hover:cursor-pointer"
-                      >
-                        See all
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </Modal>
-            )}
           </section>
           )}
 

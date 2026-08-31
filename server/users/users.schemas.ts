@@ -7,6 +7,15 @@ export const updateUserSchema = z.object({
   image_url: z.string().optional(),
   header_image_url: z.string().optional(),
   tags: z.array(z.enum(userTagValues)).optional(),
+  /**
+   * cca2, matching bands.country. Not checked against the world-countries list
+   * on the server: that list is a megabyte of JSON and the column is a filter
+   * key, not a permission. A two-character cap is enough to keep it a code.
+   *
+   * Nullable so "no country" is something a person can go back to. Absent
+   * means unchanged -- drizzle's .set() drops undefined keys.
+   */
+  country: z.string().max(2).nullable().optional(),
 });
 
 export const deleteAccountSchema = z.object({

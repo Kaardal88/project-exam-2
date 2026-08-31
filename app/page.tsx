@@ -18,25 +18,26 @@ type Band = {
 
 export default function HomePage() {
   const [featuredBands, setFeaturedBands] = useState<Band[]>([]);
-  const [bands, setBands] = useState<Band[]>([]);
+  const [bandCount, setBandCount] = useState(0);
 
   useEffect(() => {
     async function loadBands() {
-      const response = await fetch("/api/bands/public");
+      // Four random bands and the size of the catalogue, in one request. This
+      // used to download every public band in order to shuffle four of them
+      // and count the rest; the directory does both server-side now --
+      // `sort=random` is `ORDER BY random()`, and `total` counts the whole
+      // filtered set rather than what came back.
+      const response = await fetch("/api/bands/public?sort=random&limit=4");
       const data = await response.json();
 
       if (response.ok) {
-        setBands(data);
-
-        const shuffledBands = [...data].sort(() => Math.random() - 0.5);
-        setFeaturedBands(shuffledBands.slice(0, 4));
+        setFeaturedBands(data.bands ?? []);
+        setBandCount(data.total ?? 0);
       }
     }
 
     loadBands();
   }, []);
-
-  const bandCount = bands.length;
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(255,229,150,0.10),transparent_28%),linear-gradient(to_bottom,#0a0a0a,#171717)] text-yellow-100">

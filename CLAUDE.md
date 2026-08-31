@@ -46,6 +46,13 @@ Known gotchas:
   is still the initial migration while the schema has drifted far past it.
   Schema changes go in a hand-written idempotent `scripts/*.ts` one-off with a
   `--dry` flag — `add-song-stems.ts` is the fullest worked example.
+- **The two directory endpoints return an object, not an array**, and both are
+  paged at twelve rows unless asked otherwise: `GET /api/users` gives
+  `{ users, total, hasMore }` and `GET /api/bands/public` gives
+  `{ bands, total, hasMore }`. Anything that searches has to pass `?q=` and let
+  the server filter; filtering the response in JavaScript now searches one
+  page. See `server/users/users.directory.ts` and
+  `server/bands/bands.directory.ts`.
 - `db.transaction()` throws on the neon-http driver. Use `db.batch()`, which
   Neon runs as one transaction, and generate ids in code so every statement is
   known up front.

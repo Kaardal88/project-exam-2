@@ -41,20 +41,33 @@ export function InviteCollaboratorModal({
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
+  // The directory is searched, filtered and paged on the server now (see
+  // server/users/users.directory.ts), so the search box has to go with it --
+  // filtering the first page in JavaScript would only ever search twelve
+  // people. Debounced because the box types faster than the query answers.
   useEffect(() => {
     if (!isOpen) return;
 
-    async function load() {
-      const response = await fetch("/api/users");
+    let cancelled = false;
 
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(Array.isArray(data) ? data : (data.users ?? []));
-      }
-    }
+    const timer = setTimeout(async () => {
+      const params = new URLSearchParams({ limit: "12" });
 
-    load();
-  }, [isOpen]);
+      if (search.trim()) params.set("q", search.trim());
+
+      const response = await fetch(`/api/users?${params}`);
+
+      if (cancelled || !response.ok) return;
+
+      const data = await response.json();
+      setUsers(Array.isArray(data) ? data : (data.users ?? []));
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isOpen, search]);
 
   function pick(user: User) {
     setSelected(user);
@@ -105,11 +118,8 @@ export function InviteCollaboratorModal({
 
   if (!isOpen) return null;
 
-  const filtered = users
-    .filter((user) =>
-      user.username.toLowerCase().includes(search.toLowerCase()),
-    )
-    .slice(0, 12);
+  // Already the answer to this search -- the server did the filtering.
+  const filtered = users;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
