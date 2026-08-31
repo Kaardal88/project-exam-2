@@ -75,6 +75,67 @@ because every management route is gated on `band_leader` and there would be
 nobody left who could appoint one. The audio version log refuses to delete the
 current take for the same shape of reason.
 
+## Connect and invitations
+
+**Every invitation starts on `/users` (Connect).** The band profile's "Add
+member" is a link, not a modal: `/users?inviteFor=<bandId>`.
+
+- Without `inviteFor`, Connect is a directory and no card offers anything.
+- With it, the page checks `role === "band_leader"` from `GET /bands/:id`
+  before drawing an Invite button. That is display only —
+  `POST /bands/:id/members` and `POST /projects/:id/collaborators` each check
+  leadership themselves, as they always did.
+- **Choosing a guest role reveals a project picker**, because a guest is a row
+  in `project_collaborators` and belongs to one project, not to the band. There
+  is no such thing as a guest of a band, and the modal says so rather than
+  guessing a project.
+
+`GET /users` is a query, not a table dump: `q`, `tags`, `roles`, `country`,
+`sort`, `limit`, `offset` and `band_id`, resolved in
+`server/users/users.directory.ts` and returning `{ users, total, hasMore }`.
+The limit is clamped server-side. Unknown filter values are rejected rather
+than ignored — a chip the reader believes is narrowing the list must never
+quietly do nothing.
+
+`lib/connectFilters.ts` holds the filter and sort vocabulary, following the
+`lib/bandRoles.ts` pattern. The role filter is **derived**: it is the union of
+`bandRoles` and `collaboratorRoles`, each tagged with the table it lives in,
+and resolves to a subquery over that table. Nothing stores "this person is a
+band leader".
+
+`users.tags` stays a `text[]` over the closed `lib/userTags.ts` vocabulary
+rather than becoming a join table — filtered with `&&` against a GIN index.
+`users.country` and `users.created_at` were added for the location filter and
+the default sort; see `docs/decisions/connect-directory.md`, which also records
+what was deliberately left out.
+
+## The two directories
+
+`/users` (Connect) and `/bands` (Artists) are the same idea pointed at
+different tables, and are deliberately built alike: a `lib/*Filters.ts`
+vocabulary shared with the client, a `server/<domain>/*.directory.ts` that owns
+the query, `{ rows, total, hasMore }` out, chips for closed vocabularies and a
+select for countries, twelve per page behind "Load more", and unknown filter
+values rejected rather than ignored.
+
+Three differences, each of them a decision rather than drift:
+
+- **Artists is unauthenticated.** `GET /bands/public` takes no session, so
+  `eq(visibility, PUBLIC_VISIBILITY)` is prepended to every query in
+  `buildWhere()` and no parameter can turn it off. Putting that check in the
+  route would let a second caller forget it.
+- **Artists shows its grid immediately; Connect waits to be asked.** Listing
+  every person by default is a wall and a privacy question. Listing every
+  public band is what the page is for.
+- **`sort=random`** exists only for bands, powering "Show me something new" and
+  the landing page's four featured bands. It is in `bandSorts` so validation
+  stays in one place and marked `hidden` so it never reaches the sort menu — a
+  randomly ordered list cannot be paged, because `ORDER BY random()` re-rolls
+  per query and page two would be a fresh shuffle rather than a continuation.
+
+Band search is **name only** — searching bios makes "folk" match a band that
+wrote "for the folk at the back". See `docs/decisions/band-directory.md`.
+
 ## Files and R2
 
 Uploads are presigned. The browser asks `POST /songs/:id/presign-upload`, gets
