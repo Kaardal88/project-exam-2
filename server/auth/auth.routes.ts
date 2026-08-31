@@ -45,6 +45,9 @@ authRoutes.post("/register", zValidator("json", registerSchema), async (c) => {
     email: data.email,
     password_hash,
     tags: data.tags ?? [],
+    // "Rather not say" arrives as "" and has to land as null, the same
+    // normalisation updateUser() does, so the two ways of setting this agree.
+    country: data.country?.toUpperCase() || null,
   });
 
   return c.json({
@@ -54,6 +57,7 @@ authRoutes.post("/register", zValidator("json", registerSchema), async (c) => {
       username: newUser.username,
       email: newUser.email,
       tags: newUser.tags,
+      country: newUser.country,
     },
   });
 });

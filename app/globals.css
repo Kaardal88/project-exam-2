@@ -227,7 +227,11 @@ input {
   font-size: 0.9rem;
 }
 
-.auth-form input {
+/* The select on the register form is one of these fields and has to look like
+   one -- without this it renders as the browser's own control, pale and short,
+   in the middle of a column of dark inputs. */
+.auth-form input,
+.auth-form select {
   width: 100%;
   padding: 0.85rem 1rem;
   border: 1px solid rgba(243, 231, 182, 0.25);
