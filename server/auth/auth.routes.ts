@@ -104,6 +104,7 @@ authRoutes.get("/me", requireAuth, async (c) => {
       image_url: true,
       header_image_url: true,
       tags: true,
+      country: true,
       // Your own flag, on your own record, so the nav knows whether to draw
       // the inbox link. A rendering hint only -- every feedback route checks
       // the database itself, so editing this in devtools reveals nothing.

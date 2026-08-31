@@ -55,6 +55,23 @@ export const users = pgTable(
       .default(sql`'{}'::text[]`),
 
     /**
+     * cca2, the same two-letter code bands.country holds, so one
+     * countryOptions list off world-countries renders both. Optional on
+     * purpose: it is a filter on the Connect directory, and where someone
+     * lives stays something they choose to publish.
+     */
+    country: text("country"),
+
+    /**
+     * Added long after the table existed, so every account predating
+     * scripts/add-user-connect-fields.ts carries that script's timestamp
+     * rather than its real signup date. The directory sorts
+     * created_at DESC, username ASC for exactly that reason -- without the
+     * tiebreaker those rows would shuffle between pages of one result set.
+     */
+    created_at: timestamp("created_at").defaultNow(),
+
+    /**
      * Reads the tester feedback inbox. Nothing else -- not other bands, not
      * other projects, not anyone's files. Testers consented to sending feedback,
      * not to being overseen.

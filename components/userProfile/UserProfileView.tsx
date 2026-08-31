@@ -15,6 +15,13 @@ import { PersonStanding } from "lucide-react";
 import AmpLoader from "@/components/AmpLoader";
 import { userTagMap } from "@/lib/userTags";
 import { CollabProjects } from "@/components/userProfile/CollabProjects";
+import countries from "world-countries";
+import ReactCountryFlag from "react-country-flag";
+
+const countryOptions = countries.map((country) => ({
+  value: country.cca2,
+  label: country.name.common,
+}));
 
 type User = {
   id: string;
@@ -24,6 +31,7 @@ type User = {
   image_url: string;
   header_image_url: string | null;
   tags: string[];
+  country: string | null;
 };
 
 type BandMember = {
@@ -101,6 +109,7 @@ export function UserProfileView({
     useState<EventFormEvent | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<ProfileEvent | null>(null);
   const [tags, setTags] = useState<string[]>([]);
+  const [country, setCountry] = useState("");
 
   useEffect(() => {
     async function loadUser() {
@@ -152,6 +161,7 @@ export function UserProfileView({
       setUser(data.user);
       setMembers(data.bandMembers ?? []);
       setTags(data.user.tags ?? []);
+      setCountry(data.user.country ?? "");
       setLoading(false);
     }
 
@@ -306,6 +316,9 @@ export function UserProfileView({
         image_url: imageUrl,
         header_image_url: headerImageUrl,
         tags: tags,
+        // "" clears it; the server turns that into null so the Connect
+        // country filter cannot match an empty string.
+        country: country,
       }),
     });
 
@@ -322,6 +335,7 @@ export function UserProfileView({
     setImageUrl(data.user.image_url ?? "");
     setHeaderImageUrl(data.user.header_image_url ?? "");
     setTags(data.user.tags ?? []);
+    setCountry(data.user.country ?? "");
 
     setSaveSuccess(true);
     setTimeout(() => {
@@ -393,6 +407,16 @@ export function UserProfileView({
           </h1>
           <p className="mt-2 text-sm text-neutral-400">@{user?.username}</p>
 
+          {user?.country && (
+            <div className="mt-2 flex items-center justify-center gap-1.5 text-sm text-neutral-300">
+              <ReactCountryFlag countryCode={user.country} svg />
+              <span>
+                {countryOptions.find((option) => option.value === user.country)
+                  ?.label ?? user.country}
+              </span>
+            </div>
+          )}
+
           {user?.tags && user.tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
               {user.tags.map((tag) => {
@@ -450,6 +474,8 @@ export function UserProfileView({
                 setHeaderImageUrl={setHeaderImageUrl}
                 tags={tags}
                 setTags={setTags}
+                country={country}
+                setCountry={setCountry}
               />
             </>
           )}
