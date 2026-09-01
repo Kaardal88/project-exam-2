@@ -77,9 +77,21 @@ body {
   color: #f5f0d8;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/*
+ * In @layer base, not unlayered.
+ *
+ * Tailwind v4 puts its utilities in a layer, and unlayered CSS beats every
+ * layer -- so as a plain rule this quietly overrode `text-*` on every link in
+ * the app. The Board tab was the visible symptom: the only <Link> in a row of
+ * <button>s, and the only one that ignored its colour class. Inside the layer
+ * it still gives an unstyled link its inherited colour, and yields the moment
+ * a link asks for one.
+ */
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 button,

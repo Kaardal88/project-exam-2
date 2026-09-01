@@ -19,9 +19,19 @@ export function DateRangePicker({ selected, onSelect }: DateRangePickerProps) {
         onSelect={onSelect}
         className="relative mx-auto w-full rounded-xl"
         classNames={{
+          /*
+           * The arrows used to be centred with a fixed gap between them --
+           * `left-1/2 -translate-x-1/2 gap-16` -- which put them on top of the
+           * caption as soon as the month name was long enough to reach them.
+           * "September 2026" did it every time.
+           *
+           * Pinning them to the two ends and giving the caption padding to
+           * clear them makes the arrangement independent of how long the
+           * month is called.
+           */
           month_caption:
-            "mb-6 flex justify-center text-lg font-bold text-yellow-100",
-          nav: "absolute left-1/2 top-2 flex -translate-x-1/2 gap-16",
+            "mb-4 flex h-10 items-center justify-center px-12 text-lg font-bold text-yellow-100",
+          nav: "absolute inset-x-0 top-0 flex h-10 items-center justify-between px-1",
           button_previous:
             "rounded-full p-2 text-yellow-100 hover:bg-neutral-700 [&_svg]:stroke-yellow-100",
           button_next:
