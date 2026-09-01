@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { requireAuth } from "../auth/auth.middleware";
 import { isBandLeader } from "@/server/bands/membership";
+import { getProjectAccess } from "@/server/projects/access";
+import { db } from "@/server/db";
 import {
   getUploadUrl,
   publicUrlFor,
@@ -28,17 +30,28 @@ const ALLOWED_PROFILE_IMAGE_TYPES: Record<string, string> = {
   "image/png": "png",
 };
 
-const OWNERS = ["user", "band"] as const;
-const TARGETS = ["avatar", "header"] as const;
+const OWNERS = ["user", "band", "project"] as const;
+const TARGETS = ["avatar", "header", "cover"] as const;
 
 type Owner = (typeof OWNERS)[number];
 type Target = (typeof TARGETS)[number];
 
-/** The one place the key layout is written down. Read back by isProfileImageUrl. */
+/**
+ * Which pictures each kind of owner has.
+ *
+ * A project has one square cover and no header; a profile has both and no
+ * cover. Checked rather than assumed, so a request cannot invent
+ * `projects/<id>/header/` and land an object nothing will ever read or delete.
+ */
+const TARGETS_BY_OWNER: Record<Owner, ReadonlyArray<Target>> = {
+  user: ["avatar", "header"],
+  band: ["avatar", "header"],
+  project: ["cover"],
+};
+
+/** The one place the key layout is written down. Read back by keyFromPublicUrl. */
 function keyPrefix(owner: Owner, ownerId: string, target: Target) {
-  return owner === "user"
-    ? `users/${ownerId}/${target}/`
-    : `bands/${ownerId}/${target}/`;
+  return `${owner}s/${ownerId}/${target}/`;
 }
 
 /**
@@ -60,11 +73,16 @@ uploadsRoutes.post("/presign-image", requireAuth, async (c) => {
   const { owner, ownerId, target, filename, contentType, size } = body;
 
   if (!OWNERS.includes(owner)) {
-    return c.json({ error: "owner must be 'user' or 'band'" }, 400);
+    return c.json({ error: `owner must be one of: ${OWNERS.join(", ")}` }, 400);
   }
 
-  if (!TARGETS.includes(target)) {
-    return c.json({ error: "target must be 'avatar' or 'header'" }, 400);
+  if (!TARGETS_BY_OWNER[owner as Owner].includes(target)) {
+    return c.json(
+      {
+        error: `target for a ${owner} must be one of: ${TARGETS_BY_OWNER[owner as Owner].join(", ")}`,
+      },
+      400,
+    );
   }
 
   if (typeof ownerId !== "string" || !ownerId) {
@@ -76,8 +94,28 @@ uploadsRoutes.post("/presign-image", requireAuth, async (c) => {
     if (ownerId !== userId) {
       return c.json({ error: "You can only change your own picture" }, 403);
     }
-  } else if (!(await isBandLeader(ownerId, userId))) {
-    return c.json({ error: "Only a band leader can change this" }, 403);
+  } else if (owner === "band") {
+    if (!(await isBandLeader(ownerId, userId))) {
+      return c.json({ error: "Only a band leader can change this" }, 403);
+    }
+  } else {
+    // A project's cover belongs to the band that owns the project, so the
+    // question is the same one the project update route asks -- and a guest
+    // collaborator is never a leader, so this stays shut for them.
+    const project = await db.query.projects.findFirst({
+      where: (projects, { eq }) => eq(projects.id, ownerId),
+      columns: { id: true, band_id: true },
+    });
+
+    if (!project) {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    const access = await getProjectAccess(project.id, project.band_id, userId);
+
+    if (!access?.isLeader) {
+      return c.json({ error: "Only a band leader can change this" }, 403);
+    }
   }
 
   if (typeof filename !== "string" || !filename) {

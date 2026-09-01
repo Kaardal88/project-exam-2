@@ -23,6 +23,7 @@ import {
   isConnectSort,
 } from "@/lib/connectFilters";
 import { getCollabProjectsForUser } from "@/server/projects/access";
+import { deleteReplacedImage } from "@/server/uploads/replacedImages";
 import { verifyPassword, hashPassword } from "../auth/password";
 import { createToken } from "../auth/jwt";
 import { clearSessionCookies, setSessionCookies } from "../auth/session";
@@ -185,6 +186,16 @@ usersRoutes.put(
       return c.json({ error: "Users can only update their own account" }, 403);
     }
 
+    // Only when a picture is actually changing -- an ordinary save of the
+    // username should not pay for a row it will not look at.
+    const previous =
+      image_url !== undefined || header_image_url !== undefined
+        ? await db.query.users.findFirst({
+            where: eq(users.id, id),
+            columns: { image_url: true, header_image_url: true },
+          })
+        : undefined;
+
     const updatedUser = await updateUser(id, {
       username,
       image_url,
@@ -192,6 +203,10 @@ usersRoutes.put(
       tags,
       country,
     });
+
+    // After the write, so a failed save never takes the old picture with it.
+    await deleteReplacedImage(previous?.image_url, image_url);
+    await deleteReplacedImage(previous?.header_image_url, header_image_url);
 
     return c.json({ user: updatedUser });
   },

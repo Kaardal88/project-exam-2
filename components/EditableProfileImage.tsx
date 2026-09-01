@@ -8,6 +8,17 @@ import {
   type ImageTarget,
 } from "@/lib/uploadProfileImage";
 
+/**
+ * Which column each picture is stored in. The endpoint is `/api/<owner>s/<id>`
+ * for all three, and all three take a partial update -- so one PUT with one
+ * key is the whole save, whatever is being changed.
+ */
+const FIELD_BY_TARGET: Record<ImageTarget, string> = {
+  avatar: "image_url",
+  header: "header_image_url",
+  cover: "cover_image_url",
+};
+
 type EditableProfileImageProps = {
   /** False for a visitor, which renders the children and nothing else. */
   canEdit: boolean;
@@ -66,9 +77,8 @@ export function EditableProfileImage({
         file,
       });
 
-      const field = target === "avatar" ? "image_url" : "header_image_url";
-      const endpoint =
-        owner === "user" ? `/api/users/${ownerId}` : `/api/bands/${ownerId}`;
+      const field = FIELD_BY_TARGET[target];
+      const endpoint = `/api/${owner}s/${ownerId}`;
 
       // One field only, so nothing else on the profile is touched by changing
       // a picture.

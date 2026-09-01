@@ -3,6 +3,7 @@ import { and, eq, asc, ne, count, inArray } from "drizzle-orm";
 import { requireAuth, optionalAuth } from "@/server/auth/auth.middleware";
 import { db } from "@/server/db";
 import {
+  bands,
   band_members,
   band_events,
   projects,
@@ -28,6 +29,7 @@ import {
 } from "@/lib/bandFilters";
 import { getMembership, getMembershipRow, isLastLeader } from "@/server/bands/membership";
 import { isStorableImageUrl, IMAGE_URL_MAX_LENGTH } from "@/lib/imageUrl";
+import { deleteReplacedImage } from "@/server/uploads/replacedImages";
 import { ACCEPTED, PENDING } from "@/lib/inviteStatus";
 import { getBandCollaborators } from "@/server/projects/access";
 import { isBandRole, bandRoleValues } from "@/lib/bandRoles";
@@ -484,6 +486,16 @@ bandsRoutes.put("/:id", requireAuth, async (c) => {
     }
   }
 
+  // Only when a picture is actually changing -- an ordinary save of the name
+  // or the bio should not pay for a row it will not look at.
+  const previous =
+    body.image_url !== undefined || body.header_image_url !== undefined
+      ? await db.query.bands.findFirst({
+          where: eq(bands.id, bandId),
+          columns: { image_url: true, header_image_url: true },
+        })
+      : undefined;
+
   const updatedBand = await updateBand(bandId, {
     band_name: body.band_name,
     visibility: body.visibility,
@@ -505,6 +517,11 @@ bandsRoutes.put("/:id", requireAuth, async (c) => {
   if (!updatedBand) {
     return c.json({ error: "Band not found" }, 404);
   }
+
+  // After the write, so a failed save never takes the old picture with it.
+  // getBandByIdOrSlug was already fetched above for the membership check.
+  await deleteReplacedImage(previous?.image_url, body.image_url);
+  await deleteReplacedImage(previous?.header_image_url, body.header_image_url);
 
   return c.json({ band: updatedBand }, 200);
 });

@@ -59,7 +59,15 @@ Known gotchas:
   header images, which render as bare `<img src>` in twenty-odd places and so
   must be permanent and unsigned. Public access is a bucket-level setting in
   R2, not a prefix. Profiles store the **finished URL**, not a key. The public
-  bucket needs its own CORS policy — it inherits nothing.
+  bucket needs its own CORS policy — it inherits nothing, and so does every
+  new deploy origin. A 403 on upload that *reports* as a CORS error is usually
+  the API token's bucket scope instead: `scripts/probe-r2-buckets.ts` tells the
+  two apart in seconds, server-side.
+- **Artwork belongs to the project, not the song.** `projects.cover_image_url`
+  is the only artwork there is: album tracks and singles both read it, it is
+  set on the project page by a leader, and `songs.artwork_url` is a dead column
+  kept for its data. All three pictures — avatar, header, cover — go through
+  `POST /api/uploads/presign-image` and `components/EditableProfileImage.tsx`.
 - `db.transaction()` throws on the neon-http driver. Use `db.batch()`, which
   Neon runs as one transaction, and generate ids in code so every statement is
   known up front.

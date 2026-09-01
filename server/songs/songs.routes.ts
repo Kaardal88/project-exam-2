@@ -22,7 +22,6 @@ import {
   ALLOWED_AUDIO_TYPES,
   ALLOWED_IMAGE_TYPES,
   AUDIO_DOWNLOAD_TTL_SECONDS,
-  ARTWORK_DOWNLOAD_TTL_SECONDS,
   FILE_DOWNLOAD_TTL_SECONDS,
 } from "@/server/r2";
 import { getProjectAccess } from "@/server/projects/access";
@@ -41,7 +40,7 @@ const FILE_CATEGORIES = [
 // log has always used. Both are mp3 and validated identically -- they differ
 // only in which key prefix they land under, and therefore which feature reads
 // them back.
-const UPLOAD_TARGETS = ["audio", "stem", "artwork", "file"] as const;
+const UPLOAD_TARGETS = ["audio", "stem", "file"] as const;
 const IMAGE_FILE_CATEGORIES = ["artwork", "press_photo"];
 
 /**
@@ -143,36 +142,27 @@ songsRoutes.put("/:id", requireAuth, async (c) => {
     );
   }
 
-  // Artwork still ends up in getDownloadUrl and, on replace, deleteObject.
-  // Access to *this* song is not access to an arbitrary key in the bucket.
-  if (body.artwork_url != null && !isKeyForSong(body.artwork_url, songId)) {
-    return c.json(
-      { error: "artwork_url must be a key uploaded for this song" },
-      400,
-    );
-  }
-
+  /*
+   * artwork_url is deliberately not settable here any more.
+   *
+   * Artwork belongs to the release rather than the track: every song on an
+   * album shows the album's sleeve, and a single's sleeve is the single's. So
+   * there is one cover, on the project, and songs read it. Accepting a write
+   * here would let a value be stored that nothing in the app displays.
+   *
+   * The column itself stays, with whatever was uploaded before, rather than
+   * being dropped in the same change that stopped reading it.
+   */
   const [updatedSong] = await db
     .update(songs)
     .set({
       title: body.title,
       status: body.status,
       track_number: body.track_number,
-      artwork_url: body.artwork_url,
       updated_at: new Date(),
     })
     .where(eq(songs.id, songId))
     .returning();
-
-  // Artwork still replaces in place. Audio does not: the old take stays in the
-  // version log, which is the whole point of keeping one.
-  if (
-    body.artwork_url &&
-    context.song.artwork_url &&
-    context.song.artwork_url !== body.artwork_url
-  ) {
-    await deleteObject(context.song.artwork_url).catch(() => {});
-  }
 
   return c.json(updatedSong, 200);
 });
@@ -1009,7 +999,7 @@ songsRoutes.post("/:id/presign-upload", requireAuth, async (c) => {
 
   if (!UPLOAD_TARGETS.includes(target)) {
     return c.json(
-      { error: "target must be 'audio', 'stem', 'artwork', or 'file'" },
+      { error: "target must be 'audio', 'stem', or 'file'" },
       400,
     );
   }
@@ -1027,8 +1017,7 @@ songsRoutes.post("/:id/presign-upload", requireAuth, async (c) => {
   }
 
   const isImageUpload =
-    target === "artwork" ||
-    (target === "file" && IMAGE_FILE_CATEGORIES.includes(category));
+    target === "file" && IMAGE_FILE_CATEGORIES.includes(category);
 
   let maxBytes: number;
   let extension: string;
@@ -1082,8 +1071,6 @@ songsRoutes.post("/:id/presign-upload", requireAuth, async (c) => {
     // covers stems without a line of new validation. Any future key path must
     // go through that check rather than alongside it.
     key = `songs/${songId}/stems/${uuid}.${extension}`;
-  } else if (target === "artwork") {
-    key = `songs/${songId}/artwork/${uuid}.${extension}`;
   } else {
     key = `songs/${songId}/files/${uuid}-${sanitizeFilename(filename)}`;
   }
@@ -1133,38 +1120,6 @@ songsRoutes.get("/:id/audio-url", requireAuth, async (c) => {
   }
 
   const url = await getDownloadUrl(context.song.audio_url, AUDIO_DOWNLOAD_TTL_SECONDS);
-
-  return c.json({ url }, 200);
-});
-
-songsRoutes.get("/:id/artwork-url", requireAuth, async (c) => {
-  const songId = c.req.param("id");
-  const userId = c.get("userId");
-
-  const context = await getSongContext(songId);
-
-  if (!context) {
-    return c.json({ error: "Song not found" }, 404);
-  }
-
-  const access = await getProjectAccess(
-    context.project.id,
-    context.project.band_id,
-    userId,
-  );
-
-  if (!access) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-
-  if (!context.song.artwork_url) {
-    return c.json({ error: "No artwork uploaded" }, 404);
-  }
-
-  const url = await getDownloadUrl(
-    context.song.artwork_url,
-    ARTWORK_DOWNLOAD_TTL_SECONDS,
-  );
 
   return c.json({ url }, 200);
 });

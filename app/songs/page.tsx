@@ -2,14 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  Suspense,
-} from "react";
-import { Upload } from "lucide-react";
+import { useCallback, useEffect, useState, Suspense } from "react";
 import { NavBar } from "@/components/NavBar";
 import AmpLoader from "@/components/AmpLoader";
 import { SongSidebar } from "@/components/songDashboard/SongSidebar";
@@ -28,17 +21,13 @@ import { CommentsTab } from "@/components/songDashboard/CommentsTab";
 import { NotesTab } from "@/components/songDashboard/NotesTab";
 import { FilesTab } from "@/components/songDashboard/FilesTab";
 import { TasksTab } from "@/components/songDashboard/TasksTab";
-import { UploadProgress } from "@/components/songDashboard/UploadProgress";
 import type { TicketStatus } from "@/components/songDashboard/ticketStatus";
-import { uploadToR2 } from "@/lib/uploadToR2";
 import {
   SONG_STATUSES,
   SONG_STATUS_STYLES,
   toSongStatus,
   type SongStatus,
 } from "@/lib/songStatus";
-
-const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 
 type Song = {
   id: string;
@@ -49,7 +38,6 @@ type Song = {
   time_signature: string | null;
   audio_url: string | null;
   current_version_id: string | null;
-  artwork_url: string | null;
   created_by: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -167,18 +155,6 @@ function SongDashboardPageContent() {
     nonce: number;
   } | null>(null);
   const [audioPlaybackUrl, setAudioPlaybackUrl] = useState<string | null>(null);
-  const [artworkDisplayUrl, setArtworkDisplayUrl] = useState<string | null>(
-    null,
-  );
-  const [artworkUploading, setArtworkUploading] = useState(false);
-  const [artworkUploadProgress, setArtworkUploadProgress] = useState<
-    number | null
-  >(null);
-  const [artworkUploadSuccess, setArtworkUploadSuccess] = useState(false);
-  const [artworkUploadError, setArtworkUploadError] = useState<string | null>(
-    null,
-  );
-  const artworkInputRef = useRef<HTMLInputElement>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
 
   /**
@@ -370,85 +346,6 @@ function SongDashboardPageContent() {
     void loadAudioUrl();
   }, [fetchAudioUrl]);
 
-  const fetchArtworkUrl = useCallback(async () => {
-    if (!song?.artwork_url) {
-      setArtworkDisplayUrl(null);
-      return;
-    }
-
-    const response = await fetch(`/api/songs/${song.id}/artwork-url`);
-
-    setArtworkDisplayUrl(response.ok ? (await response.json()).url : null);
-  }, [song]);
-
-  useEffect(() => {
-    async function loadArtworkUrl() {
-      await fetchArtworkUrl();
-    }
-
-    void loadArtworkUrl();
-  }, [fetchArtworkUrl]);
-
-  async function handleArtworkUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !song) return;
-
-    setArtworkUploadError(null);
-
-    const lower = file.name.toLowerCase();
-    const validExt =
-      lower.endsWith(".jpg") ||
-      lower.endsWith(".jpeg") ||
-      lower.endsWith(".png");
-    const validType = file.type === "image/jpeg" || file.type === "image/png";
-
-    if (!validExt || !validType) {
-      setArtworkUploadError("Only .jpg or .png files are allowed");
-      return;
-    }
-
-    if (file.size > IMAGE_MAX_BYTES) {
-      setArtworkUploadError("File too large. Max 10MB");
-      return;
-    }
-
-    setArtworkUploading(true);
-    setArtworkUploadProgress(0);
-    setArtworkUploadSuccess(false);
-
-    try {
-      const { key } = await uploadToR2({
-        songId: song.id,
-        target: "artwork",
-        file,
-        onProgress: setArtworkUploadProgress,
-      });
-
-      const response = await fetch(`/api/songs/${song.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ artwork_url: key }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save artwork");
-      }
-
-      await fetchSong();
-      setArtworkUploadSuccess(true);
-      setTimeout(() => setArtworkUploadSuccess(false), 2000);
-    } catch (err) {
-      setArtworkUploadError(
-        err instanceof Error ? err.message : "Upload failed",
-      );
-    } finally {
-      setArtworkUploading(false);
-      setArtworkUploadProgress(null);
-    }
-  }
 
   if (loading) {
     return (
@@ -518,14 +415,16 @@ function SongDashboardPageContent() {
                 belongs level with the header rather than below it. */}
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
               <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-start">
-              <div className="relative h-20 w-20 shrink-0">
-                {artworkDisplayUrl ? (
-                  <img
-                    src={artworkDisplayUrl}
-                    alt={song.title}
-                    className="h-20 w-20 rounded object-cover"
-                  />
-                ) : song.project.cover_image_url ? (
+              {/* The artwork belongs to the release, not the track. A song on
+                  an album has never had its own sleeve, and a single's sleeve
+                  is the single's -- so both read the project's cover, set on
+                  the project page. */}
+              <Link
+                href={`/projects/${song.project.id}`}
+                title={`Artwork for ${song.project.title} — change it on the project page`}
+                className="h-20 w-20 shrink-0"
+              >
+                {song.project.cover_image_url ? (
                   <img
                     src={song.project.cover_image_url}
                     alt={song.project.title}
@@ -536,38 +435,9 @@ function SongDashboardPageContent() {
                     {song.title.charAt(0).toUpperCase()}
                   </div>
                 )}
-
-                <input
-                  ref={artworkInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,.jpg,.jpeg,.png"
-                  onChange={handleArtworkUpload}
-                  className="hidden"
-                />
-
-                {/* Always visible (not hover-only) so it's reachable on touch
-                    devices too — hover only adds a subtle highlight. */}
-                <button
-                  onClick={() => artworkInputRef.current?.click()}
-                  disabled={artworkUploading}
-                  title="Upload artwork (JPG/PNG, max 10MB)"
-                  className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-neutral-700 bg-neutral-900 text-yellow-100 shadow-md transition hover:cursor-pointer hover:border-yellow-200 hover:bg-neutral-800 disabled:cursor-not-allowed"
-                >
-                  <UploadProgress
-                    progress={artworkUploadProgress}
-                    success={artworkUploadSuccess}
-                    compact
-                  />
-                  {artworkUploadProgress === null && !artworkUploadSuccess && (
-                    <Upload className="h-3.5 w-3.5" />
-                  )}
-                </button>
-              </div>
+              </Link>
 
               <div className="min-w-0 flex-1">
-                {artworkUploadError && (
-                  <p className="form-error mb-2">{artworkUploadError}</p>
-                )}
                 <h1 className="text-2xl font-bold text-yellow-100">
                   {song.title}
                 </h1>
