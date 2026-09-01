@@ -397,7 +397,7 @@ function BandProfileContent() {
         </aside>
 
         <div className="w-full min-w-0">
-          <BackButton className="flex items-center gap-2 ml-4 mt-4 w-fit rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer" />
+          <BackButton className="ml-4 mt-4" />
 
           <div className="relative mx-auto mt-4 w-full max-w-7xl px-4">
             {/* Mobile nav */}

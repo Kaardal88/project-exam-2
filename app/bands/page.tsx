@@ -192,10 +192,10 @@ export default function BandsPage() {
     <main className="w-full min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
       <NavBar />
 
-      <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-8">
-        <BackButton />
+      <BackButton className="ml-4 mt-4" />
 
-        <h1 className="mb-8 mt-6 text-center font-[family-name:var(--font-caveat)] text-4xl tracking-wide text-yellow-100 md:text-5xl">
+      <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-8">
+        <h1 className="mb-8 text-center font-[family-name:var(--font-caveat)] text-4xl tracking-wide text-yellow-100 md:text-5xl">
           Artists
         </h1>
 

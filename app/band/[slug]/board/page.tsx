@@ -214,10 +214,7 @@ export default function BandBoardPage() {
     <main className="w-full min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
       <NavBar />
 
-      <BackButton
-        className="ml-4 mt-4 flex w-fit items-center gap-2 rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:cursor-pointer hover:border-yellow-200 hover:bg-neutral-800"
-        fallbackHref={`/band/${slug}`}
-      />
+      <BackButton className="ml-4 mt-4" fallbackHref={`/band/${slug}`} />
 
       <div className="mx-auto mt-4 w-full max-w-7xl px-4 pb-24">
         <header className="mb-4 flex flex-col gap-1">

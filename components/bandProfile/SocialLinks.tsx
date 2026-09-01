@@ -86,9 +86,10 @@ export function SocialLinks({
             type="button"
             onClick={startEditing}
             aria-label="Edit social links"
-            className="rounded-full border border-dotted border-yellow-100 p-2 text-yellow-100 transition hover:cursor-pointer hover:border-yellow-200 hover:bg-yellow-200 hover:text-black"
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold text-neutral-300 transition hover:cursor-pointer hover:bg-neutral-800 hover:text-yellow-100"
           >
-            <Pencil className="h-4 w-4" />
+            <Pencil className="h-3.5 w-3.5" />
+            Edit
           </button>
         ) : null
       }
