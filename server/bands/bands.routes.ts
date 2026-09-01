@@ -27,6 +27,7 @@ import {
   isGenre,
 } from "@/lib/bandFilters";
 import { getMembership, getMembershipRow, isLastLeader } from "@/server/bands/membership";
+import { isStorableImageUrl, IMAGE_URL_MAX_LENGTH } from "@/lib/imageUrl";
 import { ACCEPTED, PENDING } from "@/lib/inviteStatus";
 import { getBandCollaborators } from "@/server/projects/access";
 import { isBandRole, bandRoleValues } from "@/lib/bandRoles";
@@ -453,6 +454,24 @@ bandsRoutes.put("/:id", requireAuth, async (c) => {
   // band lands in a value no filter chip can ever select for.
   if (body.genre !== undefined && body.genre !== "" && !isGenre(body.genre)) {
     return c.json({ error: `Unknown genre: ${body.genre}` }, 400);
+  }
+
+  // Same rule the user profile applies through zod -- see lib/imageUrl.ts.
+  for (const field of ["image_url", "header_image_url"] as const) {
+    const value = body[field];
+
+    if (
+      value !== undefined &&
+      value !== null &&
+      (typeof value !== "string" ||
+        value.length > IMAGE_URL_MAX_LENGTH ||
+        !isStorableImageUrl(value))
+    ) {
+      return c.json(
+        { error: `${field} must start with http:// or https://` },
+        400,
+      );
+    }
   }
 
   // Slug is edited on its own, never derived from the band name on rename: a

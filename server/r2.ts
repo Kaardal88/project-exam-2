@@ -22,6 +22,31 @@ const r2 = new S3Client({
 
 const BUCKET = process.env.R2_BUCKET_NAME!;
 
+/**
+ * The second bucket, and the reason there are two.
+ *
+ * Everything in BUCKET is private and read through a signed URL that expires:
+ * right for stems, which are a band's unreleased material. Profile pictures
+ * are the opposite. They render as a bare <img src> in the navbar, in every
+ * comment, and on both directory pages -- a page listing twelve bands would
+ * have to sign twelve URLs, and each one would rot within the hour.
+ *
+ * R2 has no per-prefix public access; it is a bucket-level setting. So avatars
+ * and header images go in a bucket that is public, and audio stays where it
+ * is. Reads never touch this module -- the stored value is already a URL.
+ *
+ * Note this bucket needs its own CORS policy. It inherits nothing from the
+ * private one, and a missing allowed origin fails the browser's PUT while
+ * everything else looks fine.
+ */
+const PUBLIC_BUCKET = process.env.R2_STEMLOCK_PUBLIC_NAME!;
+
+/** The r2.dev address, or a custom domain later. No trailing slash. */
+const PUBLIC_BASE_URL = (process.env.R2_STEMLOCK_PUBLIC_URL ?? "").replace(
+  /\/+$/,
+  "",
+);
+
 export const MP3_MAX_BYTES = 25 * 1024 * 1024;
 export const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 export const FILE_MAX_BYTES = 10 * 1024 * 1024;
@@ -40,15 +65,26 @@ export const AUDIO_DOWNLOAD_TTL_SECONDS = 30 * 60;
 export const ARTWORK_DOWNLOAD_TTL_SECONDS = 15 * 60;
 export const FILE_DOWNLOAD_TTL_SECONDS = 15 * 60;
 
-export async function getUploadUrl(key: string, contentType: string) {
+export async function getUploadUrl(
+  key: string,
+  contentType: string,
+  bucket: string = BUCKET,
+) {
   const command = new PutObjectCommand({
-    Bucket: BUCKET,
+    Bucket: bucket,
     Key: key,
     ContentType: contentType,
   });
 
   return getSignedUrl(r2, command, { expiresIn: UPLOAD_URL_TTL_SECONDS });
 }
+
+/** Where an object in the public bucket can be read, forever and unsigned. */
+export function publicUrlFor(key: string) {
+  return `${PUBLIC_BASE_URL}/${key}`;
+}
+
+export { PUBLIC_BUCKET, PUBLIC_BASE_URL };
 
 /**
  * Strips a filename down to what is safe to put inside a Content-Disposition
@@ -91,9 +127,9 @@ export async function getDownloadUrl(
   return getSignedUrl(r2, command, { expiresIn: ttlSeconds });
 }
 
-export async function deleteObject(key: string) {
+export async function deleteObject(key: string, bucket: string = BUCKET) {
   try {
-    await r2.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+    await r2.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
   } catch (error) {
     console.error(`Failed to delete R2 object "${key}":`, error);
     throw error;

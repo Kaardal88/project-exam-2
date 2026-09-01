@@ -1,3 +1,5 @@
+import { putWithProgress } from "@/lib/putWithProgress";
+
 // "stem" is one layer of a song, "audio" the whole-song take the older
 // version log uses. Both are mp3 and validated the same server-side; they
 // differ only in the key prefix they land under.
@@ -10,37 +12,6 @@ type UploadToR2Params = {
   category?: string;
   onProgress?: (percent: number) => void;
 };
-
-function putWithProgress(
-  url: string,
-  file: File,
-  onProgress?: (percent: number) => void,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url);
-    xhr.setRequestHeader("Content-Type", file.type);
-
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
-        onProgress?.(Math.round((e.loaded / e.total) * 100));
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        reject(new Error("Upload to storage failed. Please try again."));
-      }
-    };
-
-    xhr.onerror = () =>
-      reject(new Error("Upload to storage failed. Please try again."));
-
-    xhr.send(file);
-  });
-}
 
 export async function uploadToR2({
   songId,
@@ -70,7 +41,7 @@ export async function uploadToR2({
 
   const { uploadUrl, key } = await presignResponse.json();
 
-  await putWithProgress(uploadUrl, file, onProgress);
+  await putWithProgress(uploadUrl, file, file.type, onProgress);
 
   return { key };
 }

@@ -1,11 +1,20 @@
 // src/server/users/users.schemas.ts
 import { z } from "zod";
 import { userTagValues } from "@/lib/userTags";
+import { isStorableImageUrl, IMAGE_URL_MAX_LENGTH } from "@/lib/imageUrl";
+
+/** Shared with the band update route -- see lib/imageUrl.ts for the why. */
+const imageUrlSchema = z
+  .string()
+  .max(IMAGE_URL_MAX_LENGTH)
+  .refine(isStorableImageUrl, {
+    message: "Image URL must start with http:// or https://",
+  });
 
 export const updateUserSchema = z.object({
   username: z.string().min(2).max(50).optional(),
-  image_url: z.string().optional(),
-  header_image_url: z.string().optional(),
+  image_url: imageUrlSchema.optional(),
+  header_image_url: imageUrlSchema.optional(),
   tags: z.array(z.enum(userTagValues)).optional(),
   /**
    * cca2, matching bands.country. Not checked against the world-countries list
