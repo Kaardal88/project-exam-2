@@ -12,9 +12,8 @@ import { BandCalendar } from "@/components/calendar/BandCalendar";
 import "@daypicker/react/style.css";
 import { EventForm } from "@/components/calendar/EventForm";
 
-import { EditBandProfileModal } from "@/components/bandProfile/editBandProfileModal";
+import { EditableProfileImage } from "@/components/EditableProfileImage";
 import { NewProjectModal } from "@/components/bandProfile/NewProjectModal";
-import { DeleteBandModal } from "@/components/bandProfile/DeleteBandModal";
 import { bandRoles } from "@/lib/bandRoles";
 import {
   CollaboratorList,
@@ -25,10 +24,7 @@ import { UserPlus, UserX, LucidePanelBottomOpen } from "lucide-react";
 import { Suspense } from "react";
 import { BandProfileNav } from "@/components/bandProfile/BandProfileNav";
 import { BackButton } from "@/components/BackButton";
-import {
-  DEFAULT_BAND_VISIBILITY,
-  type BandVisibility,
-} from "@/lib/bandVisibility";
+import { type BandVisibility } from "@/lib/bandVisibility";
 
 import countries from "world-countries";
 import ReactCountryFlag from "react-country-flag";
@@ -129,36 +125,12 @@ function BandProfileContent() {
   const [role, setRole] = useState<string | null>(null);
   const [members, setMembers] = useState<BandMember[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [editBandModalOpen, setEditBandModalOpen] = useState(false);
-  const [savingBand, setSavingBand] = useState(false);
-  const [bandSaveSuccess, setBandSaveSuccess] = useState(false);
-  const [band_name, setBandName] = useState("");
-  const [visibility, setVisibility] = useState<BandVisibility>(
-    DEFAULT_BAND_VISIBILITY,
-  );
-  const [bandSlug, setBandSlug] = useState("");
-  const [bio, setBio] = useState("");
-  // Named apart from `countryInfo`, which is the *saved* country rendered on
-  // the profile. These two are the edit form's copies.
-  const [bandCountry, setBandCountry] = useState("");
-  const [bandGenre, setBandGenre] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [headerImageUrl, setHeaderImageUrl] = useState("");
   const [showEventForm, setShowEventForm] = useState(false);
   const [events, setEvents] = useState<BandEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [projects, setProjects] = useState<Project[]>([]);
   const [membersOpen, setMembersOpen] = useState(false);
   const [newProjectModalOpen, setNewProjectModalOpen] = useState(false);
-  const [deleteBandModalOpen, setDeleteBandModalOpen] = useState(false);
-  const [spotifyUrl, setSpotifyUrl] = useState("");
-  const [bandcampUrl, setBandcampUrl] = useState("");
-  const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [tidalUrl, setTidalUrl] = useState("");
-  const [instagramUrl, setInstagramUrl] = useState("");
-  const [facebookUrl, setFacebookUrl] = useState("");
-  const [tiktokUrl, setTiktokUrl] = useState("");
-  const [websiteUrl, setWebsiteUrl] = useState("");
   const [activeSection, setActiveSection] = useState<
     | "Home"
     | "Albums"
@@ -215,27 +187,10 @@ function BandProfileContent() {
 
         setBand(data.band);
         setRole(data.role);
-        setBandName(data.band?.band_name ?? "");
-        setVisibility(data.band?.visibility ?? DEFAULT_BAND_VISIBILITY);
-        setBandSlug(data.band?.slug ?? "");
 
     if (data.band?.slug && data.band.slug !== slug) {
       router.replace(`/band/${data.band.slug}`);
     }
-        setBio(data.band?.bio ?? "");
-        setBandCountry(data.band?.country ?? "");
-        setBandGenre(data.band?.genre ?? "");
-        setImageUrl(data.band?.image_url ?? "");
-        setHeaderImageUrl(data.band?.header_image_url ?? "");
-        setSpotifyUrl(data.band?.spotify_url ?? "");
-        setBandcampUrl(data.band?.bandcamp_url ?? "");
-        setYoutubeUrl(data.band?.youtube_url ?? "");
-        setTidalUrl(data.band?.tidal_url ?? "");
-        setInstagramUrl(data.band?.instagram_url ?? "");
-        setFacebookUrl(data.band?.facebook_url ?? "");
-        setTiktokUrl(data.band?.tiktok_url ?? "");
-        setWebsiteUrl(data.band?.website_url ?? "");
-
         setMembers(data.members);
         setCollaborators(data.collaborators ?? []);
         setLoading(false);
@@ -247,72 +202,6 @@ function BandProfileContent() {
 
     loadBand();
   }, [router, slug]);
-
-  async function handleSave(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-
-    setActionError(null);
-    setSavingBand(true);
-
-    const response = await fetch(`/api/bands/${bandId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        band_name,
-        visibility,
-        slug: bandSlug,
-        bio,
-        image_url: imageUrl,
-        header_image_url: headerImageUrl,
-        country: bandCountry,
-        genre: bandGenre,
-        spotify_url: spotifyUrl,
-        bandcamp_url: bandcampUrl,
-        youtube_url: youtubeUrl,
-        tidal_url: tidalUrl,
-        instagram_url: instagramUrl,
-        facebook_url: facebookUrl,
-        tiktok_url: tiktokUrl,
-        website_url: websiteUrl,
-      }),
-    });
-
-    setSavingBand(false);
-
-    if (!response.ok) {
-      setActionError("Failed to save band");
-      return;
-    }
-
-    const data = await response.json();
-    setBand(data.band ?? "");
-
-    setBandName(data.band?.band_name ?? "");
-    setVisibility(data.band?.visibility ?? DEFAULT_BAND_VISIBILITY);
-    setBandSlug(data.band?.slug ?? "");
-    setBio(data.band?.bio ?? "");
-    setBandCountry(data.band?.country ?? "");
-    setBandGenre(data.band?.genre ?? "");
-    setImageUrl(data.band?.image_url ?? "");
-    setHeaderImageUrl(data.band?.header_image_url ?? "");
-    setSpotifyUrl(data.band?.spotify_url ?? "");
-    setBandcampUrl(data.band?.bandcamp_url ?? "");
-    setYoutubeUrl(data.band?.youtube_url ?? "");
-    setTidalUrl(data.band?.tidal_url ?? "");
-    setInstagramUrl(data.band?.instagram_url ?? "");
-    setFacebookUrl(data.band?.facebook_url ?? "");
-    setTiktokUrl(data.band?.tiktok_url ?? "");
-    setWebsiteUrl(data.band?.website_url ?? "");
-    setActionError(null);
-
-    setBandSaveSuccess(true);
-    setTimeout(() => {
-      setBandSaveSuccess(false);
-      setEditBandModalOpen(false);
-    }, 900);
-  }
 
   async function handleChangeRole(memberUserId: string, nextRole: string) {
     setActionError(null);
@@ -533,29 +422,56 @@ function BandProfileContent() {
           <section className="w-full overflow-hidden rounded-md bg-neutral-900/80 shadow-2xl">
             {/* Header image */}
             <div className="relative h-32 sm:h-48 md:h-72 lg:h-110 w-full overflow-hidden bg-gradient-to-r from-neutral-950 via-neutral-800 to-slate-900 shadow">
-              {band?.header_image_url ? (
-                <img
-                  src={band.header_image_url}
-                  alt="Header"
-                  className="h-full w-full object-cover opacity-80"
-                />
-              ) : null}
+              <EditableProfileImage
+                canEdit={role === "band_leader"}
+                owner="band"
+                ownerId={bandId ?? ""}
+                target="header"
+                label="header image"
+                onSaved={(url) =>
+                  setBand((current) =>
+                    current ? { ...current, header_image_url: url } : current,
+                  )
+                }
+              >
+                {band?.header_image_url ? (
+                  <img
+                    src={band.header_image_url}
+                    alt="Header"
+                    className="h-full w-full object-cover opacity-80"
+                  />
+                ) : null}
+              </EditableProfileImage>
             </div>
 
             {/* Profile info */}
             <div className="relative px-8 pb-8 pt-16">
               <div className="absolute -top-16 left-8 h-32 w-32 overflow-hidden rounded-full border-4 border-neutral-900 bg-slate-700 shadow-xl object-fill">
-                {band?.image_url ? (
-                  <img
-                    src={band.image_url}
-                    alt={band.band_name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-yellow-100">
-                    {band?.band_name?.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <EditableProfileImage
+                  canEdit={role === "band_leader"}
+                  owner="band"
+                  ownerId={bandId ?? ""}
+                  target="avatar"
+                  label="band picture"
+                  overlayClassName="rounded-full"
+                  onSaved={(url) =>
+                    setBand((current) =>
+                      current ? { ...current, image_url: url } : current,
+                    )
+                  }
+                >
+                  {band?.image_url ? (
+                    <img
+                      src={band.image_url}
+                      alt={band.band_name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-yellow-100">
+                      {band?.band_name?.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </EditableProfileImage>
               </div>
 
               <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -677,15 +593,15 @@ function BandProfileContent() {
 
               {role === "band_leader" && (
                 <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
-                  <button
-                    onClick={() => {
-                      setBandSaveSuccess(false);
-                      setEditBandModalOpen(true);
-                    }}
-                    className="rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800"
+                  {/* The bio, links and pictures are edited on this page
+                      now, so what is left behind this button is the band's
+                      identity -- name, address, visibility and deletion. */}
+                  <Link
+                    href={`/band/${slug}/settings`}
+                    className="rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-center text-sm font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800"
                   >
-                    Edit profile
-                  </button>
+                    Band settings
+                  </Link>
 
                   <button
                     onClick={() => setNewProjectModalOpen(true)}
@@ -799,52 +715,6 @@ function BandProfileContent() {
                 </Modal>
               )}
 
-              {editBandModalOpen && (
-                <EditBandProfileModal
-                  isOpen={editBandModalOpen}
-                  onClose={() => setEditBandModalOpen(false)}
-                  onSave={handleSave}
-                  error={actionError}
-                  saving={savingBand}
-                  success={bandSaveSuccess}
-                  bandName={band_name}
-                  setBandName={setBandName}
-                  visibility={visibility}
-                  setVisibility={setVisibility}
-                  slug={bandSlug}
-                  setSlug={setBandSlug}
-                  onRequestDelete={() => {
-                    setEditBandModalOpen(false);
-                    setDeleteBandModalOpen(true);
-                  }}
-                  bio={bio}
-                  setBio={setBio}
-                  country={bandCountry}
-                  setCountry={setBandCountry}
-                  genre={bandGenre}
-                  setGenre={setBandGenre}
-                  imageUrl={imageUrl}
-                  setImageUrl={setImageUrl}
-                  headerImageUrl={headerImageUrl}
-                  setHeaderImageUrl={setHeaderImageUrl}
-                  spotifyUrl={spotifyUrl}
-                  setSpotifyUrl={setSpotifyUrl}
-                  bandcampUrl={bandcampUrl}
-                  setBandcampUrl={setBandcampUrl}
-                  youtubeUrl={youtubeUrl}
-                  setYoutubeUrl={setYoutubeUrl}
-                  tidalUrl={tidalUrl}
-                  setTidalUrl={setTidalUrl}
-                  instagramUrl={instagramUrl}
-                  setInstagramUrl={setInstagramUrl}
-                  facebookUrl={facebookUrl}
-                  setFacebookUrl={setFacebookUrl}
-                  tiktokUrl={tiktokUrl}
-                  setTiktokUrl={setTiktokUrl}
-                  websiteUrl={websiteUrl}
-                  setWebsiteUrl={setWebsiteUrl}
-                />
-              )}
 
           </section>
           )}
@@ -866,8 +736,30 @@ function BandProfileContent() {
               {activeSection === "Singles" && (
                 <Singles projects={singleProjects} error={projectsError} />
               )}
-              {activeSection === "Bio" && <Bio band={band} />}
-              {activeSection === "Socials" && <SocialLinks band={band} />}
+              {activeSection === "Bio" && (
+                <Bio
+                  band={band}
+                  canEdit={role === "band_leader"}
+                  bandId={bandId}
+                  onSaved={(savedBio) =>
+                    setBand((current) =>
+                      current ? { ...current, bio: savedBio } : current,
+                    )
+                  }
+                />
+              )}
+              {activeSection === "Socials" && (
+                <SocialLinks
+                  band={band}
+                  canEdit={role === "band_leader"}
+                  bandId={bandId}
+                  onSaved={(links) =>
+                    setBand((current) =>
+                      current ? { ...current, ...links } : current,
+                    )
+                  }
+                />
+              )}
               {activeSection === "Tickets" && <Tickets />}
             </div>
           </section>
@@ -886,15 +778,6 @@ function BandProfileContent() {
         />
       )}
 
-      {deleteBandModalOpen && bandId && band && (
-        <DeleteBandModal
-          isOpen={deleteBandModalOpen}
-          onClose={() => setDeleteBandModalOpen(false)}
-          bandId={bandId}
-          bandName={band.band_name}
-          projectCount={projects.length}
-        />
-      )}
     </main>
   );
 }

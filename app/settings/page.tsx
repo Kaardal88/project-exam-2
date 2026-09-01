@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { NavBar } from "@/components/NavBar";
 import { DeleteAccountModal } from "@/components/settings/DeleteAccountModal";
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
+import { EditProfileForm } from "@/components/settings/EditProfileForm";
 import { Trash2 } from "lucide-react";
 import AmpLoader from "@/components/AmpLoader";
 
@@ -12,6 +13,8 @@ type User = {
   id: string;
   username: string;
   email: string;
+  country: string | null;
+  tags: string[] | null;
 };
 
 export default function SettingsPage() {
@@ -74,18 +77,23 @@ export default function SettingsPage() {
                 Account
               </h2>
 
+              {/* Just the email: it is the one thing here that cannot be
+                  changed, and the username moved into the editable Profile
+                  section below rather than being shown twice. */}
               <dl className="space-y-3 text-sm">
-                <div className="flex justify-between gap-4">
-                  <dt className="text-neutral-400">Username</dt>
-                  <dd className="text-yellow-100">{user.username}</dd>
-                </div>
-
                 <div className="flex justify-between gap-4">
                   <dt className="text-neutral-400">Email</dt>
                   <dd className="text-yellow-100">{user.email}</dd>
                 </div>
               </dl>
             </section>
+
+            <EditProfileForm
+              userId={user.id}
+              initialUsername={user.username}
+              initialCountry={user.country ?? ""}
+              initialTags={user.tags ?? []}
+            />
 
             <ChangePasswordForm />
 

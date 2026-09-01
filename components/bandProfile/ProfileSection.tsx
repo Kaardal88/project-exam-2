@@ -5,13 +5,23 @@ export function ProfileSection({
   children,
   className = "",
   defaultOpen = false,
+  action,
+  forceOpen = false,
 }: {
   title: string;
   children: React.ReactNode;
   className?: string;
   defaultOpen?: boolean;
+  /** Sits beside the collapse control -- an Edit button, for sections a leader owns. */
+  action?: React.ReactNode;
+  /**
+   * Holds the section open regardless of the toggle. An edit form is taller
+   * than the collapsed height and would be clipped mid-field otherwise.
+   */
+  forceOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [collapsedOpen, setCollapsedOpen] = useState(defaultOpen);
+  const open = forceOpen || collapsedOpen;
 
   return (
     <section
@@ -22,7 +32,8 @@ export function ProfileSection({
 
         <button
           type="button"
-          onClick={() => setOpen((prev) => !prev)}
+          disabled={forceOpen}
+          onClick={() => setCollapsedOpen((prev) => !prev)}
           className="rounded-full border border-dotted border-yellow-100 p-2 text-yellow-100 transition hover:border-yellow-200 hover:bg-yellow-200 hover:text-black"
           aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
         >
@@ -32,6 +43,8 @@ export function ProfileSection({
             }`}
           />
         </button>
+
+        {action}
       </div>
 
       <div

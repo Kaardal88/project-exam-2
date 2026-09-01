@@ -7,6 +7,7 @@ import { projectsRoutes } from "@/server/projects/projects.routes";
 import { songsRoutes } from "@/server/songs/songs.routes";
 import { stemsRoutes } from "@/server/songs/stems.routes";
 import { feedbackRoutes } from "@/server/feedback/feedback.routes";
+import { uploadsRoutes } from "@/server/uploads/uploads.routes";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,7 @@ app.route("/songs", songsRoutes);
 // so the two must never define the same route -- see stems.routes.ts.
 app.route("/songs", stemsRoutes);
 app.route("/feedback", feedbackRoutes);
+app.route("/uploads", uploadsRoutes);
 
 // Every method the Hono app answers has to be re-exported here, or Next.js
 // answers 405 before Hono ever sees the request. PATCH was missing, which

@@ -10,7 +10,7 @@ import { EventForm, EventFormEvent } from "@/components/calendar/EventForm";
 import { EventCard } from "@/components/calendar/EventCard";
 import { EventDetailsModal } from "@/components/calendar/EventDetailsModal";
 import type { EventOrigin } from "@/components/calendar/EventOriginLabel";
-import { EditUserProfileModal } from "@/components/userProfile/EditUserProfileModal";
+import { EditableProfileImage } from "@/components/EditableProfileImage";
 import { PersonStanding } from "lucide-react";
 import AmpLoader from "@/components/AmpLoader";
 import { userTagMap } from "@/lib/userTags";
@@ -89,18 +89,6 @@ export function UserProfileView({
 
   const [members, setMembers] = useState<BandMember[]>([]);
 
-  const [editOpen, setEditOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-
-  const openEditModal = () => {
-    setSaveSuccess(false);
-    setEditOpen(true);
-  };
-  const closeEditModal = () => setEditOpen(false);
-  const [imageUrl, setImageUrl] = useState("");
-  const [headerImageUrl, setHeaderImageUrl] = useState("");
-  const [username, setUsername] = useState("");
   const [events, setEvents] = useState<BandEvent[]>([]);
   const [privateEvents, setPrivateEvents] = useState<PrivateEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
@@ -108,8 +96,6 @@ export function UserProfileView({
   const [editingPrivateEvent, setEditingPrivateEvent] =
     useState<EventFormEvent | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<ProfileEvent | null>(null);
-  const [tags, setTags] = useState<string[]>([]);
-  const [country, setCountry] = useState("");
 
   useEffect(() => {
     async function loadUser() {
@@ -155,13 +141,8 @@ export function UserProfileView({
         window.history.replaceState(null, "", `/user/${data.user.handle}`);
       }
 
-      setUsername(data.user.username ?? "");
-      setImageUrl(data.user.image_url ?? "");
-      setHeaderImageUrl(data.user.header_image_url ?? "");
       setUser(data.user);
       setMembers(data.bandMembers ?? []);
-      setTags(data.user.tags ?? []);
-      setCountry(data.user.country ?? "");
       setLoading(false);
     }
 
@@ -295,55 +276,6 @@ export function UserProfileView({
     if (deleted) setSelectedEvent(null);
   }
 
-  async function handleSave(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-
-    if (!user?.id) {
-      setError("Missing user id");
-      return;
-    }
-
-    setSaving(true);
-
-    const response = await fetch(`/api/users/${user.id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        username,
-
-        image_url: imageUrl,
-        header_image_url: headerImageUrl,
-        tags: tags,
-        // "" clears it; the server turns that into null so the Connect
-        // country filter cannot match an empty string.
-        country: country,
-      }),
-    });
-
-    const data = await response.json();
-    setSaving(false);
-
-    if (!response.ok) {
-      setError(data.error || "Could not update profile");
-      return;
-    }
-
-    setUser(data.user);
-    setUsername(data.user.username ?? "");
-    setImageUrl(data.user.image_url ?? "");
-    setHeaderImageUrl(data.user.header_image_url ?? "");
-    setTags(data.user.tags ?? []);
-    setCountry(data.user.country ?? "");
-
-    setSaveSuccess(true);
-    setTimeout(() => {
-      setSaveSuccess(false);
-      closeEditModal();
-    }, 900);
-  }
-
   if (loading) {
     return (
       <main className="w-full h-screen flex items-center justify-center">
@@ -377,29 +309,56 @@ export function UserProfileView({
       <section className="mx-auto mt-10 flex flex-col w-full max-w-7xl rounded-md sm:48 md:w-3/4 overflow-hidden border border-neutral-700 bg-neutral-900/80 shadow-2xl">
         {/* Header image */}
         <div className="relative h-32 sm:h-48 md:h-72 lg:h-110 w-full overflow-hidden bg-gradient-to-r from-neutral-950 via-neutral-800 to-slate-900 shadow">
-          {user?.header_image_url ? (
-            <img
-              src={user.header_image_url}
-              alt="Header"
-              className="h-full w-full object-cover opacity-80"
-            />
-          ) : null}
+          <EditableProfileImage
+            canEdit={isOwnProfile}
+            owner="user"
+            ownerId={user?.id ?? ""}
+            target="header"
+            label="header image"
+            onSaved={(url) =>
+              setUser((current) =>
+                current ? { ...current, header_image_url: url } : current,
+              )
+            }
+          >
+            {user?.header_image_url ? (
+              <img
+                src={user.header_image_url}
+                alt="Header"
+                className="h-full w-full object-cover opacity-80"
+              />
+            ) : null}
+          </EditableProfileImage>
         </div>
 
         {/* Profile info */}
         <div className="relative px-8 pb-8 pt-16">
           <div className="absolute -top-16 left-8 h-32 w-32 overflow-hidden rounded-full border-4 border-neutral-900 bg-slate-700 shadow-xl object-fill">
-            {user?.image_url ? (
-              <img
-                src={user.image_url}
-                alt={user.username}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-yellow-100">
-                {user?.username?.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <EditableProfileImage
+              canEdit={isOwnProfile}
+              owner="user"
+              ownerId={user?.id ?? ""}
+              target="avatar"
+              label="profile picture"
+              overlayClassName="rounded-full"
+              onSaved={(url) =>
+                setUser((current) =>
+                  current ? { ...current, image_url: url } : current,
+                )
+              }
+            >
+              {user?.image_url ? (
+                <img
+                  src={user.image_url}
+                  alt={user.username}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-yellow-100">
+                  {user?.username?.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </EditableProfileImage>
           </div>
 
           <h1 className="text-2xl font-bold text-yellow-100">
@@ -442,15 +401,17 @@ export function UserProfileView({
         </div>
         <div className=" flex flex-row justify-end mb-2 mr-4 gap-2">
           {isOwnProfile && (
-            <button
-              onClick={openEditModal}
-              className="  rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
-            >
-              <p className="text-xs md:text-sm lg:text-base">Edit profile</p>
-            </button>
-          )}
-          {isOwnProfile && (
             <>
+              {/* The pictures are edited on the page itself, so what is left
+                  behind this button is the text -- which lives in Settings
+                  beside the password now. */}
+              <Link
+                href="/settings"
+                className="  rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
+              >
+                <p className="text-xs md:text-sm lg:text-base">Edit profile</p>
+              </Link>
+
               <button
                 className="  rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
                 onClick={() => router.push("/bands/new")}
@@ -459,24 +420,6 @@ export function UserProfileView({
                   Create artist{" "}
                 </p>
               </button>
-
-              <EditUserProfileModal
-                isOpen={editOpen}
-                onClose={closeEditModal}
-                onSave={handleSave}
-                saving={saving}
-                success={saveSuccess}
-                username={username}
-                setUsername={setUsername}
-                imageUrl={imageUrl}
-                setImageUrl={setImageUrl}
-                headerImageUrl={headerImageUrl}
-                setHeaderImageUrl={setHeaderImageUrl}
-                tags={tags}
-                setTags={setTags}
-                country={country}
-                setCountry={setCountry}
-              />
             </>
           )}
         </div>

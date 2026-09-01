@@ -53,6 +53,13 @@ Known gotchas:
   the server filter; filtering the response in JavaScript now searches one
   page. See `server/users/users.directory.ts` and
   `server/bands/bands.directory.ts`.
+- **There are two R2 buckets.** The private one (`R2_BUCKET_NAME`) holds audio,
+  stems and song files, read through signed URLs that expire. The public one
+  (`R2_STEMLOCK_PUBLIC_NAME`, served from `R2_STEMLOCK_PUBLIC_URL`) holds avatars and
+  header images, which render as bare `<img src>` in twenty-odd places and so
+  must be permanent and unsigned. Public access is a bucket-level setting in
+  R2, not a prefix. Profiles store the **finished URL**, not a key. The public
+  bucket needs its own CORS policy — it inherits nothing.
 - `db.transaction()` throws on the neon-http driver. Use `db.batch()`, which
   Neon runs as one transaction, and generate ids in code so every statement is
   known up front.
