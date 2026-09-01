@@ -62,7 +62,6 @@ export const ALLOWED_IMAGE_TYPES: Record<string, string> = {
 
 const UPLOAD_URL_TTL_SECONDS = 5 * 60;
 export const AUDIO_DOWNLOAD_TTL_SECONDS = 30 * 60;
-export const ARTWORK_DOWNLOAD_TTL_SECONDS = 15 * 60;
 export const FILE_DOWNLOAD_TTL_SECONDS = 15 * 60;
 
 export async function getUploadUrl(

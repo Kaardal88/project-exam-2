@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
 import AmpLoader from "@/components/AmpLoader";
+import { EditableProfileImage } from "@/components/EditableProfileImage";
 import { AddSongModal } from "@/components/projectDetails/AddSongModal";
 import { InviteCollaboratorModal } from "@/components/projectDetails/InviteCollaboratorModal";
 import { UserPlus } from "lucide-react";
@@ -142,17 +143,35 @@ export default function ProjectDetailsPage() {
         <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-center gap-4">
-              {project.cover_image_url ? (
-                <img
-                  src={project.cover_image_url}
-                  alt={project.title}
-                  className="h-20 w-20 rounded object-cover"
-                />
-              ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded bg-neutral-800 text-2xl font-bold text-yellow-100">
-                  {project.title.charAt(0).toUpperCase()}
-                </div>
-              )}
+              {/* The cover is set here and nowhere else. A project has no id
+                  until it exists, so the New project modal cannot offer this
+                  -- and this is the page you land on straight afterwards. */}
+              <div className="h-20 w-20 shrink-0 overflow-hidden rounded">
+                <EditableProfileImage
+                  canEdit={project.role === "band_leader"}
+                  owner="project"
+                  ownerId={project.id}
+                  target="cover"
+                  label={project.type === "album" ? "album art" : "cover art"}
+                  onSaved={(url) =>
+                    setProject((current) =>
+                      current ? { ...current, cover_image_url: url } : current,
+                    )
+                  }
+                >
+                  {project.cover_image_url ? (
+                    <img
+                      src={project.cover_image_url}
+                      alt={project.title}
+                      className="h-20 w-20 rounded object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-20 w-20 items-center justify-center rounded bg-neutral-800 text-2xl font-bold text-yellow-100">
+                      {project.title.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </EditableProfileImage>
+              </div>
 
               <div>
                 <span className="text-xs uppercase tracking-wide text-neutral-400">

@@ -1,18 +1,21 @@
 import { putWithProgress } from "@/lib/putWithProgress";
 
-export type ImageOwner = "user" | "band";
-export type ImageTarget = "avatar" | "header";
+export type ImageOwner = "user" | "band" | "project";
+export type ImageTarget = "avatar" | "header" | "cover";
 
 /**
  * How big the stored image is allowed to be, in pixels.
  *
  * An avatar renders at 128px at its largest -- next to a comment it is 32px --
- * so 512 covers a retina profile header and nothing beyond it. The header is a
- * full-bleed banner, hence the wider bound.
+ * so 512 covers a retina profile picture and nothing beyond it. The header is
+ * a full-bleed banner, hence the wider bound.
  */
 const MAX_DIMENSIONS: Record<ImageTarget, { width: number; height: number }> = {
   avatar: { width: 512, height: 512 },
   header: { width: 1600, height: 900 },
+  // Album art is square and is read at 80px almost everywhere, but it is the
+  // one picture a band may want to look at full size, so it keeps more.
+  cover: { width: 1000, height: 1000 },
 };
 
 const QUALITY = 0.85;

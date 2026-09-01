@@ -14,6 +14,8 @@ import {
 } from "@/server/projects/access";
 import { getMembership } from "@/server/bands/membership";
 import { ACCEPTED, PENDING } from "@/lib/inviteStatus";
+import { isStorableImageUrl, IMAGE_URL_MAX_LENGTH } from "@/lib/imageUrl";
+import { deleteReplacedImage } from "@/server/uploads/replacedImages";
 import {
   isCollaboratorRole,
   collaboratorRoleValues,
@@ -111,6 +113,20 @@ projectsRoutes.put("/:id", requireAuth, async (c) => {
     return c.json({ error: "Only band leaders can edit projects" }, 403);
   }
 
+  // Same rule the two profile routes apply -- see lib/imageUrl.ts.
+  if (
+    body.cover_image_url !== undefined &&
+    body.cover_image_url !== null &&
+    (typeof body.cover_image_url !== "string" ||
+      body.cover_image_url.length > IMAGE_URL_MAX_LENGTH ||
+      !isStorableImageUrl(body.cover_image_url))
+  ) {
+    return c.json(
+      { error: "cover_image_url must start with http:// or https://" },
+      400,
+    );
+  }
+
   const [updatedProject] = await db
     .update(projects)
     .set({
@@ -120,6 +136,9 @@ projectsRoutes.put("/:id", requireAuth, async (c) => {
     })
     .where(eq(projects.id, projectId))
     .returning();
+
+  // After the write, so a failed save never takes the old cover with it.
+  await deleteReplacedImage(project.cover_image_url, body.cover_image_url);
 
   return c.json(updatedProject, 200);
 });

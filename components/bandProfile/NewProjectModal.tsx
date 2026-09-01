@@ -99,6 +99,15 @@ export function NewProjectModal({
                 ? "You'll be able to add songs one by one afterwards."
                 : "A single song will be created for you automatically."}
             </p>
+
+            {/* The cover cannot be uploaded here -- the project has no id to
+                authorise the upload against until it exists -- and the page
+                this modal sends you to next is where it is set. Saying so
+                beats leaving someone to find it. */}
+            <p className="mt-1 text-xs text-neutral-500">
+              You&apos;ll add the {type === "album" ? "album art" : "cover art"}{" "}
+              on the next page.
+            </p>
           </div>
 
           <div>

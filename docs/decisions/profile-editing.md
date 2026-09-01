@@ -1,6 +1,7 @@
-# Profile editing: pictures from the device, and one rule for where a field lives
+# Pictures: from the device, and one rule for where a field lives
 
-**Decided and built 2026-08-31.** Kept in step with the code.
+**Decided and built 2026-08-31, extended 2026-09-01 with album art.** Kept in
+step with the code.
 
 "Edit profile" was one button on each profile that opened one modal. The band's
 held sixteen fields in a single scrolling column — name, address, visibility,
@@ -91,10 +92,11 @@ check — it only looks like one. What the rule actually buys is ruling out
 > **What is visible on the page is edited on the page. What identifies the
 > account, or steers a directory, is edited in Settings.**
 
-| | edited on the profile | edited in Settings |
+| | edited where it is shown | edited in Settings |
 |---|---|---|
 | **User** | avatar, header | username, country, instruments/tags |
 | **Band** | avatar, header, bio, social links | name, profile URL, visibility, country, genre, deletion |
+| **Project** | cover art | — |
 
 Bands got their own page for it — `/band/[slug]/settings`, leader-only,
 mirroring `/settings`. A member who follows the link is told why it is not for
@@ -121,17 +123,54 @@ text inputs in the modal. Adding inline editing on top of that would have meant
 sixteen places to keep in agreement, so they read from `lib/socialPlatforms.ts`
 now — display and form both. A ninth platform is one line.
 
+## 3. Artwork belongs to the release, not the track
+
+Added 2026-09-01. `projects.cover_image_url` already existed and was already
+rendered in five places — the Albums and Singles cards, the project page, the
+song page and CollabProjects — and there was no way in the app to set it. The
+create route accepted it; nothing ever sent it.
+
+It is set on the project page now, by a band leader, through the same
+`EditableProfileImage` the profiles use. Not in the New project modal: a
+project has no id until it exists, and the presign route authorises against
+one. The modal says where the cover goes instead, since the page it sends you
+to next is that page.
+
+**Songs no longer have their own artwork.** The song page had an upload of its
+own, into the *private* bucket, read back through a signed URL that expired,
+falling back to the project cover when absent. That inverted the real
+relationship: every track on an album shows the album's sleeve, and a single's
+sleeve is the single's. So the per-song upload is gone, the song page reads the
+project cover and links to where it is changed, and `PUT /api/songs/:id` no
+longer accepts `artwork_url` — accepting a write to a column nothing displays
+is worse than refusing it.
+
+The `songs.artwork_url` column stays, with whatever was uploaded into it. The
+change that stops reading a column is not the change that should drop it.
+
+Covers keep more pixels than avatars (1000px square against 512): album art is
+the one picture a band might want to look at properly rather than as a 40px
+tile.
+
 ## What is deliberately not here
 
-- **Deleting the old object when a picture is replaced.** The stored value may
-  be a hand-pasted URL, so the delete would need to parse the URL back to a key
-  and confirm it is ours first. Orphaned objects in a public bucket cost nothing
-  at this size. Worth doing when the legacy URLs are gone.
-- **A crop or reposition step.** `object-cover` centres the image. A header
-  someone actually cares about will want a focal point eventually.
+- **A crop or reposition step.** `object-cover` centres the image. A focal
+  point would need a new column on `users`, `bands` and `projects` — so a
+  hand-written migration — plus drag-to-position UI. Deferred deliberately on
+  2026-09-01 rather than built right before a test round.
 - **`next/image`.** Everything is still a bare `<img>`. Switching would need the
   R2 host in `images.remotePatterns` — and is the reason to prefer a custom
   domain over the r2.dev address later.
 - **Uploading a picture while creating a band.** `/bands/new` has no band id
-  yet, and the presign route authorises against one. The band gets its picture
-  on its profile, a moment later.
+  yet, same constraint as a project. Creating a band already lands you on its
+  profile, where the upload is, so this needs nothing further.
+
+## What arrived later
+
+- **Deleting the replaced object** (2026-09-01) is now done, in
+  `server/uploads/replacedImages.ts`. It runs *after* the write, so a failed
+  save cannot take the old picture with it, and it only deletes a URL that
+  resolves to a key in our own public bucket — a hand-pasted URL is left alone.
+  Failure is logged and swallowed: an orphaned object costs a fraction of a
+  cent, and a 500 on a save that already succeeded costs someone their work.
+  Every upload has its own uuid key, so no two rows share an object.
