@@ -1,5 +1,16 @@
 import { Fragment } from "react";
 import Link from "next/link";
+import {
+  BookOpen,
+  Disc3,
+  Home,
+  LayoutGrid,
+  Music,
+  Share2,
+  Ticket,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 
 type Section =
   | "Home"
@@ -7,7 +18,26 @@ type Section =
   | "Bio"
   | "Socials"
   | "Singles"
+  | "Members"
   | "Tickets";
+
+/**
+ * One icon per entry, so the column can be scanned rather than read.
+ *
+ * Albums and Singles are the pair that has to stay apart at a glance: a record
+ * for the one, a note for the other, rather than two discs differing by a
+ * ring.
+ */
+const SECTION_ICONS: Record<Section | "Board", LucideIcon> = {
+  Home: Home,
+  Board: LayoutGrid,
+  Albums: Disc3,
+  Singles: Music,
+  Bio: BookOpen,
+  Socials: Share2,
+  Members: Users,
+  Tickets: Ticket,
+};
 
 type BandSectionNavProps = {
   activeSection: Section;
@@ -37,6 +67,9 @@ export function BandProfileNav({
     "Singles",
     "Bio",
     "Socials",
+    // The line-up used to be a card in the profile header with the real list
+    // hidden behind a modal. It is a destination like the rest now.
+    "Members",
     "Tickets",
   ];
 
@@ -44,11 +77,13 @@ export function BandProfileNav({
   // switching a section, but a nav item that announces that with its own
   // colours just reads as the odd one out.
   const itemClass = (active: boolean) =>
-    `shrink-0 whitespace-nowrap rounded-md border border-neutral-700 px-4 py-2 text-center text-sm transition md:text-base ${
+    `flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-md border border-neutral-700 px-4 py-2 text-sm transition md:text-base ${
       active
         ? "bg-yellow-100 text-black"
         : "bg-neutral-900 text-neutral-300 hover:bg-neutral-800"
     }`;
+
+  const BoardIcon = SECTION_ICONS.Board;
 
   return (
     <nav
@@ -58,22 +93,28 @@ export function BandProfileNav({
     md:flex-col md:overflow-visible md:pb-0
   "
     >
-      {sections.map((section) => (
-        <Fragment key={section}>
-          <button
-            onClick={() => setActiveSection(section)}
-            className={itemClass(activeSection === section)}
-          >
-            {section}
-          </button>
+      {sections.map((section) => {
+        const Icon = SECTION_ICONS[section];
 
-          {section === "Home" && (
-            <Link href={boardHref} className={itemClass(false)}>
-              Board
-            </Link>
-          )}
-        </Fragment>
-      ))}
+        return (
+          <Fragment key={section}>
+            <button
+              onClick={() => setActiveSection(section)}
+              className={`${itemClass(activeSection === section)} hover:cursor-pointer`}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              {section}
+            </button>
+
+            {section === "Home" && (
+              <Link href={boardHref} className={itemClass(false)}>
+                <BoardIcon className="h-4 w-4 shrink-0" />
+                Board
+              </Link>
+            )}
+          </Fragment>
+        );
+      })}
     </nav>
   );
 }
