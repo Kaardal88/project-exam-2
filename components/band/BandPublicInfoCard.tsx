@@ -13,6 +13,7 @@ import {
 import { ExternalLink } from "lucide-react";
 import countries from "world-countries";
 import ReactCountryFlag from "react-country-flag";
+import { RichTextContent } from "@/components/RichTextContent";
 
 export type PublicBand = {
   id: string;
@@ -199,9 +200,14 @@ export function BandPublicInfoCard({
         </div>
 
         <InfoCard title="Bio" className="mx-auto mt-10 max-w-2xl">
-          <p className="text-sm leading-relaxed text-yellow-50/85">
-            {band.bio || "No bio yet."}
-          </p>
+          {/* The one place a stranger reads what a band wrote about itself.
+              Rendered from the stored document rather than as HTML -- see
+              components/RichTextContent.tsx. */}
+          <RichTextContent
+            value={band.bio}
+            emptyText="No bio yet."
+            className="text-sm leading-relaxed text-yellow-50/85"
+          />
         </InfoCard>
 
         <section className="mt-10 pb-8 text-center">
