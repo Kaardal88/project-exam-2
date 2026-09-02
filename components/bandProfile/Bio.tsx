@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Pencil } from "lucide-react";
 import { ProfileSection } from "@/components/bandProfile/ProfileSection";
+import { RichTextEditor } from "@/components/songDashboard/RichTextEditor";
+import { RichTextContent } from "@/components/RichTextContent";
 
 type Band = {
   bio?: string | null;
@@ -82,14 +84,20 @@ export function Bio({ band, canEdit = false, bandId, onSaved }: BioProps) {
     >
       {editing ? (
         <div className="space-y-3">
-          <textarea
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            rows={8}
-            autoFocus
-            placeholder="Who is the band, and what should someone landing here know first?"
-            className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+          {/* A bio is the longest thing anyone writes here and the only one a
+              stranger reads, so it gets headings and lists rather than a
+              single block of text. Stored as the editor's JSON document --
+              see RichTextContent for why not HTML. */}
+          <RichTextEditor
+            initialValue={band?.bio ?? ""}
+            onChange={setDraft}
+            format="json"
           />
+
+          <p className="text-xs text-neutral-500">
+            Bold, italic, a heading and a bullet list. This is what visitors see
+            on the band&apos;s public page.
+          </p>
 
           {error && <p className="text-sm text-red-300">{error}</p>}
 
@@ -113,9 +121,11 @@ export function Bio({ band, canEdit = false, bandId, onSaved }: BioProps) {
           </div>
         </div>
       ) : (
-        <p className="whitespace-pre-wrap text-sm text-neutral-300">
-          {band?.bio || "No bio yet."}
-        </p>
+        <RichTextContent
+          value={band?.bio}
+          emptyText="No bio yet."
+          className="text-sm leading-relaxed text-neutral-300"
+        />
       )}
     </ProfileSection>
   );

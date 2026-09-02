@@ -122,12 +122,31 @@ bandsRoutes.get("/public", async (c) => {
   return c.json(result, 200);
 });
 
+/**
+ * How long a bio may be, in characters of stored value.
+ *
+ * The column is `text` with no bound, and the bio is downloaded by every
+ * visitor to a public band page -- including signed-out ones, who did not ask
+ * for it. Since 2026-09-02 the value is a rich-text document rather than a
+ * paragraph, so it carries structure as well as words and a cap is worth
+ * stating: this is several thousand words of prose once the JSON is taken off.
+ */
+const BIO_MAX_LENGTH = 20000;
+
+function bioTooLong(value: unknown) {
+  return typeof value === "string" && value.length > BIO_MAX_LENGTH;
+}
+
 bandsRoutes.post("/", requireAuth, async (c) => {
   const userId = c.get("userId");
   const body = await c.req.json();
 
   if (typeof body.bandname !== "string" || body.bandname.trim() === "") {
     return c.json({ error: "bandname is required" }, 400);
+  }
+
+  if (bioTooLong(body.bio)) {
+    return c.json({ error: "That bio is too long" }, 400);
   }
 
   const band = await createBand({
@@ -456,6 +475,10 @@ bandsRoutes.put("/:id", requireAuth, async (c) => {
   // band lands in a value no filter chip can ever select for.
   if (body.genre !== undefined && body.genre !== "" && !isGenre(body.genre)) {
     return c.json({ error: `Unknown genre: ${body.genre}` }, 400);
+  }
+
+  if (bioTooLong(body.bio)) {
+    return c.json({ error: "That bio is too long" }, 400);
   }
 
   // Same rule the user profile applies through zod -- see lib/imageUrl.ts.
