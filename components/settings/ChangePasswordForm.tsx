@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { errorMessage } from "@/lib/errorMessage";
 
 const MIN_LENGTH = 8;
 
@@ -50,7 +51,12 @@ export function ChangePasswordForm() {
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      setError(data.error || "Could not change your password");
+      setError(
+        errorMessage(data, "Could not change your password", {
+          what: "Could not change password",
+          status: response.status,
+        }),
+      );
       return;
     }
 

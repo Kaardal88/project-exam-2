@@ -8,6 +8,7 @@ import { TagCombobox } from "@/components/userProfile/userMusInstTitle";
 import { SuccessMessage } from "@/components/SuccessMessage";
 import { registerSchema } from "@/server/auth/auth.schemas";
 import { appName } from "@/components/Stemlock";
+import { errorMessage } from "@/lib/errorMessage";
 
 // Same cca2 list and same sort as /bands/new, so the two registration forms
 // offer the same names in the same order.
@@ -51,7 +52,10 @@ export default function RegisterPage() {
 
     if (!response.ok) {
       setError(
-        typeof data.error === "string" ? data.error : "Registration failed",
+        errorMessage(data, "Registration failed", {
+          what: "Registration failed",
+          status: response.status,
+        }),
       );
       return;
     }

@@ -380,7 +380,7 @@ export function UserProfileView({
           <p className="mt-2 text-sm text-neutral-400">@{user?.username}</p>
 
           {user?.country && (
-            <div className="mt-2 flex items-center justify-center gap-1.5 text-sm text-neutral-300">
+            <div className="mt-2 flex items-center gap-1.5 text-sm text-neutral-300">
               <ReactCountryFlag countryCode={user.country} svg />
               <span>
                 {countryOptions.find((option) => option.value === user.country)

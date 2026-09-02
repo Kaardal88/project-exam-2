@@ -41,7 +41,12 @@ export function TagCombobox({
       <p className="text-sm font-medium leading-none">What do you do?</p>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
+          {/* type="button" is not optional here. The shadcn Button sets no
+              type, so inside a <form> it defaults to submit -- and this one
+              lives inside the profile form in Settings, where opening the
+              role picker was quietly submitting the form. */}
           <Button
+            type="button"
             role="combobox"
             className="w-full px-3 py-6 justify-between border border-neutral-700 text-yellow-100"
           >

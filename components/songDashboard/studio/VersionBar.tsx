@@ -217,10 +217,14 @@ export function VersionBar({
             aria-expanded={open}
             className="flex items-center gap-2 rounded-md border border-neutral-700 px-2.5 py-1.5 text-sm transition hover:cursor-pointer hover:border-yellow-200"
           >
-            <span className="font-mono text-xs text-neutral-500">
+            {/* The number is the version; the label describes it. That was
+                the wrong way round -- "added bass" was the loud half, which
+                reads as though the change is the thing you are pointing at
+                rather than the take it produced. */}
+            <span className="font-mono text-base font-bold text-yellow-100">
               v{selected?.version_number ?? "?"}
             </span>
-            <span className="max-w-[16rem] truncate font-semibold text-yellow-100">
+            <span className="max-w-[16rem] truncate text-xs text-neutral-400">
               {selected?.label ?? "Pick a version"}
             </span>
             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
@@ -276,10 +280,10 @@ export function VersionBar({
 
                         <span className="min-w-0 flex-1">
                           <span className="flex flex-wrap items-center gap-x-2">
-                            <span className="font-mono text-[11px] text-neutral-500">
+                            <span className="font-mono text-sm font-bold text-yellow-100">
                               v{version.version_number}
                             </span>
-                            <span className="truncate text-xs font-semibold text-yellow-100">
+                            <span className="truncate text-xs text-neutral-400">
                               {version.label}
                             </span>
                             {version.is_current && (
