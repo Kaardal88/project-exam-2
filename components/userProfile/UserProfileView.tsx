@@ -149,8 +149,21 @@ export function UserProfileView({
     loadUser();
   }, [router, profileUserId]);
 
+  /*
+   * Your own band events, and only ever on your own profile.
+   *
+   * The endpoint is /me: it is scoped to whoever is calling and cannot return
+   * anyone else's events, so nothing here ever leaked. What it did was worse
+   * to look at than that -- without this guard, opening a stranger's profile
+   * fetched *your* calendar and drew it under *their* name, with band names
+   * resolved against their memberships instead of yours, so your own gigs came
+   * out labelled "Unknown band" on someone else's page.
+   *
+   * fetchPrivateEvents below has had this guard all along. This one was
+   * missing it, which is the whole of the bug.
+   */
   const fetchUserEvents = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id || !isOwnProfile) return;
 
     const response = await fetch(`/api/users/me/events`);
 
@@ -167,7 +180,7 @@ export function UserProfileView({
     }
 
     setEvents(Array.isArray(data) ? data : (data.events ?? []));
-  }, [user?.id, router]);
+  }, [user?.id, isOwnProfile, router]);
 
   const fetchPrivateEvents = useCallback(async () => {
     if (!user?.id || !isOwnProfile) return;
@@ -509,73 +522,87 @@ export function UserProfileView({
               )}
             </div>
           </section>
-          {/* Upcoming events */}
-          <section className="mx-auto mt-2 mb-8 w-full max-w-7xl overflow-hidden rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl">
-            <h2 className="mb-4 text-center text-yellow-100">
-              {selectedDate ? "Events on selected date" : "Upcoming events"}
-            </h2>
-            <div className="mb-4 flex flex-col  gap-4 divide-y divide-yellow-100">
-              {upComingEvents.length === 0 ? (
-                <p className="text-center text-sm text-neutral-400">
-                  No events
-                </p>
-              ) : (
-                upComingEvents.map((event) => {
-                  const isBandEvent = event.source === "band";
+          {/* Your calendar, on your profile only.
 
-                  return (
-                    <EventCard
-                      key={`${event.source}-${event.id}`}
-                      event={event}
-                      origin={originForEvent(event)}
-                      canManage={isOwnProfile && !isBandEvent}
-                      onOpen={() => setSelectedEvent(event)}
-                      onEdit={() => openEditPrivateEvent(event as PrivateEvent)}
-                      onDelete={() => void handleDeletePrivateEvent(event.id)}
-                    />
-                  );
-                })
-              )}
-            </div>
-          </section>
+              A visitor has no business seeing a band's schedule -- and until
+              now they saw their own drawn under someone else's name, which
+              read as a leak even though the data never left its owner. The
+              fetch above is guarded too; this is the half that means a
+              stranger's profile has no calendar on it at all, rather than an
+              empty one. */}
+          {isOwnProfile && (
+            <>
+            {/* Upcoming events */}
+            <section className="mx-auto mt-2 mb-8 w-full max-w-7xl overflow-hidden rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl">
+              <h2 className="mb-4 text-center text-yellow-100">
+                {selectedDate ? "Events on selected date" : "Upcoming events"}
+              </h2>
+              <div className="mb-4 flex flex-col  gap-4 divide-y divide-yellow-100">
+                {upComingEvents.length === 0 ? (
+                  <p className="text-center text-sm text-neutral-400">
+                    No events
+                  </p>
+                ) : (
+                  upComingEvents.map((event) => {
+                    const isBandEvent = event.source === "band";
 
-          {/* Calendar */}
-          <section className="mx-auto mt-2 mb-8 w-full max-w-7xl overflow-hidden rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl lg:col-span-2">
-            <h2 className="mb-4 text-center text-yellow-100">Calendar</h2>
-            <div className="flex flex-col gap-6">
-              <div className="flex justify-center">
-                <BandCalendar
-                  events={allEvents}
-                  selectedDate={selectedDate}
-                  onSelect={(date) => setSelectedDate(date)}
-                  showLegend
-                />
+                    return (
+                      <EventCard
+                        key={`${event.source}-${event.id}`}
+                        event={event}
+                        origin={originForEvent(event)}
+                        canManage={isOwnProfile && !isBandEvent}
+                        onOpen={() => setSelectedEvent(event)}
+                        onEdit={() => openEditPrivateEvent(event as PrivateEvent)}
+                        onDelete={() => void handleDeletePrivateEvent(event.id)}
+                      />
+                    );
+                  })
+                )}
               </div>
+            </section>
 
-              {selectedDate && (
-                <button
-                  onClick={() => setSelectedDate(undefined)}
-                  className="mx-auto text-xs text-neutral-400 underline hover:cursor-pointer hover:text-yellow-100"
-                >
-                  Clear selected date
-                </button>
-              )}
+            {/* Calendar */}
+            <section className="mx-auto mt-2 mb-8 w-full max-w-7xl overflow-hidden rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl lg:col-span-2">
+              <h2 className="mb-4 text-center text-yellow-100">Calendar</h2>
+              <div className="flex flex-col gap-6">
+                <div className="flex justify-center">
+                  <BandCalendar
+                    events={allEvents}
+                    selectedDate={selectedDate}
+                    onSelect={(date) => setSelectedDate(date)}
+                    showLegend
+                  />
+                </div>
 
-              {isOwnProfile && (
-                <button
-                  onClick={openCreatePrivateEvent}
-                  className="mt-2 flex w-full justify-center rounded bg-yellow-200 px-4 py-2 text-black hover:cursor-pointer hover:bg-yellow-300"
-                >
-                  <span className="mr-2 text-2xl">+</span>
-                  Add private event
-                </button>
-              )}
-            </div>
-          </section>
+                {selectedDate && (
+                  <button
+                    onClick={() => setSelectedDate(undefined)}
+                    className="mx-auto text-xs text-neutral-400 underline hover:cursor-pointer hover:text-yellow-100"
+                  >
+                    Clear selected date
+                  </button>
+                )}
+
+                {isOwnProfile && (
+                  <button
+                    onClick={openCreatePrivateEvent}
+                    className="mt-2 flex w-full justify-center rounded bg-yellow-200 px-4 py-2 text-black hover:cursor-pointer hover:bg-yellow-300"
+                  >
+                    <span className="mr-2 text-2xl">+</span>
+                    Add private event
+                  </button>
+                )}
+              </div>
+            </section>
+            </>
+          )}
         </div>
       </section>
 
-      {selectedEvent && (
+      {/* Reachable only from the cards above, which a visitor no longer sees --
+          but gated on the same condition rather than relying on that. */}
+      {isOwnProfile && selectedEvent && (
         <EventDetailsModal
           event={selectedEvent}
           origin={originForEvent(selectedEvent)}
