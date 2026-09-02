@@ -46,8 +46,11 @@ export function RichTextEditor({ initialValue, onChange }: RichTextEditorProps) 
     immediatelyRender: false,
     editorProps: {
       attributes: {
+        // stemlock-richtext, not `prose`: the typography plugin is not
+        // installed, so those class names styled nothing and headings and
+        // bullets came out looking like ordinary text. See app/globals.css.
         class:
-          "min-h-[160px] rounded-md border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200 prose prose-invert prose-sm max-w-none",
+          "stemlock-richtext min-h-[160px] rounded-md border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-yellow-100 outline-none transition focus:border-yellow-200",
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),

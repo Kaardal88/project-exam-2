@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/Modal";
 import { Trash2 } from "lucide-react";
+import { errorMessage } from "@/lib/errorMessage";
 import AmpLoader from "@/components/AmpLoader";
 
 type BandOutcome = {
@@ -118,7 +119,12 @@ export function DeleteAccountModal({
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      setError(data.error || "Could not delete account");
+      setError(
+        errorMessage(data, "Could not delete account", {
+          what: "Could not delete account",
+          status: response.status,
+        }),
+      );
       setDeleting(false);
       return;
     }

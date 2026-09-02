@@ -3,6 +3,7 @@
 import { useState } from "react";
 import countries from "world-countries";
 import { TagCombobox } from "@/components/userProfile/userMusInstTitle";
+import { errorMessage } from "@/lib/errorMessage";
 
 const countryOptions = countries
   .map((country) => ({ value: country.cca2, label: country.name.common }))
@@ -59,7 +60,13 @@ export function EditProfileForm({
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      setError(data.error || "Could not save your profile");
+
+      setError(
+        errorMessage(data, "Could not save your profile", {
+          what: "Could not save profile",
+          status: response.status,
+        }),
+      );
       return;
     }
 

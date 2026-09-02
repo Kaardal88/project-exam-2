@@ -456,3 +456,61 @@ input {
     @apply font-sans;
   }
 }
+
+/*
+ * The note and lyrics editor.
+ *
+ * Tiptap emits real <h2>, <ul> and <li>, and Tailwind's preflight strips them
+ * back to plain text -- headings lose their size, lists lose their bullets.
+ * The editor carried `prose prose-invert`, which does nothing here: the
+ * typography plugin is not installed, so those were three class names styling
+ * nothing. The toolbar buttons worked all along; there was simply no
+ * difference to see.
+ *
+ * Written out rather than adding the plugin: this is one editor with four
+ * marks, and a megabyte of typography defaults would need overriding back down
+ * to the dark palette anyway.
+ */
+.stemlock-richtext h2 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #fef9c3;
+}
+
+.stemlock-richtext h2:first-child {
+  margin-top: 0;
+}
+
+.stemlock-richtext p {
+  margin: 0 0 0.5rem;
+}
+
+.stemlock-richtext p:last-child {
+  margin-bottom: 0;
+}
+
+.stemlock-richtext ul {
+  margin: 0 0 0.5rem;
+  padding-left: 1.5rem;
+  list-style: disc outside;
+}
+
+.stemlock-richtext ol {
+  margin: 0 0 0.5rem;
+  padding-left: 1.5rem;
+  list-style: decimal outside;
+}
+
+.stemlock-richtext li {
+  margin: 0.125rem 0;
+}
+
+.stemlock-richtext strong {
+  font-weight: 700;
+}
+
+.stemlock-richtext em {
+  font-style: italic;
+}

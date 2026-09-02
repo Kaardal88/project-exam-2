@@ -108,12 +108,21 @@ export function EditableProfileImage({
     <div className="group relative h-full w-full">
       {children}
 
+      {/*
+       * Two affordances for the same action, because hover is not a thing a
+       * phone has.
+       *
+       * Below md the overlay would have to be permanently on to be
+       * discoverable, which means permanently dimming the picture it is
+       * offering to change. So the overlay is desktop-only, and touch gets a
+       * badge in the corner instead: always visible, never over the image.
+       */}
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={busy}
         aria-label={`Change ${label}`}
-        className={`absolute inset-0 flex items-center justify-center bg-black/60 text-yellow-100 opacity-0 transition hover:cursor-pointer group-hover:opacity-100 focus-visible:opacity-100 disabled:cursor-wait ${
+        className={`absolute inset-0 hidden items-center justify-center bg-black/60 text-yellow-100 opacity-0 transition hover:cursor-pointer group-hover:opacity-100 focus-visible:opacity-100 disabled:cursor-wait md:flex ${
           busy ? "opacity-100" : ""
         } ${overlayClassName}`}
       >
@@ -121,6 +130,26 @@ export function EditableProfileImage({
           <Loader2 className="h-6 w-6 animate-spin" />
         ) : (
           <Camera className="h-6 w-6" />
+        )}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        aria-label={`Change ${label}`}
+        className={`absolute flex h-7 w-7 items-center justify-center rounded-full border border-neutral-600 bg-neutral-950/90 text-yellow-100 shadow-md transition hover:cursor-pointer disabled:cursor-wait md:hidden ${
+          // The avatar's container is a clipped circle, so a badge in the
+          // corner would be masked away. Bottom-centre is inside the circle.
+          target === "avatar"
+            ? "bottom-1 left-1/2 -translate-x-1/2"
+            : "bottom-2 right-2"
+        }`}
+      >
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Camera className="h-4 w-4" />
         )}
       </button>
 

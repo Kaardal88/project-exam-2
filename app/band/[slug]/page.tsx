@@ -3,19 +3,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ExternalLink, Home, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import AmpLoader from "@/components/AmpLoader";
 import { NavBar } from "@/components/NavBar";
-import { BandCalendar } from "@/components/calendar/BandCalendar";
-
-import "@daypicker/react/style.css";
-import { EventForm } from "@/components/calendar/EventForm";
-
 import { EditableProfileImage } from "@/components/EditableProfileImage";
 import { NewProjectModal } from "@/components/bandProfile/NewProjectModal";
 import { type Collaborator } from "@/components/collaborators/CollaboratorList";
-import { EventCard } from "@/components/calendar/EventCard";
-import { Settings, UserX, LucidePanelBottomOpen } from "lucide-react";
+import { Settings } from "lucide-react";
 import { Suspense } from "react";
 import { BandProfileNav } from "@/components/bandProfile/BandProfileNav";
 import { BackButton } from "@/components/BackButton";
@@ -24,7 +18,6 @@ import { type BandVisibility } from "@/lib/bandVisibility";
 import countries from "world-countries";
 import ReactCountryFlag from "react-country-flag";
 import { SocialLinks } from "@/components/bandProfile/SocialLinks";
-import { ProfileSection } from "@/components/bandProfile/ProfileSection";
 import { Albums } from "@/components/bandProfile/Albums";
 import { Singles } from "@/components/bandProfile/Singles";
 import { HomeNav } from "@/components/bandProfile/Home";
@@ -120,9 +113,7 @@ function BandProfileContent() {
   const [role, setRole] = useState<string | null>(null);
   const [members, setMembers] = useState<BandMember[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [showEventForm, setShowEventForm] = useState(false);
   const [events, setEvents] = useState<BandEvent[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [projects, setProjects] = useState<Project[]>([]);
   const [newProjectModalOpen, setNewProjectModalOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<
@@ -141,12 +132,6 @@ function BandProfileContent() {
 
   const countryInfo = countryOptions.find(
     (option) => option.value === band?.country,
-  );
-
-  // the avatar strip is the band line-up, so people who have been asked but
-  // have not answered do not belong in it
-  const acceptedMembers = members.filter(
-    (member) => member.status === "accepted",
   );
 
   useEffect(() => {
@@ -190,6 +175,10 @@ function BandProfileContent() {
         setCollaborators(data.collaborators ?? []);
         setLoading(false);
       } catch (error) {
+        // Logged as well as shown. The message on screen is for the visitor;
+        // without this line the actual cause reaches nobody, which is exactly
+        // how a bucket permission error spent an hour looking like CORS.
+        console.error("Failed to load band:", error);
         setError("Failed to load band");
         setLoading(false);
       }
@@ -249,6 +238,7 @@ function BandProfileContent() {
 
       window.location.reload(); // Reload the page to show the new member in the list
     } catch (error) {
+      console.error("Failed to remove member:", error);
       setActionError("Failed to remove member");
     }
   }
@@ -275,29 +265,19 @@ function BandProfileContent() {
     }
   }, [bandId, authenticated]);
 
-  function startOfDay(date: Date) {
-    const copy = new Date(date);
-    copy.setHours(0, 0, 0, 0);
-    return copy;
-  }
-
-  const selectedEvents = selectedDate
-    ? events.filter((event) => {
-        const selected = startOfDay(selectedDate);
-
-        const start = startOfDay(new Date(event.start_date));
-        const end = startOfDay(new Date(event.end_date ?? event.start_date));
-
-        return selected >= start && selected <= end;
-      })
-    : [];
-
-  const upComingEvents = selectedDate
-    ? selectedEvents
-    : events.filter((event) => {
-        const eventDate = new Date(event.start_date);
-        return eventDate >= new Date();
-      });
+  /*
+   * What the Home panel lists, and it is always what is coming.
+   *
+   * There used to be a branch here for "the day you clicked", reached through
+   * a `selectedDate` this page kept -- but the calendar moved into Home.tsx
+   * and took the date with it, so nothing could set that state and the branch
+   * never ran. Home owns the selection now; it drives which day the calendar
+   * highlights, while the list beside it keeps its heading's promise and shows
+   * upcoming events.
+   */
+  const upComingEvents = events.filter(
+    (event) => new Date(event.start_date) >= new Date(),
+  );
 
   useEffect(() => {
     async function loadEvents() {
@@ -323,6 +303,7 @@ function BandProfileContent() {
       const data = await response.json();
       setProjects(Array.isArray(data) ? data : []);
     } catch (error) {
+      console.error("Failed to fetch projects:", error);
       setProjectsError("Failed to fetch projects");
     }
   }, [bandId, authenticated]);
