@@ -358,7 +358,11 @@ bandsRoutes.put("/:id/members/:userId/role", requireAuth, async (c) => {
     );
   }
 
-  const target = await getMembership(bandId, targetUserId);
+  // getMembershipRow, not getMembership: the row for someone who has been
+  // invited but has not accepted -- or who declined -- is still a row a leader
+  // manages. Filtering on accepted here made the whole invitation lifecycle
+  // unreachable, because the UI offers these controls on exactly those cards.
+  const target = await getMembershipRow(bandId, targetUserId);
 
   if (!target) {
     return c.json({ error: "Member not found" }, 404);
@@ -414,7 +418,10 @@ bandsRoutes.delete("/:id/members/:userId", requireAuth, async (c) => {
     return c.json({ error: "Only band leaders can remove members" }, 403);
   }
 
-  const target = await getMembership(bandId, memberId);
+  // Accepted-only here meant a leader could never withdraw a pending
+  // invitation or clear a declined one: the row exists, the card is on screen
+  // with a Remove button, and the lookup said "Member not found".
+  const target = await getMembershipRow(bandId, memberId);
 
   if (!target) {
     return c.json({ error: "Member not found" }, 404);

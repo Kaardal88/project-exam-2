@@ -167,10 +167,6 @@ function BandProfileContent() {
 
         setBand(data.band);
         setRole(data.role);
-
-    if (data.band?.slug && data.band.slug !== slug) {
-      router.replace(`/band/${data.band.slug}`);
-    }
         setMembers(data.members);
         setCollaborators(data.collaborators ?? []);
         setLoading(false);
@@ -236,7 +232,12 @@ function BandProfileContent() {
         return;
       }
 
-      window.location.reload(); // Reload the page to show the new member in the list
+      // Drop the row locally rather than reloading. A full reload threw away
+      // the open tab and every other piece of page state, which is a lot to
+      // lose for one card disappearing.
+      setMembers((current) =>
+        current.filter((member) => member.user_id !== userId),
+      );
     } catch (error) {
       console.error("Failed to remove member:", error);
       setActionError("Failed to remove member");
