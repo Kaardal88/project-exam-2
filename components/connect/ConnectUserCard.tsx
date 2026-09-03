@@ -74,7 +74,10 @@ export function ConnectUserCard({
       <div className="absolute inset-0 bg-black/60" />
 
       <div className="relative z-10 flex flex-1 flex-col items-center">
-        <Link href={profileHref} className="flex flex-col items-center">
+        <Link
+          href={profileHref}
+          className="flex w-full min-w-0 flex-col items-center"
+        >
           {user.image_url ? (
             <img
               src={user.image_url}
@@ -87,12 +90,15 @@ export function ConnectUserCard({
             </div>
           )}
 
-          <h3 className="max-w-full truncate font-semibold text-yellow-100">
+          {/* Wraps rather than truncates: a long name is still the thing
+              somebody is scanning the card for, and the grid row stretches to
+              the tallest card anyway. */}
+          <h3 className="w-full text-balance break-words font-semibold text-yellow-100">
             {user.username}
           </h3>
 
           {user.handle && (
-            <p className="max-w-full truncate text-xs text-neutral-400">
+            <p className="w-full break-words text-xs text-neutral-400">
               @{user.handle}
             </p>
           )}
