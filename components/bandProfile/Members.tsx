@@ -82,9 +82,29 @@ export function Members({
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {members.map((member) => (
+            /*
+             * Stacked until lg, side by side after.
+             *
+             * A native select takes its width from its widest option rendered
+             * in the platform own control chrome, and Chrome on Android draws
+             * that wider than Chrome on a desktop. So this row could not be
+             * made to fail by narrowing a desktop window -- only by opening it
+             * on a phone, which is exactly how it was found.
+             *
+             * Two things then conspired. The controls were shrink-0 with only
+             * the name able to give, and the card is a grid item, whose default
+             * min-width auto let its min-content widen the track past the
+             * container rather than shrink. The overflow ran into
+             * ProfileSection overflow-hidden and came out as a clean cut, with
+             * no scrollbar to say anything was missing. min-w-0 is what stops
+             * the track from inflating; stacking is what removes the need.
+             *
+             * lg, not sm: the card is narrowest around md, where the 220px
+             * sidebar arrives while the grid is still two columns.
+             */
             <div
               key={member.user_id}
-              className="flex items-center justify-between gap-3 rounded-md border border-neutral-700 bg-neutral-950/60 p-4"
+              className="flex min-w-0 flex-col gap-3 rounded-md border border-neutral-700 bg-neutral-950/60 p-4 lg:flex-row lg:items-center lg:justify-between"
             >
               <Link
                 href={`/user/${member.user.handle ?? member.user_id}`}
@@ -116,7 +136,7 @@ export function Members({
               </Link>
 
               {isLeader ? (
-                <div className="flex shrink-0 flex-col items-end gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2 lg:shrink-0 lg:flex-col lg:items-end">
                   <select
                     value={member.role}
                     onChange={(event) =>
@@ -146,7 +166,7 @@ export function Members({
                   </button>
                 </div>
               ) : (
-                <span className="shrink-0 text-xs text-neutral-400">
+                <span className="shrink-0 self-end text-xs text-neutral-400 lg:self-auto">
                   {bandRoles.find((option) => option.value === member.role)
                     ?.label ?? member.role}
                 </span>
