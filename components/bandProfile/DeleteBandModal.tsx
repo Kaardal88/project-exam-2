@@ -116,9 +116,13 @@ export function DeleteBandModal({
         </div>
 
         <div className="mb-6">
-          <label className="mb-2 block text-sm font-semibold text-yellow-100">
-            Your password
+          <label className="mb-1 block text-sm font-semibold text-yellow-100">
+            Your account password
           </label>
+
+          <p className="mb-2 text-sm text-neutral-400">
+            The password you sign in with. Bands do not have one of their own.
+          </p>
 
           <div className="flex items-center rounded-md border border-neutral-700 bg-neutral-950 focus-within:border-yellow-200">
             <input

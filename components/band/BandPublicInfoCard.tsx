@@ -211,7 +211,7 @@ export function BandPublicInfoCard({
         </InfoCard>
 
         <section className="mt-10 pb-8 text-center">
-          <h3 className="mb-4 font-black">Follow</h3>
+          <h3 className="mb-4 font-black">Social links</h3>
           <div className="flex justify-center gap-4 text-2xl">
             {band.website_url && (
               <a
