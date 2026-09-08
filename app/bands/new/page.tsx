@@ -25,8 +25,6 @@ export default function RegisterPage() {
   const router = useRouter();
   const [bandname, setBandName] = useState("");
   const [bio, setBio] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [headerImageUrl, setHeaderImageUrl] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -46,8 +44,6 @@ export default function RegisterPage() {
       body: JSON.stringify({
         bandname,
         bio,
-        image_url: imageUrl,
-        header_image_url: headerImageUrl,
         country,
         genre,
       }),
@@ -159,35 +155,10 @@ export default function RegisterPage() {
             />
           </label>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <label className="flex flex-col gap-2">
-              <span className="text-sm font-medium text-yellow-100">
-                Profile Image
-              </span>
-
-              <input
-                className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-3 text-neutral-50 outline-none transition focus:border-yellow-200"
-                type="url"
-                value={imageUrl}
-                onChange={(event) => setImageUrl(event.target.value)}
-                placeholder="Image URL"
-              />
-            </label>
-
-            <label className="flex flex-col gap-2">
-              <span className="text-sm font-medium text-yellow-100">
-                Header Image
-              </span>
-
-              <input
-                className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-3 text-neutral-50 outline-none transition focus:border-yellow-200"
-                type="url"
-                value={headerImageUrl}
-                onChange={(event) => setHeaderImageUrl(event.target.value)}
-                placeholder="Header Image URL"
-              />
-            </label>
-          </div>
+          {/* No picture fields here on purpose: the avatar and header are
+              uploaded from the device on the band page once it exists, through
+              EditableProfileImage. A URL box could only ever hold a link to
+              somebody else's server. */}
 
           <button
             className="mt-4 flex w-full items-center justify-center rounded-lg bg-yellow-200 px-5 py-3 font-semibold text-black transition hover:cursor-pointer hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-80"

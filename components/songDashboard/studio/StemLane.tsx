@@ -222,7 +222,12 @@ export function StemLane({
                 className="fixed inset-0 z-10 cursor-default"
               />
 
-              <div className="absolute right-0 z-20 mt-1 w-64 rounded-md border border-neutral-700 bg-neutral-900 p-2 shadow-2xl">
+              {/* On mobile the lane stacks, so this button sits at the left
+                  edge and a right-anchored menu hangs 256px off the screen.
+                  Anchor left below sm, right from sm up where the button group
+                  really is on the right. The cap keeps it inside a narrow
+                  phone either way. */}
+              <div className="absolute left-0 z-20 mt-1 w-64 max-w-[calc(100vw-4rem)] rounded-md border border-neutral-700 bg-neutral-900 p-2 shadow-2xl sm:left-auto sm:right-0">
                 <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
                   Takes in {stem.name}
                 </p>
