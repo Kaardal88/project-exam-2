@@ -4,6 +4,9 @@ A unified workspace for bands, artists, and everyone around them — from idea t
 
 Started as a school exam, now continued as a long-term portfolio project with the ambition of becoming a real product.
 
+<img width="1317" height="1194" alt="ChatGPT Image Sep 2, 2026, 10_48_33 AM" src="https://github.com/user-attachments/assets/e40b8c9b-7d22-4360-bb60-aed093645bf3" />
+
+
 ## What is StemLock?
 
 StemLock is a modern web platform for musicians, bands, producers, managers, and other people in the music industry. I aim to be a platform for everyone, from garage band to the established bands with 20+ years on the stage. 
