@@ -5,10 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, Suspense } from "react";
 import { NavBar } from "@/components/NavBar";
 import AmpLoader from "@/components/AmpLoader";
-import { SongSidebar } from "@/components/songDashboard/SongSidebar";
+import {
+  SongSidebar,
+  type SidebarUser,
+} from "@/components/songDashboard/SongSidebar";
 import { type Collaborator } from "@/components/collaborators/CollaboratorList";
 import { collaboratorRoleLabel } from "@/lib/collaboratorRoles";
 import { SettingsModal } from "@/components/songDashboard/SettingsModal";
+import { useSidebarCollapsed } from "@/components/sidebar/useSidebarCollapsed";
 import {
   SongTabs,
   isSongTab,
@@ -120,7 +124,6 @@ const PHASE_NOTES: Record<
   string
 > = {
   Activity: "Activity feed coming soon.",
-  "Song Info": "Editable BPM/key/time signature coming soon.",
 };
 
 function SongDashboardPageContent() {
@@ -143,6 +146,7 @@ function SongDashboardPageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sidebarCollapsed, toggleSidebarCollapsed] = useSidebarCollapsed();
   /** Set when a dashboard preview card is clicked. The nonce makes clicking
       the same card twice a fresh request rather than a no-op. */
   const [focusComment, setFocusComment] = useState<{
@@ -150,6 +154,8 @@ function SongDashboardPageContent() {
     nonce: number;
   } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  /** Who is signed in, for the sidebar's Account button and its menu. */
+  const [currentUser, setCurrentUser] = useState<SidebarUser | null>(null);
   const [seekSignal, setSeekSignal] = useState<{
     seconds: number;
     nonce: number;
@@ -265,7 +271,11 @@ function SongDashboardPageContent() {
       if (tasksRes.ok) setTasks(await tasksRes.json());
       if (notesRes.ok) setNotes(await notesRes.json());
       if (filesRes.ok) setFiles(await filesRes.json());
-      if (meRes.ok) setCurrentUserId((await meRes.json()).user.id);
+      if (meRes.ok) {
+        const { user } = await meRes.json();
+        setCurrentUserId(user.id);
+        setCurrentUser(user);
+      }
 
       setLoading(false);
     }
@@ -392,6 +402,11 @@ function SongDashboardPageContent() {
         {band && (
           <SongSidebar
             band={band}
+            user={currentUser}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            collapsed={sidebarCollapsed}
+            onToggleCollapsed={toggleSidebarCollapsed}
             onOpenSettings={() => setSettingsOpen(true)}
             canOpenBand={accessSource !== "collaborator"}
           />
@@ -557,7 +572,13 @@ function SongDashboardPageContent() {
             </div>
           </section>
 
-          <SongTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+          {/* The tabs live in the sidebar on desktop. This row is for phones,
+              where there is no sidebar -- and for the rare desktop load where
+              the band did not come back and so neither did the sidebar,
+              which would otherwise leave no way between tabs at all. */}
+          <div className={band ? "md:hidden" : ""}>
+            <SongTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+          </div>
 
           {activeTab === "Dashboard" ? (
             <DashboardTab

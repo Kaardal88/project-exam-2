@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Music, Users } from "lucide-react";
 import { logout } from "@/lib/session";
 import { AccountPanel } from "./AccountPanel";
-import { appName } from "./Stemlock";
+import { StemLockLogo } from "./StemLockLogo";
 
 type User = {
   id: string;
@@ -131,13 +131,9 @@ export function NavBar() {
 
       <div className="relative z-10 flex h-24 md:h-26 items-center justify-between px-4 sm:px-6 lg:px-10 text-white">
         {/* Logo */}
-        <div className="flex w-max justify-center bg-[#f3e7b6] text-neutral-950 px-8 sm:px-10 py-3 font-black shadow-[0_8px_25px_rgba(0,0,0,0.45)] -rotate-3 [clip-path:polygon(6%_0%,94%_0%,98%_8%,95%_18%,99%_28%,94%_42%,97%_56%,93%_72%,98%_88%,95%_100%,6%_100%,2%_92%,5%_80%,1%_68%,6%_54%,2%_38%,5%_22%,1%_10%)]">
-          <Link href={user ? "/user" : "/"}>
-            <span className="text-3xl md:text-4xl font-black tracking-tight hover:opacity-90 transition font-[family-name:var(--font-marker)]">
-              {appName}
-            </span>
-          </Link>
-        </div>
+        <Link href={user ? "/user" : "/"}>
+          <StemLockLogo />
+        </Link>
 
         {/* Desktop right side */}
         <div className="hidden md:flex items-center gap-4">

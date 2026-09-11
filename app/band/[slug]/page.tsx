@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import AmpLoader from "@/components/AmpLoader";
@@ -11,7 +11,14 @@ import { NewProjectModal } from "@/components/bandProfile/NewProjectModal";
 import { type Collaborator } from "@/components/collaborators/CollaboratorList";
 import { Settings } from "lucide-react";
 import { Suspense } from "react";
-import { BandProfileNav } from "@/components/bandProfile/BandProfileNav";
+import {
+  BandProfileNav,
+  isBandSection,
+  type BandSection,
+} from "@/components/bandProfile/BandProfileNav";
+import { SidebarCollapseToggle } from "@/components/sidebar/SidebarNav";
+import { useSidebarCollapsed } from "@/components/sidebar/useSidebarCollapsed";
+import { Board } from "@/components/board/Board";
 import { BackButton } from "@/components/BackButton";
 import { type BandVisibility } from "@/lib/bandVisibility";
 
@@ -116,15 +123,49 @@ function BandProfileContent() {
   const [events, setEvents] = useState<BandEvent[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [newProjectModalOpen, setNewProjectModalOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState<
-    | "Home"
-    | "Albums"
-    | "Bio"
-    | "Socials"
-    | "Singles"
-    | "Members"
-    | "Tickets"
-  >("Home");
+  const [navCollapsed, toggleNavCollapsed] = useSidebarCollapsed();
+  const searchParams = useSearchParams();
+
+  /**
+   * The section is in the URL, not in state -- the same arrangement the song
+   * dashboard uses, for the same reasons.
+   *
+   * It became necessary when Board moved in from its own route. That route
+   * was an address the band sent each other, and a section held in React
+   * state has no address. With `?tab=` it does, back steps one section at a
+   * time, and every other section can be linked to while it is at it.
+   *
+   * pushState rather than router.push: Next syncs the native history API into
+   * the router, so useSearchParams re-renders while this component stays
+   * mounted -- switching sections refetches nothing.
+   */
+  const tabParam = searchParams.get("tab");
+  const activeSection: BandSection = isBandSection(tabParam)
+    ? tabParam
+    : "Home";
+
+  const setActiveSection = useCallback(
+    (section: BandSection) => {
+      // Asking for the section already open is not a navigation, and pushing
+      // it anyway leaves a back button that has to be pressed twice.
+      if (section === activeSection) return;
+
+      const params = new URLSearchParams(searchParams.toString());
+
+      // Home is the default, so the address a band is shared under keeps the
+      // shape it has always had.
+      if (section === "Home") params.delete("tab");
+      else params.set("tab", section);
+
+      const query = params.toString();
+      window.history.pushState(
+        null,
+        "",
+        query ? `?${query}` : window.location.pathname,
+      );
+    },
+    [activeSection, searchParams],
+  );
   const countryOptions = countries.map((country) => ({
     value: country.cca2,
     label: country.name.common,
@@ -153,9 +194,11 @@ function BandProfileContent() {
         // address bar at the canonical slug rather than leaving whatever the
         // visitor arrived with. replace(), not push(), so Back still leaves
         // the page instead of bouncing through the old address.
+        // The query string goes with it, or an old link to the board would
+        // arrive on Home.
         const canonicalSlug = data.band?.slug;
         if (canonicalSlug && canonicalSlug !== slug) {
-          router.replace(`/band/${canonicalSlug}`);
+          router.replace(`/band/${canonicalSlug}${window.location.search}`);
         }
 
         if (!data.authenticated) {
@@ -364,12 +407,22 @@ function BandProfileContent() {
       <NavBar />
 
       <div className="md:flex">
-        {/* Desktop sidebar */}
-        <aside className="hidden md:flex md:w-[220px] md:shrink-0 md:flex-col md:self-start md:sticky md:top-4 md:border-r md:border-neutral-800/60 md:px-4 md:py-2">
+        {/* Desktop sidebar. Folded it is one icon wide -- the width the
+            board's four columns most want back. */}
+        <aside
+          className={`hidden md:flex md:shrink-0 md:flex-col md:self-start md:sticky md:top-4 md:border-r md:border-neutral-800/60 md:py-2 md:transition-[width] md:duration-200 ${
+            navCollapsed ? "md:w-[72px] md:px-3" : "md:w-[220px] md:px-4"
+          }`}
+        >
+          <SidebarCollapseToggle
+            collapsed={navCollapsed}
+            onToggle={toggleNavCollapsed}
+            className={`mb-1 ${navCollapsed ? "" : "self-end"}`}
+          />
           <BandProfileNav
             activeSection={activeSection}
             setActiveSection={setActiveSection}
-            boardHref={`/band/${slug}/board`}
+            collapsed={navCollapsed}
           />
         </aside>
 
@@ -382,7 +435,6 @@ function BandProfileContent() {
               <BandProfileNav
                 activeSection={activeSection}
                 setActiveSection={setActiveSection}
-                boardHref={`/band/${slug}/board`}
               />
               <div
                 className="
@@ -519,6 +571,9 @@ function BandProfileContent() {
                   eventsError={eventsError}
                   onEventsChanged={fetchEvents}
                 />
+              )}
+              {activeSection === "Board" && bandId && (
+                <Board bandId={bandId} />
               )}
               {activeSection === "Albums" && (
                 <Albums projects={albumProjects} error={projectsError} />

@@ -1,5 +1,5 @@
-import { Fragment } from "react";
-import Link from "next/link";
+"use client";
+
 import {
   BookOpen,
   Disc3,
@@ -11,24 +11,56 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-
-type Section =
-  | "Home"
-  | "Albums"
-  | "Bio"
-  | "Socials"
-  | "Singles"
-  | "Members"
-  | "Tickets";
+import {
+  SidebarNav,
+  type SidebarNavGroup,
+} from "@/components/sidebar/SidebarNav";
 
 /**
- * One icon per entry, so the column can be scanned rather than read.
+ * Every entry in the menu, grouped and in the order it is shown.
+ *
+ * Home stays first, and Board sits directly under it: the two things a member
+ * opens the profile for, before the sections that describe the band.
+ *
+ * Board is one of these now rather than a link beside them. It navigated to a
+ * page of its own while everything around it swapped the panel in place, and
+ * that difference was invisible until it was clicked -- which is exactly how
+ * people kept finding it.
+ */
+const BAND_SECTION_GROUPS = [
+  { items: ["Home", "Board"] },
+  { title: "Music", items: ["Albums", "Singles"] },
+  {
+    title: "Band",
+    // The line-up used to be a card in the profile header with the real list
+    // hidden behind a modal. It is a destination like the rest now.
+    items: ["Bio", "Socials", "Members", "Tickets"],
+  },
+] as const satisfies readonly SidebarNavGroup<string>[];
+
+export type BandSection =
+  (typeof BAND_SECTION_GROUPS)[number]["items"][number];
+
+const BAND_SECTIONS: readonly BandSection[] = BAND_SECTION_GROUPS.flatMap(
+  (group) => group.items,
+);
+
+export function isBandSection(value: unknown): value is BandSection {
+  return (
+    typeof value === "string" &&
+    (BAND_SECTIONS as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * One icon per entry, so the column can be scanned rather than read -- and,
+ * folded, the icon is all there is.
  *
  * Albums and Singles are the pair that has to stay apart at a glance: a record
  * for the one, a note for the other, rather than two discs differing by a
  * ring.
  */
-const SECTION_ICONS: Record<Section | "Board", LucideIcon> = {
+const SECTION_ICONS: Record<BandSection, LucideIcon> = {
   Home: Home,
   Board: LayoutGrid,
   Albums: Disc3,
@@ -39,82 +71,24 @@ const SECTION_ICONS: Record<Section | "Board", LucideIcon> = {
   Tickets: Ticket,
 };
 
-type BandSectionNavProps = {
-  activeSection: Section;
-  setActiveSection: (section: Section) => void;
-  /**
-   * The board is a page, not a section.
-   *
-   * "Wip" and "Finished" used to sit in this list as sections that were never
-   * built, and they could not have been: a song's stage was in the database
-   * but nothing in the app could set it. The board answers the question they
-   * were reaching for -- where is every song right now -- and it needs a
-   * screen rather than a collapsible card, so this entry navigates.
-   */
-  boardHref: string;
-};
-
 export function BandProfileNav({
   activeSection,
   setActiveSection,
-  boardHref,
-}: BandSectionNavProps) {
-  // Home stays first, and Board sits directly under it: the two things a
-  // member opens the profile for, before the sections that describe the band.
-  const sections: Section[] = [
-    "Home",
-    "Albums",
-    "Singles",
-    "Bio",
-    "Socials",
-    // The line-up used to be a card in the profile header with the real list
-    // hidden behind a modal. It is a destination like the rest now.
-    "Members",
-    "Tickets",
-  ];
-
-  // One look for every entry in this list. Board navigates rather than
-  // switching a section, but a nav item that announces that with its own
-  // colours just reads as the odd one out.
-  const itemClass = (active: boolean) =>
-    `flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-md border border-neutral-700 px-4 py-2 text-sm transition md:text-base ${
-      active
-        ? "bg-yellow-100 text-black"
-        : "bg-neutral-900 text-neutral-300 hover:bg-neutral-800"
-    }`;
-
-  const BoardIcon = SECTION_ICONS.Board;
-
+  collapsed = false,
+}: {
+  activeSection: BandSection;
+  setActiveSection: (section: BandSection) => void;
+  /** Icons only. Meant for the desktop sidebar; the mobile row scrolls instead. */
+  collapsed?: boolean;
+}) {
   return (
-    <nav
-      className="
-    flex gap-2 overflow-x-auto pb-2
-    [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
-    md:flex-col md:overflow-visible md:pb-0
-  "
-    >
-      {sections.map((section) => {
-        const Icon = SECTION_ICONS[section];
-
-        return (
-          <Fragment key={section}>
-            <button
-              onClick={() => setActiveSection(section)}
-              className={`${itemClass(activeSection === section)} hover:cursor-pointer`}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {section}
-            </button>
-
-            {section === "Home" && (
-              <Link href={boardHref} className={itemClass(false)}>
-                <BoardIcon className="h-4 w-4 shrink-0" />
-                Board
-              </Link>
-            )}
-          </Fragment>
-        );
-      })}
-    </nav>
+    <SidebarNav
+      label="Band sections"
+      groups={BAND_SECTION_GROUPS}
+      icons={SECTION_ICONS}
+      active={activeSection}
+      onSelect={setActiveSection}
+      collapsed={collapsed}
+    />
   );
 }

@@ -23,7 +23,7 @@ export function BoardColumn({
     <section
       ref={setNodeRef}
       aria-label={style.label}
-      className={`flex min-h-64 w-72 shrink-0 flex-col rounded-md border bg-neutral-900/80 p-3 shadow-2xl transition md:w-auto md:shrink ${
+      className={`flex min-h-64 w-72 shrink-0 flex-col rounded-md border bg-neutral-900/80 p-3 shadow-2xl transition lg:w-auto lg:shrink ${
         isOver ? "border-yellow-200 bg-neutral-900" : style.column
       }`}
     >
