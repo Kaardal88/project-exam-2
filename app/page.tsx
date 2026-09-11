@@ -7,6 +7,7 @@ import { FeatureShowcase } from "@/components/landing/FeatureShowcase";
 import { LandingNav } from "@/components/landing/LandingNav";
 import { HeroMockStage } from "@/components/landing/HeroMockStage";
 import { appName } from "@/components/Stemlock";
+import { Footer } from "@/components/Footer";
 
 type Band = {
   id: string;
@@ -40,7 +41,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(255,229,150,0.10),transparent_28%),linear-gradient(to_bottom,#0a0a0a,#171717)] text-yellow-100">
+    <main className="flex min-h-screen flex-col overflow-x-hidden bg-[radial-gradient(circle_at_top,rgba(255,229,150,0.10),transparent_28%),linear-gradient(to_bottom,#0a0a0a,#171717)] text-yellow-100">
       <LandingNav />
 
       {/*Hero section — two columns from md up: the pitch on the left,
@@ -108,7 +109,10 @@ export default function HomePage() {
           <HeroMockStage />
         </div>
       </div>
-      <h1 className=" font-[family-name:var(--font-marker)] text-2xl uppercase tracking-wide md:text-4xl lg:text-5xl mx-auto mt-20 text-center text-yellow-100">
+      {/* w-full because <main> is a flex column now: without it the auto side
+          margins would shrink this to its content width and change where the
+          heading wraps. */}
+      <h1 className="w-full font-[family-name:var(--font-marker)] text-2xl uppercase tracking-wide md:text-4xl lg:text-5xl mx-auto mt-20 text-center text-yellow-100">
         Make music! Not mess!
       </h1>
 
@@ -162,6 +166,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <Footer />
     </main>
   );
 }

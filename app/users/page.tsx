@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import countries from "world-countries";
 import { X } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
+import { Footer } from "@/components/Footer";
 import AmpLoader from "@/components/AmpLoader";
 import {
   ConnectUserCard,
@@ -326,7 +327,7 @@ function ConnectContent() {
   const inviting = Boolean(band);
 
   return (
-    <main className="w-full min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
+    <main className="flex w-full min-h-screen flex-col bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
       <NavBar />
 
       <div className="mx-auto w-full max-w-7xl px-4 pb-24">
@@ -476,6 +477,8 @@ function ConnectContent() {
           onInvited={markInvited}
         />
       )}
+
+      <Footer />
     </main>
   );
 }

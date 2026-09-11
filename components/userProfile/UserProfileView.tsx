@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { NavBar } from "@/components/NavBar";
+import { Footer } from "@/components/Footer";
 import { Modal } from "@/components/Modal";
 import { BandCalendar } from "@/components/calendar/BandCalendar";
 import { EventForm, EventFormEvent } from "@/components/calendar/EventForm";
@@ -636,6 +637,8 @@ export function UserProfileView({
           </div>
         </Modal>
       )}
+
+      <Footer />
     </main>
   );
 }

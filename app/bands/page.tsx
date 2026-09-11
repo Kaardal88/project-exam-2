@@ -15,6 +15,7 @@ import {
   type BandFilterState,
 } from "@/components/band/BandFilters";
 import { BAND_PAGE_SIZE, DEFAULT_BAND_SORT } from "@/lib/bandFilters";
+import { Footer } from "@/components/Footer";
 
 const countryOptions = countries
   .map((country) => ({ value: country.cca2, label: country.name.common }))
@@ -189,7 +190,7 @@ export default function BandsPage() {
   }, [debouncedQ, filters.genres, filters.country]);
 
   return (
-    <main className="w-full min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
+    <main className="flex w-full min-h-screen flex-col bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
       <NavBar />
 
       <BackButton className="ml-4 mt-4" />
@@ -290,6 +291,7 @@ export default function BandsPage() {
           </section>
         )}
       </div>
+      <Footer />
     </main>
   );
 }
