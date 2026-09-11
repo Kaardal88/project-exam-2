@@ -19,7 +19,6 @@ import {
 import { SidebarCollapseToggle } from "@/components/sidebar/SidebarNav";
 import { useSidebarCollapsed } from "@/components/sidebar/useSidebarCollapsed";
 import { Board } from "@/components/board/Board";
-import { BackButton } from "@/components/BackButton";
 import { type BandVisibility } from "@/lib/bandVisibility";
 
 import countries from "world-countries";
@@ -427,8 +426,6 @@ function BandProfileContent() {
         </aside>
 
         <div className="w-full min-w-0">
-          <BackButton className="ml-4 mt-4" />
-
           <div className="relative mx-auto mt-4 w-full max-w-7xl px-4">
             {/* Mobile nav */}
             <div className="relative mb-4 md:hidden">

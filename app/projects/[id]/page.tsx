@@ -26,6 +26,7 @@ type Project = {
   id: string;
   band_id: string;
   band_slug: string | null;
+  band: { band_name: string } | null;
   access_source: "band" | "collaborator";
   type: "album" | "single";
   title: string;
@@ -123,24 +124,28 @@ export default function ProjectDetailsPage() {
   // A collaborator is not in the band, so sending them "back" to the band
   // profile lands them on a guest card at best and a 404 if it is private.
   // Their way in was their own profile, so that is where back goes.
-  const backHref =
-    project.access_source === "collaborator"
-      ? "/user"
-      : `/band/${project.band_slug ?? project.band_id}`;
+  const isGuest = project.access_source === "collaborator";
+  const backHref = isGuest
+    ? "/user"
+    : `/band/${project.band_slug ?? project.band_id}`;
 
   return (
     <main className="w-full min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
       <NavBar />
 
-      <Link
-        href={backHref}
-        className="flex items-center gap-2 ml-4 mt-4 w-fit rounded-full border border-neutral-600 bg-neutral-950/80 px-4 py-2 text-xs font-semibold text-yellow-100 transition hover:border-yellow-200 hover:bg-neutral-800 hover:cursor-pointer"
-      >
-        Back
-      </Link>
-
       <div className="mx-auto mt-4 w-full max-w-4xl px-4 pb-24">
         <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl">
+          {/* Up one level, named -- the same link the song dashboard opens
+              with. It used to be a bare "Back" pill floating above the card,
+              which read as a history button and looked like no other link. */}
+          <Link
+            href={backHref}
+            className="mb-4 inline-block text-sm text-neutral-400 transition hover:text-yellow-100 border border-neutral-700 rounded-md px-2 py-1 hover:bg-amber-50/10"
+          >
+            &larr; Back to{" "}
+            {isGuest ? "your profile" : (project.band?.band_name ?? "the band")}
+          </Link>
+
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-center gap-4">
               {/* The cover is set here and nowhere else. A project has no id

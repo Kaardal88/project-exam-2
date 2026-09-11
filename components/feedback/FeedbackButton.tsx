@@ -28,8 +28,8 @@ export function FeedbackButton() {
 
   // Read after mount rather than during render: the server has no cookies to
   // look at, so deciding this while rendering would disagree with the client.
-  // Deferred through a timeout the same way BackButton does it, which is the
-  // shape the compiler lint accepts for reading a cookie into state.
+  // Deferred through a timeout, which is the shape the compiler lint accepts
+  // for reading a cookie into state.
   useEffect(() => {
     const id = setTimeout(() => {
       setSignedIn(hasSignedInHint());

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import countries from "world-countries";
 import { X } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
-import { BackButton } from "@/components/BackButton";
 import AmpLoader from "@/components/AmpLoader";
 import {
   BandDirectoryCard,
@@ -192,8 +191,6 @@ export default function BandsPage() {
   return (
     <main className="flex w-full min-h-screen flex-col bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
       <NavBar />
-
-      <BackButton className="ml-4 mt-4" />
 
       <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-8">
         <h1 className="mb-8 text-center font-[family-name:var(--font-caveat)] text-4xl tracking-wide text-yellow-100 md:text-5xl">
