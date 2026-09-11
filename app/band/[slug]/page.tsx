@@ -527,8 +527,12 @@ function BandProfileContent() {
                   </div>
                 )}
 
+                {/* The slug, not the name: names are allowed to collide, so
+                    two bands called the same thing both read "@Kaldvard"
+                    while their addresses differ. The slug is the one value
+                    that is unique, and it is what the address bar shows. */}
                 <p className="mt-1 text-sm text-neutral-400">
-                  @{band?.band_name}
+                  @{band?.slug}
                 </p>
               </div>
 
