@@ -7,6 +7,7 @@ import { NavBar } from "@/components/NavBar";
 import { Footer } from "@/components/Footer";
 import { Modal } from "@/components/Modal";
 import { BandCalendar } from "@/components/calendar/BandCalendar";
+import { AddEventButton } from "@/components/calendar/AddEventButton";
 import { EventForm, EventFormEvent } from "@/components/calendar/EventForm";
 import { EventCard } from "@/components/calendar/EventCard";
 import { EventDetailsModal } from "@/components/calendar/EventDetailsModal";
@@ -442,7 +443,7 @@ export function UserProfileView({
 
       <section className="mx-auto mt-6  mb-10 w-full max-w-7xl md:w-3/4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-1 lg:grid-cols-3">
-          <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl lg:col-span-4">
+          <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl lg:col-span-3">
             <div className="mt-4">
               <p className="mb-4 text-lg font-bold text-yellow-100">
                 <strong>{user?.username}&apos;s artistpages</strong>
@@ -534,7 +535,7 @@ export function UserProfileView({
           {isOwnProfile && (
             <>
             {/* Upcoming events */}
-            <section className="mx-auto mt-2 mb-8 w-full max-w-7xl overflow-hidden rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl">
+            <section className="overflow-hidden rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl">
               <h2 className="mb-4 text-center text-yellow-100">
                 {selectedDate ? "Events on selected date" : "Upcoming events"}
               </h2>
@@ -564,7 +565,7 @@ export function UserProfileView({
             </section>
 
             {/* Calendar */}
-            <section className="mx-auto mt-2 mb-8 w-full max-w-7xl overflow-hidden rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl lg:col-span-2">
+            <section className="overflow-hidden rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl lg:col-span-2">
               <h2 className="mb-4 text-center text-yellow-100">Calendar</h2>
               <div className="flex flex-col gap-6">
                 <div className="flex justify-center">
@@ -586,13 +587,9 @@ export function UserProfileView({
                 )}
 
                 {isOwnProfile && (
-                  <button
-                    onClick={openCreatePrivateEvent}
-                    className="mt-2 flex w-full justify-center rounded bg-yellow-200 px-4 py-2 text-black hover:cursor-pointer hover:bg-yellow-300"
-                  >
-                    <span className="mr-2 text-2xl">+</span>
+                  <AddEventButton onClick={openCreatePrivateEvent}>
                     Add private event
-                  </button>
+                  </AddEventButton>
                 )}
               </div>
             </section>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Modal } from "@/components/Modal";
 import { BandCalendar } from "@/components/calendar/BandCalendar";
+import { AddEventButton } from "@/components/calendar/AddEventButton";
 import { EventForm, EventFormEvent } from "@/components/calendar/EventForm";
 import { EventCard } from "@/components/calendar/EventCard";
 import { EventDetailsModal } from "@/components/calendar/EventDetailsModal";
@@ -129,14 +130,12 @@ export function HomeNav({
           </div>
 
           {canManageEvents && (
-            <button
+            <AddEventButton
               onClick={openCreateForm}
               disabled={deletingId !== null}
-              className="mt-2 flex w-full justify-center rounded bg-yellow-200 px-4 py-2 text-black hover:cursor-pointer hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span className="mr-2 text-2xl">+</span>
-              Add Event
-            </button>
+              Add event
+            </AddEventButton>
           )}
         </div>
       </div>
