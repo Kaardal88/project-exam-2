@@ -142,7 +142,7 @@ export function NavBar() {
             className="flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-950/60 px-4 py-2 text-sm font-semibold text-yellow-200 transition hover:border-yellow-200/60 hover:bg-neutral-800"
           >
             <Music className="h-4 w-4" />
-            Artister
+            Artists
           </Link>
 
           {user && (
@@ -151,7 +151,7 @@ export function NavBar() {
               className="flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-950/60 px-4 py-2 text-sm font-semibold text-yellow-200 transition hover:border-yellow-200/60 hover:bg-neutral-800"
             >
               <Users className="h-4 w-4" />
-              Connect
+              People
             </Link>
           )}
 
