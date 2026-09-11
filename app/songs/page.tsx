@@ -18,8 +18,8 @@ import {
   isSongTab,
   type SongTab,
 } from "@/components/songDashboard/SongTabs";
-import { PlaceholderTab } from "@/components/songDashboard/PlaceholderTab";
 import { DashboardTab } from "@/components/songDashboard/DashboardTab";
+import { ActivityTab } from "@/components/songDashboard/ActivityTab";
 import { StudioTab } from "@/components/songDashboard/studio/StudioTab";
 import { CommentsTab } from "@/components/songDashboard/CommentsTab";
 import { NotesTab } from "@/components/songDashboard/NotesTab";
@@ -108,22 +108,6 @@ type SongFile = {
   file_url: string | null;
   created_at: string | null;
   uploader: { id: string; username: string } | null;
-};
-
-const PHASE_NOTES: Record<
-  Exclude<
-    SongTab,
-    | "Dashboard"
-    | "Studio"
-    | "Comments"
-    | "Lyrics"
-    | "Notes & Ideas"
-    | "Files"
-    | "Tasks"
-  >,
-  string
-> = {
-  Activity: "Activity feed coming soon.",
 };
 
 function SongDashboardPageContent() {
@@ -396,9 +380,19 @@ function SongDashboardPageContent() {
 
   const backHref = `/projects/${song.project.id}`;
 
+  /** Opens one comment in the Comments tab -- from a dashboard card or the feed. */
+  const openComment = (commentId: string) => {
+    setFocusComment({ id: commentId, nonce: Date.now() });
+    setActiveTab("Comments");
+  };
+
   return (
     <main className="w-full min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-slate-900 text-yellow-100">
-      <div className="mx-auto mt-4 flex w-full  gap-6 px-4 pb-24">
+      {/* The bottom padding lives on the workspace column, not on this row. A
+          sticky element cannot leave its parent's content box, so padding
+          here lifted the sidebar off the bottom of the screen by as much once
+          a long tab was scrolled to the end. */}
+      <div className="mx-auto mt-4 flex w-full gap-6 px-4">
         {band && (
           <SongSidebar
             band={band}
@@ -414,7 +408,7 @@ function SongDashboardPageContent() {
 
         {/* relative: the expanded media player anchors its blurred overlay to
             this column, so it covers the dashboard and stops at the sidebar. */}
-        <div className="relative w-full min-h-screen min-w-0 space-y-6">
+        <div className="relative w-full min-h-screen min-w-0 space-y-6 pb-24">
           <section className="rounded-md border border-neutral-700 bg-neutral-900/80 p-6 shadow-2xl">
             <Link
               href={backHref}
@@ -595,10 +589,7 @@ function SongDashboardPageContent() {
               audioUrl={audioPlaybackUrl}
               onAudioUrlExpired={fetchAudioUrl}
               currentVersionId={song.current_version_id}
-              onFocusComment={(commentId) => {
-                setFocusComment({ id: commentId, nonce: Date.now() });
-                setActiveTab("Comments");
-              }}
+              onFocusComment={openComment}
             />
           ) : activeTab === "Studio" ? (
             <StudioTab
@@ -654,7 +645,11 @@ function SongDashboardPageContent() {
               onFilesChanged={refreshFiles}
             />
           ) : (
-            <PlaceholderTab label={activeTab} note={PHASE_NOTES[activeTab]} />
+            <ActivityTab
+              songId={song.id}
+              setActiveTab={setActiveTab}
+              onFocusComment={openComment}
+            />
           )}
         </div>
       </div>

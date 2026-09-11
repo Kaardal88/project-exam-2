@@ -668,6 +668,11 @@ export const song_comment_eventsRelations = relations(
       fields: [song_comment_events.actor_id],
       references: [users.id],
     }),
+    // Read by the Activity feed, which quotes the comment an event was about.
+    comment: one(song_comments, {
+      fields: [song_comment_events.comment_id],
+      references: [song_comments.id],
+    }),
   }),
 );
 

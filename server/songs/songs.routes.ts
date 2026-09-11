@@ -25,7 +25,8 @@ import {
   FILE_DOWNLOAD_TTL_SECONDS,
 } from "@/server/r2";
 import { getProjectAccess } from "@/server/projects/access";
-import { getSongContext } from "./songContext";
+import { getSongContext, requireSongAccess } from "./songContext";
+import { getSongActivity } from "./activity.service";
 import { isSongStatus, SONG_STATUSES } from "@/lib/songStatus";
 
 const TICKET_STATUSES = ["open", "wip", "done"] as const;
@@ -197,6 +198,17 @@ songsRoutes.delete("/:id", requireAuth, async (c) => {
     .returning();
 
   return c.json(deletedSong, 200);
+});
+
+/**
+ * The Activity tab: who did what to this song, newest first. Built from the
+ * tables the other tabs read -- see server/songs/activity.service.ts.
+ */
+songsRoutes.get("/:id/activity", requireAuth, async (c) => {
+  const found = await requireSongAccess(c.req.param("id"), c.get("userId"));
+  if (!found.ok) return c.json({ error: found.error }, found.status);
+
+  return c.json(await getSongActivity(found.song), 200);
 });
 
 songsRoutes.get("/:id/comments", requireAuth, async (c) => {
