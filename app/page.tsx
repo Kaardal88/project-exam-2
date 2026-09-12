@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PreviewMixer } from "@/components/home/PreviewMixer";
 import { FeatureShowcase } from "@/components/landing/FeatureShowcase";
 import { LandingNav } from "@/components/landing/LandingNav";
+import { useSignedInHint } from "@/components/useSignedInHint";
 import { HeroMockStage } from "@/components/landing/HeroMockStage";
 import { appName } from "@/components/Stemlock";
 import { Footer } from "@/components/Footer";
@@ -20,6 +21,7 @@ type Band = {
 export default function HomePage() {
   const [featuredBands, setFeaturedBands] = useState<Band[]>([]);
   const [bandCount, setBandCount] = useState(0);
+  const isSignedIn = useSignedInHint();
 
   useEffect(() => {
     async function loadBands() {
@@ -86,11 +88,13 @@ export default function HomePage() {
             </p>
 
             <div className="mt-4 flex w-full max-w-xs items-center justify-center gap-3 sm:max-w-none sm:gap-4 md:justify-start">
+              {/* Same rule as LandingNav: someone already in is not asked to
+                  start an account. */}
               <Link
-                href="/register"
+                href={isSignedIn ? "/user" : "/register"}
                 className="inline-flex min-h-10 items-center justify-center rounded-md border border-[#4b432d] bg-yellow-100 px-4 py-2 text-sm font-bold !text-black transition duration-300 ease-in-out hover:-translate-y-1 hover:scale-105 hover:bg-yellow-200 sm:min-h-12 sm:px-5 sm:py-3 sm:text-base"
               >
-                Get started
+                {isSignedIn ? "Go to your profile" : "Get started"}
               </Link>
 
               <a

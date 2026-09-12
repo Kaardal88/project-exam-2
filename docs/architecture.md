@@ -32,10 +32,14 @@ the point of it.
 - **Never add an `Authorization` header.** There is no code path that reads one.
 - **Never read the session from JavaScript.** The client answers "am I signed
   in?" from a 401, not from local state.
-- `bs_signed_in` is a second cookie carrying `1` and no secret. The nav bar and
-  the back button read it to decide what to draw before any request returns.
-  **It is a rendering hint with no authority** — forging it changes what a link
-  looks like and nothing else.
+- `bs_signed_in` is a second cookie carrying `1` and no secret. The landing
+  nav, the feedback button and `HomeLink` (the wordmark on pages without the
+  navbar) read it through `useSignedInHint()` to decide what to draw before any
+  request returns. **It is a rendering hint with no authority** — forging it
+  changes what a link looks like and nothing else.
+- Login and register send a signed-in visitor on to `/user` with
+  `useRedirectIfSignedIn()`, which asks `/api/auth/me` rather than trusting the
+  hint: a stale hint would bounce between `/user` and `/login` forever.
 - `SameSite=Lax` is the CSRF defence: the cookie is withheld from cross-site
   POST/PUT/DELETE, which is every route that changes anything. That is why
   logout is a POST rather than a link.

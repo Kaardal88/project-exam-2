@@ -6,7 +6,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { loginSchema } from "@/server/auth/auth.schemas";
-import { appName } from "@/components/Stemlock";
+import { HomeLink } from "@/components/HomeLink";
+import { useRedirectIfSignedIn } from "@/components/useSignedInHint";
 
 // Shown for any failed login attempt, regardless of whether the email
 // or the password was wrong — naming the field that failed makes it
@@ -22,6 +23,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useRedirectIfSignedIn();
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -56,15 +59,12 @@ export default function LoginPage() {
 
   return (
     <main className="auth-page">
-      <div className="flex flex-1 items-center justify-center px-4">
+      {/* py-* so the card never meets the top of the window. Centring only
+          centres while the card is shorter than the screen; on a laptop it
+          is taller, and without this it sat flush against the browser edge. */}
+      <div className="flex flex-1 items-center justify-center px-4 py-8 sm:py-12">
         <section className="mx-auto w-96 sm:w-80 md:w-96 lg:w-100 overflow-hidden border border-neutral-700 bg-neutral-900/80 shadow-2xl p-6 ">
-          <div className="flex w-max justify-center mx-auto mt-6 mb-10 bg-[#f3e7b6] text-neutral-950 px-8 sm:px-10 py-3 font-black shadow-[0_8px_25px_rgba(0,0,0,0.45)] -rotate-3 [clip-path:polygon(6%_0%,94%_0%,98%_8%,95%_18%,99%_28%,94%_42%,97%_56%,93%_72%,98%_88%,95%_100%,6%_100%,2%_92%,5%_80%,1%_68%,6%_54%,2%_38%,5%_22%,1%_10%)]">
-            <Link href="/">
-              <span className="text-3xl md:text-4xl font-black tracking-tight hover:opacity-90 transition font-[family-name:var(--font-marker)]">
-                {appName}
-              </span>
-            </Link>
-          </div>
+          <HomeLink className="mx-auto mt-6 mb-10" />
           <h1 className="text-2xl font-bold mb-4">Log in</h1>
 
           <form onSubmit={handleSubmit} className="auth-form">
