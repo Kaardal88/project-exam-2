@@ -143,6 +143,31 @@ songsRoutes.put("/:id", requireAuth, async (c) => {
     );
   }
 
+  // Both are typed by hand into a chip under the song title, and null clears
+  // either one. A whole number only for bpm: the column is an integer, and a
+  // "128.5" that Postgres rounds away quietly is worse than a 400 that says so.
+  if (
+    "bpm" in body &&
+    body.bpm !== null &&
+    !(Number.isInteger(body.bpm) && body.bpm >= 1 && body.bpm <= 999)
+  ) {
+    return c.json(
+      { error: "bpm must be a whole number from 1 to 999, or null" },
+      400,
+    );
+  }
+
+  if (
+    "key" in body &&
+    body.key !== null &&
+    (typeof body.key !== "string" || body.key.trim().length > 20)
+  ) {
+    return c.json(
+      { error: "key must be text of at most 20 characters, or null" },
+      400,
+    );
+  }
+
   /*
    * artwork_url is deliberately not settable here any more.
    *
@@ -160,6 +185,9 @@ songsRoutes.put("/:id", requireAuth, async (c) => {
       title: body.title,
       status: body.status,
       track_number: body.track_number,
+      bpm: body.bpm,
+      // An emptied field is no key rather than a key of "".
+      key: typeof body.key === "string" ? body.key.trim() || null : body.key,
       updated_at: new Date(),
     })
     .where(eq(songs.id, songId))

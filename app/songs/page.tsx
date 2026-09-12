@@ -12,6 +12,7 @@ import {
 import { type Collaborator } from "@/components/collaborators/CollaboratorList";
 import { collaboratorRoleLabel } from "@/lib/collaboratorRoles";
 import { SettingsModal } from "@/components/songDashboard/SettingsModal";
+import { SongMetaChip } from "@/components/songDashboard/SongMetaChip";
 import { useSidebarCollapsed } from "@/components/sidebar/useSidebarCollapsed";
 import {
   SongTabs,
@@ -39,7 +40,6 @@ type Song = {
   status: string;
   bpm: number | null;
   key: string | null;
-  time_signature: string | null;
   audio_url: string | null;
   current_version_id: string | null;
   created_by: string | null;
@@ -321,6 +321,47 @@ function SongDashboardPageContent() {
     [song, fetchSong],
   );
 
+  /** Saves one header chip. Resolves to an error message for the chip to show. */
+  const updateMeta = useCallback(
+    async (fields: { bpm: number | null } | { key: string | null }) => {
+      if (!song) return "Song not loaded";
+
+      const response = await fetch(`/api/songs/${song.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fields),
+      });
+
+      if (!response.ok) return "Couldn't save";
+
+      await fetchSong();
+      return null;
+    },
+    [song, fetchSong],
+  );
+
+  const saveBpm = useCallback(
+    async (draft: string) => {
+      const trimmed = draft.trim();
+
+      if (trimmed === "") return updateMeta({ bpm: null });
+
+      const bpm = Number(trimmed);
+
+      if (!Number.isInteger(bpm) || bpm < 1 || bpm > 999) {
+        return "A whole number, like 120";
+      }
+
+      return updateMeta({ bpm });
+    },
+    [updateMeta],
+  );
+
+  const saveKey = useCallback(
+    (draft: string) => updateMeta({ key: draft.trim() || null }),
+    [updateMeta],
+  );
+
   const fetchAudioUrl = useCallback(async () => {
     if (!song?.audio_url) {
       setAudioPlaybackUrl(null);
@@ -491,16 +532,27 @@ function SongDashboardPageContent() {
                   )}
                 </div>
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="rounded-full border border-neutral-700 px-3 py-1 text-xs text-neutral-300">
-                    {song.bpm ? `${song.bpm} bpm` : "BPM —"}
-                  </span>
-                  <span className="rounded-full border border-neutral-700 px-3 py-1 text-xs text-neutral-300">
-                    {song.key ?? "Key —"}
-                  </span>
-                  <span className="rounded-full border border-neutral-700 px-3 py-1 text-xs text-neutral-300">
-                    {song.time_signature ?? "Time —"}
-                  </span>
+                {/* Time signature had a chip here as well. Nothing could set
+                    it, and "Time" read as the song's length, which the player
+                    already shows. The column stays with its data. */}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <SongMetaChip
+                    label="BPM"
+                    value={song.bpm?.toString() ?? ""}
+                    display={song.bpm ? `${song.bpm} bpm` : null}
+                    placeholder="120"
+                    maxLength={3}
+                    inputMode="numeric"
+                    onSave={saveBpm}
+                  />
+                  <SongMetaChip
+                    label="Key"
+                    value={song.key ?? ""}
+                    display={song.key}
+                    placeholder="F#m"
+                    maxLength={20}
+                    onSave={saveKey}
+                  />
                 </div>
               </div>
               </div>

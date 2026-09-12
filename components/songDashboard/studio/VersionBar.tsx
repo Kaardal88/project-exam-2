@@ -14,6 +14,7 @@ import {
   Check,
   Search,
 } from "lucide-react";
+import { downloadVersion } from "./downloadVersion";
 import type { Version } from "./types";
 
 type VersionBarProps = {
@@ -24,6 +25,11 @@ type VersionBarProps = {
   selectedId: string | null;
   /** whether the selected version has a "Full mix" slot to download */
   selectedHasMix: boolean;
+  /**
+   * The song is one finished file. Every version then holds "1 stem", which
+   * says nothing, and its one download lives on the transport instead.
+   */
+  singleFile: boolean;
   isLeader: boolean;
   onSelect: (version: Version) => void;
   onChanged: () => Promise<void> | void;
@@ -62,6 +68,7 @@ export function VersionBar({
   loading,
   selectedId,
   selectedHasMix,
+  singleFile,
   isLeader,
   onSelect,
   onChanged,
@@ -130,10 +137,6 @@ export function VersionBar({
     }
   }
 
-  /**
-   * Filenames come from the server inside the signed URL. Setting `download`
-   * on the link does nothing here — the object is on another origin.
-   */
   async function download(what: "mix" | "stems") {
     if (!selected) return;
 
@@ -141,38 +144,7 @@ export function VersionBar({
     setError(null);
 
     try {
-      const response = await fetch(
-        `/api/songs/${songId}/versions/${selected.id}/download`,
-      );
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error ?? "Could not prepare the download");
-      }
-
-      const manifest: {
-        mix: { filename: string; url: string } | null;
-        files: { filename: string; url: string }[];
-      } = await response.json();
-
-      const wanted =
-        what === "mix" ? (manifest.mix ? [manifest.mix] : []) : manifest.files;
-
-      if (wanted.length === 0) {
-        throw new Error("There is no single mixdown in this version.");
-      }
-
-      for (const file of wanted) {
-        const link = document.createElement("a");
-        link.href = file.url;
-        link.download = file.filename;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-
-        // Browsers throttle or drop a burst of downloads fired in one tick.
-        await new Promise((resolve) => setTimeout(resolve, 400));
-      }
+      await downloadVersion(songId, selected.id, what);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Download failed");
     } finally {
@@ -303,7 +275,8 @@ export function VersionBar({
                             {version.creator?.username ?? "a departed member"}
                             {version.created_at &&
                               ` · ${formatWhen(version.created_at)}`}
-                            {version.stem_count != null &&
+                            {!singleFile &&
+                              version.stem_count != null &&
                               ` · ${version.stem_count} stem${version.stem_count === 1 ? "" : "s"}`}
                           </span>
                         </span>
@@ -341,7 +314,8 @@ export function VersionBar({
         <span className="hidden text-[11px] text-neutral-500 sm:inline">
           {selected?.creator?.username ?? "a departed member"}
           {selected?.created_at && ` · ${formatWhen(selected.created_at)}`}
-          {selected?.stem_count != null &&
+          {!singleFile &&
+            selected?.stem_count != null &&
             ` · ${selected.stem_count} stem${selected.stem_count === 1 ? "" : "s"}`}
         </span>
 
@@ -362,7 +336,10 @@ export function VersionBar({
             Comment
           </button>
 
-          {selectedHasMix && (
+          {/* A one-file song had three buttons here and on the transport
+              that all fetched the same audio. Its download is on the
+              transport alone, where a stems song has its bounce. */}
+          {!singleFile && selectedHasMix && (
             <button
               onClick={() => download("mix")}
               disabled={downloading !== null}
@@ -374,15 +351,17 @@ export function VersionBar({
             </button>
           )}
 
-          <button
-            onClick={() => download("stems")}
-            disabled={downloading !== null}
-            title="Every layer of this version, as separate files"
-            className="flex items-center gap-1 rounded-md border border-neutral-700 px-2 py-1 text-[11px] text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Download className="h-3 w-3" />
-            {downloading === "stems" ? "Preparing…" : "Stems"}
-          </button>
+          {!singleFile && (
+            <button
+              onClick={() => download("stems")}
+              disabled={downloading !== null}
+              title="Every layer of this version, as separate files"
+              className="flex items-center gap-1 rounded-md border border-neutral-700 px-2 py-1 text-[11px] text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Download className="h-3 w-3" />
+              {downloading === "stems" ? "Preparing…" : "Stems"}
+            </button>
+          )}
 
           {/* Rename, lock, restore and delete are rare and destructive-ish, so
               they sit behind one more click rather than crowding the bar. */}

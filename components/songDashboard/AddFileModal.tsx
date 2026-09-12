@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Modal } from "@/components/Modal";
+import { FilePicker } from "@/components/FilePicker";
 import { uploadToR2 } from "@/lib/uploadToR2";
 import { UploadProgress } from "./UploadProgress";
 
@@ -35,12 +36,10 @@ export function AddFileModal({
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isImageCategory = IMAGE_CATEGORIES.includes(category);
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
+  function handleFileChange(file: File) {
     setError(null);
     setSelectedFile(file);
   }
@@ -146,13 +145,17 @@ export function AddFileModal({
             <label className="mb-2 block text-sm font-semibold text-yellow-100">
               File
             </label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={isImageCategory ? "image/jpeg,image/png,.jpg,.jpeg,.png" : undefined}
-              onChange={handleFileChange}
-              className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-4 py-2 text-sm text-yellow-100 outline-none transition file:mr-3 file:rounded-md file:border-0 file:bg-yellow-100 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-neutral-950 focus:border-yellow-200"
-            />
+            <div className="rounded-md border border-neutral-700 bg-neutral-950 px-4 py-2">
+              <FilePicker
+                file={selectedFile}
+                onChange={handleFileChange}
+                accept={
+                  isImageCategory
+                    ? "image/jpeg,image/png,.jpg,.jpeg,.png"
+                    : undefined
+                }
+              />
+            </div>
             <p className="mt-1 text-xs text-neutral-500">
               {isImageCategory
                 ? "JPG or PNG, max 10MB."

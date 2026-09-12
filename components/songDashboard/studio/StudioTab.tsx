@@ -9,6 +9,7 @@ import {
   VolumeX,
   Music,
   Download,
+  Upload,
 } from "lucide-react";
 import { formatSongTime } from "@/lib/utils";
 import { bounceToMp3, saveBlob } from "@/lib/bounce";
@@ -16,6 +17,7 @@ import { MAX_STEMS_PER_VERSION, MIX_KIND } from "@/lib/stemKinds";
 import { useStemPlayer, type PlayerLane } from "./useStemPlayer";
 import { StemLane } from "./StemLane";
 import { VersionBar } from "./VersionBar";
+import { downloadVersion } from "./downloadVersion";
 import { AddStemModal } from "./AddStemModal";
 import { UploadTakeModal } from "./UploadTakeModal";
 import { AddCommentModal } from "../AddCommentModal";
@@ -56,11 +58,14 @@ export function StudioTab({
   const [addStemOpen, setAddStemOpen] = useState(false);
   const [addStemKind, setAddStemKind] = useState("vocals");
   const [uploadInto, setUploadInto] = useState<Stem | null>(null);
+  /** "Upload the song" on an empty song, before any slot exists. */
+  const [uploadingSong, setUploadingSong] = useState(false);
 
   const [takesByStem, setTakesByStem] = useState<Record<string, Take[]>>({});
   const [takesLoading, setTakesLoading] = useState<string | null>(null);
 
   const [bouncing, setBouncing] = useState<number | null>(null);
+  const [downloadingOriginal, setDownloadingOriginal] = useState(false);
   const [commentOn, setCommentOn] = useState<Version | null>(null);
 
   const loadStems = useCallback(async () => {
@@ -160,6 +165,19 @@ export function StudioTab({
   const takeByStemId = new Map(
     (detail?.stems ?? []).map((row) => [row.stem.id, row.take]),
   );
+
+  /**
+   * The song is one finished file and nothing else: a single Full mix slot.
+   *
+   * Still a song with one stem underneath -- versions, takes and comments work
+   * exactly as they do for stems -- but it is shown as what the band thinks it
+   * is. Read off the registry rather than the version on screen, so looking at
+   * an older version cannot flip the studio between two layouts, and adding a
+   * second stem turns it into a stems song without anyone choosing a mode.
+   */
+  const singleFile = stems.length === 1 && stems[0].kind === MIX_KIND;
+
+  const mixTake = detail?.stems.find((row) => row.stem.kind === MIX_KIND)?.take;
 
   async function patchStem(stem: Stem, body: Record<string, unknown>) {
     const response = await fetch(`/api/songs/${songId}/stems/${stem.id}`, {
@@ -311,9 +329,28 @@ export function StudioTab({
 
       saveBlob(blob, `${songTitle} - v${detail.version_number} (bounce).mp3`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not bounce");
+      setError(err instanceof Error ? err.message : "Could not make the MP3");
     } finally {
       setBouncing(null);
+    }
+  }
+
+  /**
+   * A one-file song downloads the file itself. Bouncing it would decode the
+   * mp3 and encode it again -- the same audio, a little worse.
+   */
+  async function downloadOriginal() {
+    if (!detail) return;
+
+    setDownloadingOriginal(true);
+    setError(null);
+
+    try {
+      await downloadVersion(songId, detail.id, "mix");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Download failed");
+    } finally {
+      setDownloadingOriginal(false);
     }
   }
 
@@ -336,11 +373,11 @@ export function StudioTab({
           </p>
 
           <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            {/* Straight to the file. This used to open "Add a stem" first,
+                asking what the layer was and what to call the lane -- stem
+                questions, put to someone who said they had the song. */}
             <button
-              onClick={() => {
-                setAddStemKind(MIX_KIND);
-                setAddStemOpen(true);
-              }}
+              onClick={() => setUploadingSong(true)}
               className="rounded-md border border-yellow-100 px-4 py-2 text-sm font-semibold text-yellow-100 transition hover:cursor-pointer hover:bg-yellow-50 hover:text-black!"
             >
               Upload the song
@@ -378,6 +415,21 @@ export function StudioTab({
             setUploadInto(stem);
           }}
         />
+
+        <UploadTakeModal
+          isOpen={uploadingSong}
+          onClose={() => setUploadingSong(false)}
+          songId={songId}
+          stem={null}
+          createsMixSlot
+          firstUpload
+          isLeader={isLeader}
+          songDuration={0}
+          onUploaded={async () => {
+            await reload();
+            onSongChanged();
+          }}
+        />
       </>
     );
   }
@@ -396,9 +448,8 @@ export function StudioTab({
         versions={versions}
         loading={loading}
         selectedId={selectedId}
-        selectedHasMix={
-          detail?.stems.some((row) => row.stem.kind === MIX_KIND) ?? false
-        }
+        selectedHasMix={mixTake !== undefined}
+        singleFile={singleFile}
         isLeader={isLeader}
         onSelect={(version) => loadDetail(version.id)}
         onChanged={async () => {
@@ -411,32 +462,66 @@ export function StudioTab({
 
       <div className="grid gap-4">
         <section className="min-w-0 rounded-md border border-neutral-700 bg-neutral-900/60">
-          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800 px-4 py-3">
-            <div>
+          {singleFile ? (
+            <header className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800 px-4 py-3">
               <h2 className="text-sm font-bold uppercase tracking-wide text-yellow-100">
-                Stems
+                Song file
               </h2>
-              <p className="mt-0.5 text-[11px] text-neutral-500">
-                {stems.length} of {MAX_STEMS_PER_VERSION} · played together
-              </p>
-            </div>
 
-            <button
-              onClick={() => {
-                setAddStemKind("drums");
-                setAddStemOpen(true);
-              }}
-              disabled={stems.length >= MAX_STEMS_PER_VERSION}
-              className="flex items-center gap-1.5 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Plus className="h-3 w-3" />
-              Add stem
-            </button>
-          </header>
+              <div className="flex items-center gap-3">
+                {/* Quiet on purpose. Most one-file songs stay that way, but
+                    a band that later exports separate tracks needs a way in
+                    that does not mean starting a new song. */}
+                <button
+                  onClick={() => {
+                    setAddStemKind("drums");
+                    setAddStemOpen(true);
+                  }}
+                  title="Split the song into separate tracks — drums, guitar, vocals — played together"
+                  className="text-[11px] text-neutral-500 underline-offset-2 transition hover:cursor-pointer hover:text-yellow-100 hover:underline"
+                >
+                  Add stems
+                </button>
+
+                <button
+                  onClick={() => setUploadInto(stems[0])}
+                  className="flex items-center gap-1.5 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100"
+                >
+                  <Upload className="h-3 w-3" />
+                  Upload new mix
+                </button>
+              </div>
+            </header>
+          ) : (
+            <header className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-bold uppercase tracking-wide text-yellow-100">
+                  Stems
+                </h2>
+                <p className="mt-0.5 text-[11px] text-neutral-500">
+                  {stems.length} of {MAX_STEMS_PER_VERSION} · played together
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setAddStemKind("drums");
+                  setAddStemOpen(true);
+                }}
+                disabled={stems.length >= MAX_STEMS_PER_VERSION}
+                className="flex items-center gap-1.5 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Plus className="h-3 w-3" />
+                Add stem
+              </button>
+            </header>
+          )}
 
           {player.state === "loading" && (
             <p className="px-4 py-2 text-[11px] text-neutral-500">
-              Decoding {player.loadedCount} of {player.laneCount} stems…
+              {singleFile
+                ? "Loading the song…"
+                : `Decoding ${player.loadedCount} of ${player.laneCount} stems…`}
             </p>
           )}
 
@@ -453,6 +538,7 @@ export function StudioTab({
                 muted={player.muted.has(stem.id)}
                 soloed={player.soloed.has(stem.id)}
                 anySoloed={player.soloed.size > 0}
+                singleFile={singleFile}
                 isLeader={isLeader}
                 currentUserId={currentUserId}
                 takes={takesByStem[stem.id] ?? []}
@@ -496,15 +582,34 @@ export function StudioTab({
               {formatSongTime(player.duration)}
             </span>
 
-            <button
-              onClick={bounce}
-              disabled={player.state !== "ready" || bouncing !== null}
-              title="Render what you are hearing to a single MP3, to play along to in a DAW"
-              className="flex items-center gap-1.5 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Download className="h-3 w-3" />
-              {bouncing !== null ? `Bouncing ${bouncing}%` : "Bounce to MP3"}
-            </button>
+            {/* Same place, same words, two different jobs. A one-file song
+                hands back the file that was uploaded, in whatever format it
+                was -- so it will say WAV once WAV exists. A stems song has no
+                such file and gets one mixed in the browser, which is always
+                an MP3. */}
+            {singleFile ? (
+              <button
+                onClick={downloadOriginal}
+                disabled={!mixTake || downloadingOriginal}
+                title="The song file exactly as it was uploaded"
+                className="flex items-center gap-1.5 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Download className="h-3 w-3" />
+                {downloadingOriginal
+                  ? "Preparing…"
+                  : `Download ${(mixTake?.format ?? "mp3").toUpperCase()}`}
+              </button>
+            ) : (
+              <button
+                onClick={bounce}
+                disabled={player.state !== "ready" || bouncing !== null}
+                title="Mixes the stems you can hear into one MP3. Mute a stem first to leave it out — handy as a backing track."
+                className="flex items-center gap-1.5 rounded-md border border-neutral-700 px-2 py-1 text-xs text-neutral-300 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Download className="h-3 w-3" />
+                {bouncing !== null ? `Mixing ${bouncing}%` : "Download MP3"}
+              </button>
+            )}
 
             <div className="ml-auto flex items-center gap-2">
               <button
@@ -576,6 +681,7 @@ export function StudioTab({
         stem={uploadInto}
         isLeader={isLeader}
         songDuration={player.duration}
+        firstUpload={versions.length === 0}
         onUploaded={async (committed) => {
           if (uploadInto) await loadTakes(uploadInto.id);
           if (committed) {

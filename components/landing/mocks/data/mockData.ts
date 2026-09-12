@@ -39,13 +39,11 @@ export const mockSong: {
   status: "wip" | "finished";
   bpm: number;
   key: string;
-  time_signature: string;
 } = {
   title: "Skumring",
   status: "wip",
   bpm: 118,
   key: "A minor",
-  time_signature: "4/4",
 };
 
 export const mockTasks = [
@@ -154,7 +152,6 @@ export const mockStudioSong = {
   contributors: "Kim-Andre, Jan Magne",
   guests: "Silje (Guest musician)",
   bpm: 120,
-  timeSignature: "4/4",
   image: "/kongVidarMockImg.jpg", // "./public/kongVidarMockImg.jpg",
 };
 

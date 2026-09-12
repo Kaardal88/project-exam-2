@@ -16,6 +16,12 @@ type StemLaneProps = {
   muted: boolean;
   soloed: boolean;
   anySoloed: boolean;
+  /**
+   * The song is this one file. Solo and mute do nothing on a lane with no
+   * other lanes beside it, and "take" and "stem" are words the band never
+   * needed, so the lane drops both.
+   */
+  singleFile: boolean;
   isLeader: boolean;
   currentUserId: string | null;
   /** other takes handed in for this slot, for the swap menu */
@@ -42,6 +48,7 @@ export function StemLane({
   muted,
   soloed,
   anySoloed,
+  singleFile,
   isLeader,
   currentUserId,
   takes,
@@ -149,7 +156,7 @@ export function StemLane({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
+      <div className={singleFile ? "hidden" : "flex shrink-0 items-center gap-1"}>
         <button
           onClick={onToggleSolo}
           disabled={absent}
@@ -193,8 +200,10 @@ export function StemLane({
       <div className="flex shrink-0 items-center gap-1">
         <button
           onClick={onUploadTake}
-          title="Upload a take into this stem"
-          aria-label={`Upload a take into ${stem.name}`}
+          title={singleFile ? "Upload a new mix" : "Upload a take into this stem"}
+          aria-label={
+            singleFile ? "Upload a new mix" : `Upload a take into ${stem.name}`
+          }
           className="flex h-7 w-7 items-center justify-center rounded-md border border-neutral-700 text-neutral-400 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100"
         >
           <Upload className="h-3.5 w-3.5" />
@@ -207,8 +216,12 @@ export function StemLane({
               setTakesOpen(next);
               if (next) onOpenTakes();
             }}
-            title="Takes handed in for this stem"
-            aria-label={`Takes for ${stem.name}`}
+            title={
+              singleFile
+                ? "Every mix uploaded for this song"
+                : "Takes handed in for this stem"
+            }
+            aria-label={singleFile ? "Uploaded mixes" : `Takes for ${stem.name}`}
             className="flex h-7 w-7 items-center justify-center rounded-md border border-neutral-700 text-neutral-400 transition hover:cursor-pointer hover:border-yellow-200 hover:text-yellow-100"
           >
             <ChevronDown className="h-3.5 w-3.5" />
@@ -229,7 +242,7 @@ export function StemLane({
                   phone either way. */}
               <div className="absolute left-0 z-20 mt-1 w-64 max-w-[calc(100vw-4rem)] rounded-md border border-neutral-700 bg-neutral-900 p-2 shadow-2xl sm:left-auto sm:right-0">
                 <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
-                  Takes in {stem.name}
+                  {singleFile ? "Uploaded mixes" : `Takes in ${stem.name}`}
                 </p>
 
                 {takesLoading ? (
@@ -339,7 +352,9 @@ export function StemLane({
                     }}
                     className="mt-2 w-full rounded-md border border-neutral-800 px-2 py-1 text-[11px] text-neutral-500 transition hover:cursor-pointer hover:border-red-400/40 hover:text-red-300"
                   >
-                    Remove this stem entirely
+                    {singleFile
+                      ? "Take the audio out of the song"
+                      : "Remove this stem entirely"}
                   </button>
                 )}
               </div>

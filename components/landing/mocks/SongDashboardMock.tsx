@@ -26,9 +26,6 @@ export function SongDashboardMock() {
         <span className="rounded-full border border-neutral-700 px-3 py-1 text-xs text-neutral-300">
           {mockSong.key}
         </span>
-        <span className="rounded-full border border-neutral-700 px-3 py-1 text-xs text-neutral-300">
-          {mockSong.time_signature}
-        </span>
       </div>
 
       <div className="mt-4 grid flex-1 gap-3 md:grid-cols-2">

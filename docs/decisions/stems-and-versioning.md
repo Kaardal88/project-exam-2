@@ -633,6 +633,48 @@ buttons and a sentence explaining the difference:
 
 Both land in the same model. The first is a song with one stem.
 
+### *Deviation:* a one-file song is shown as one file
+
+Still one model and still no mode to pick, but the studio no longer *looks*
+like stems when there is only a finished mp3. Tested on a real one-file song,
+the screen said "Stems · 1 of 12 · played together", offered solo and mute on
+a lane with nothing beside it, and had three download buttons — Mix, Stems
+and Bounce — all producing the same audio, the bounce a re-encoded and
+slightly worse copy of it.
+
+So when the song's registry holds exactly one slot and it is the `mix` kind,
+the studio says so: the section is "Song file", the main action is "Upload new
+mix", solo, mute and stem counts are gone, and there is one download — the
+file as it was uploaded, labelled with its format so it reads "Download WAV"
+the day WAV exists. "Add stems" stays as a quiet link, because a band that
+later exports separate tracks should not have to start a new song.
+
+It is read off the registry, not the version on screen, so browsing history
+cannot flip the layout, and adding a second stem turns it into a stems song
+without anyone choosing anything. Underneath, nothing changed: it is the same
+single-stem song, with the same versions, takes and comments.
+
+Uploading a full mix is a file and a button. The take form asked what the
+take was called, what changed, and whether to put it in the song now — and
+would not submit without a name — which are stem questions put to someone
+holding a finished mp3. For the `mix` kind the file's own name becomes the
+take's label, there is no note, and **a leader's upload always becomes the
+song**: the section 2 checkbox is gone for this one case, because keeping a
+full mix "on the shelf" is the rare exception and a stems workflow is where
+that split earns its click. A guest's upload still only goes on the shelf.
+"Upload the song" on an empty song goes straight to that form; it used to
+open "Add a stem" first. The Full mix slot is made on submit, so backing out
+leaves the song empty rather than holding an empty lane.
+
+The bounce on a stems song is "Download MP3" now, and says in its tooltip that
+it mixes what you can hear — muting your own part first is the backing-track
+use it exists for.
+
+The migration's note on every carried-over v1 ("Where the song stood when
+stems arrived…") was written for whoever ran the migration and is cleared by
+`scripts/clear-migration-notes.ts`. The v1 labels are the band's own names for
+their old takes and are left alone.
+
 ### Mobile
 
 "Expand player" is missing on mobile because the button is `hidden … sm:flex`

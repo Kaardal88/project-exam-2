@@ -112,7 +112,7 @@ export function StudioStemsMock() {
                 <span className="h-1 w-1 shrink-0 rounded-full bg-yellow-100" />
               </p>
               <div className="mt-1 hidden flex-wrap gap-1 sm:flex">
-                {["BPM —", "Key —", "Time —"].map((chip) => (
+                {["BPM —", "Key —"].map((chip) => (
                   <span
                     key={chip}
                     className="rounded-full border border-neutral-700 px-1.5 py-px text-[9px] text-neutral-300"

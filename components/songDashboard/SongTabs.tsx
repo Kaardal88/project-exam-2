@@ -23,8 +23,8 @@ import {
  * than being slotted into the flat row this used to be.
  *
  * Song Info was here, promising editable BPM, key and time signature. It never
- * did anything, and the header above already shows all three, so it went the
- * same way as the sidebar's Calendar.
+ * did anything, so it went the same way as the sidebar's Calendar -- BPM and
+ * key are edited in the header chips now, and time signature was dropped.
  */
 const SONG_TAB_GROUPS = [
   { items: ["Dashboard", "Activity"] },

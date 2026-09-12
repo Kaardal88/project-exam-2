@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/Modal";
+import { FilePicker } from "@/components/FilePicker";
 import { formatSongTime } from "@/lib/utils";
 import { uploadToR2 } from "@/lib/uploadToR2";
+import { MIX_KIND, MIX_STEM_NAME } from "@/lib/stemKinds";
 import { UploadProgress } from "../UploadProgress";
 import type { Stem } from "./types";
 
@@ -13,7 +15,16 @@ type UploadTakeModalProps = {
   isOpen: boolean;
   onClose: () => void;
   songId: string;
+  /** The slot the take goes into. Null only alongside createsMixSlot. */
   stem: Stem | null;
+  /**
+   * The song has no audio at all and the band chose "Upload the song". The
+   * Full mix slot is made on submit rather than before the modal opens, so
+   * backing out leaves the song as empty as it was.
+   */
+  createsMixSlot?: boolean;
+  /** Nothing has been put in the song yet -- this is its first audio. */
+  firstUpload: boolean;
   isLeader: boolean;
   /** Length of the version currently loaded, for the comparison below. 0 when nothing is. */
   songDuration: number;
@@ -39,11 +50,18 @@ async function readDuration(file: File): Promise<number | null> {
   });
 }
 
+/** "Kong Vidar master v3.mp3" -> "Kong Vidar master v3" */
+function nameFromFile(file: File) {
+  return file.name.replace(/\.[^.]+$/, "").trim() || MIX_STEM_NAME;
+}
+
 export function UploadTakeModal({
   isOpen,
   onClose,
   songId,
   stem,
+  createsMixSlot = false,
+  firstUpload,
   isLeader,
   songDuration,
   onUploaded,
@@ -62,6 +80,19 @@ export function UploadTakeModal({
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * The Full mix slot, once this modal has made it. Held so that a retry after
+   * a failed upload does not make a second one.
+   */
+  const [createdStem, setCreatedStem] = useState<Stem | null>(null);
+
+  /**
+   * The whole song as one file. The take form asks what a *layer* is called,
+   * what changed and whether it goes in now -- questions a band uploading
+   * their finished mp3 never had. So it is a file and a button: the file's own
+   * name becomes the take's, and a leader's upload is the song.
+   */
+  const isMix = createsMixSlot || stem?.kind === MIX_KIND;
 
   function reset() {
     setFile(null);
@@ -73,10 +104,31 @@ export function UploadTakeModal({
     setProgress(null);
   }
 
+  /** The slot to upload into, making the Full mix slot first if need be. */
+  async function targetStem(): Promise<Stem> {
+    if (stem) return stem;
+    if (createdStem) return createdStem;
+
+    const response = await fetch(`/api/songs/${songId}/stems`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: MIX_STEM_NAME, kind: MIX_KIND }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error ?? "Could not prepare the song for audio");
+    }
+
+    const made: Stem = await response.json();
+    setCreatedStem(made);
+    return made;
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
 
-    if (!stem) return;
+    if (!stem && !createsMixSlot) return;
 
     if (!file) return setError("Choose an MP3 first");
 
@@ -88,7 +140,7 @@ export function UploadTakeModal({
       return setError("File too large. Max 25MB");
     }
 
-    if (!label.trim()) {
+    if (!isMix && !label.trim()) {
       return setError("Give the take a name so it can be told apart");
     }
 
@@ -108,15 +160,17 @@ export function UploadTakeModal({
         onProgress: setProgress,
       });
 
+      const slot = await targetStem();
+
       const takeResponse = await fetch(
-        `/api/songs/${songId}/stems/${stem.id}/takes`,
+        `/api/songs/${songId}/stems/${slot.id}/takes`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             r2_key: key,
-            label: label.trim(),
-            note: note.trim() || null,
+            label: isMix ? nameFromFile(file) : label.trim(),
+            note: isMix ? null : note.trim() || null,
             duration_seconds: duration,
             byte_size: file.size,
           }),
@@ -131,7 +185,7 @@ export function UploadTakeModal({
       const take = await takeResponse.json();
       let committed = false;
 
-      if (isLeader && makeCurrent) {
+      if (isLeader && (isMix || makeCurrent)) {
         const commitResponse = await fetch(`/api/songs/${songId}/versions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -139,8 +193,8 @@ export function UploadTakeModal({
           // uploading a stem called "Kick" produces "Added Kick" rather than a
           // version named after one of its layers.
           body: JSON.stringify({
-            note: note.trim() || null,
-            stems: [{ stem_id: stem.id, take_id: take.id }],
+            note: isMix ? null : note.trim() || null,
+            stems: [{ stem_id: slot.id, take_id: take.id }],
           }),
         });
 
@@ -149,7 +203,7 @@ export function UploadTakeModal({
           // The take is safely in either way, so this is a partial success
           // rather than a failure — say so instead of implying it was lost.
           throw new Error(
-            `The take was saved, but it is not in the song yet: ${
+            `The file was saved, but it is not in the song yet: ${
               body.error ?? "the version could not be written"
             }`,
           );
@@ -159,6 +213,7 @@ export function UploadTakeModal({
       }
 
       reset();
+      setCreatedStem(null);
       await onUploaded(committed);
       onClose();
     } catch (err) {
@@ -169,24 +224,36 @@ export function UploadTakeModal({
     }
   }
 
+  async function chooseFile(picked: File) {
+    setFile(picked);
+    setError(null);
+    setFileDuration(await readDuration(picked));
+  }
+
+  const title = isMix
+    ? firstUpload
+      ? "Upload the song"
+      : "Upload a new mix"
+    : `Upload a take${stem ? ` — ${stem.name}` : ""}`;
+
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
-        <h2 className="text-lg font-bold text-yellow-100">
-          Upload a take{stem ? ` — ${stem.name}` : ""}
-        </h2>
+        <h2 className="text-lg font-bold text-yellow-100">{title}</h2>
+
+        {isMix && (
+          <p className="text-xs text-neutral-400">
+            One finished file of the whole song. MP3, up to 25MB.
+          </p>
+        )}
 
         {error && <p className="form-error">{error}</p>}
 
-        <input
-          type="file"
+        <FilePicker
+          file={file}
+          onChange={(picked) => void chooseFile(picked)}
           accept="audio/mpeg,.mp3"
-          onChange={async (event) => {
-            const picked = event.target.files?.[0] ?? null;
-            setFile(picked);
-            setFileDuration(picked ? await readDuration(picked) : null);
-          }}
-          className="block w-full text-xs text-neutral-400 file:mr-3 file:rounded-md file:border file:border-neutral-700 file:bg-neutral-900 file:px-3 file:py-1 file:text-xs file:text-yellow-100 hover:file:cursor-pointer"
+          disabled={saving}
         />
 
         {/*
@@ -198,8 +265,11 @@ export function UploadTakeModal({
           against how long the song is. Different is not wrong -- some DAWs
           trim trailing silence -- so it says what it sees and leaves the call
           to the person who made the file.
+
+          Not shown for a full mix: a new mix is allowed to be longer or
+          shorter than the last one.
         */}
-        {fileDuration !== null && (
+        {!isMix && fileDuration !== null && (
           <p className="rounded-md border border-neutral-800 bg-neutral-950/50 px-3 py-2 text-xs text-neutral-400">
             This take is {formatSongTime(fileDuration)}
             {songDuration > 0 && (
@@ -217,22 +287,26 @@ export function UploadTakeModal({
           </p>
         )}
 
-        <input
-          value={label}
-          onChange={(event) => setLabel(event.target.value)}
-          placeholder="What is this take?"
-          className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
-        />
+        {!isMix && (
+          <>
+            <input
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder="What is this take?"
+              className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            />
 
-        <textarea
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          placeholder="What changed, what to listen for (optional)"
-          rows={2}
-          className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
-        />
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="What changed, what to listen for (optional)"
+              rows={2}
+              className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-yellow-100 outline-none transition focus:border-yellow-200"
+            />
+          </>
+        )}
 
-        {isLeader ? (
+        {!isMix && isLeader && (
           <label className="flex items-start gap-2 text-xs text-neutral-300">
             <input
               type="checkbox"
@@ -247,10 +321,13 @@ export function UploadTakeModal({
               </span>
             </span>
           </label>
-        ) : (
+        )}
+
+        {!isLeader && (
           <p className="rounded-md border border-neutral-800 bg-neutral-950/50 px-3 py-2 text-xs text-neutral-400">
-            Your take goes into this stem for the band to hear. A band leader
-            decides when it becomes part of the song.
+            {isMix
+              ? "The band will hear your file. A band leader decides when it becomes the song."
+              : "Your take goes into this stem for the band to hear. A band leader decides when it becomes part of the song."}
           </p>
         )}
 
@@ -267,10 +344,10 @@ export function UploadTakeModal({
 
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || (isMix && !file)}
             className="rounded-md border border-yellow-100 px-3 py-1.5 text-xs font-semibold text-yellow-100 transition hover:cursor-pointer hover:bg-yellow-50 hover:text-black! disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {saving ? "Uploading…" : "Upload take"}
+            {saving ? "Uploading…" : isMix ? "Upload" : "Upload take"}
           </button>
         </div>
       </form>
