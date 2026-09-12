@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { MessageSquarePlus } from "lucide-react";
 import { Modal } from "@/components/Modal";
-import { hasSignedInHint } from "@/lib/session";
+import { useSignedInHint } from "@/components/useSignedInHint";
 import { feedbackCategories, type FeedbackCategory } from "@/lib/feedbackCategories";
 
 /**
@@ -17,7 +17,7 @@ import { feedbackCategories, type FeedbackCategory } from "@/lib/feedbackCategor
  * register pages.
  */
 export function FeedbackButton() {
-  const [signedIn, setSignedIn] = useState(false);
+  const signedIn = useSignedInHint();
   const [open, setOpen] = useState(false);
 
   const [category, setCategory] = useState<FeedbackCategory>("bug");
@@ -25,18 +25,6 @@ export function FeedbackButton() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
-
-  // Read after mount rather than during render: the server has no cookies to
-  // look at, so deciding this while rendering would disagree with the client.
-  // Deferred through a timeout, which is the shape the compiler lint accepts
-  // for reading a cookie into state.
-  useEffect(() => {
-    const id = setTimeout(() => {
-      setSignedIn(hasSignedInHint());
-    }, 0);
-
-    return () => clearTimeout(id);
-  }, []);
 
   if (!signedIn) return null;
 
