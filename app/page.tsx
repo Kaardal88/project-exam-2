@@ -124,7 +124,7 @@ export default function HomePage() {
 
       <FeatureShowcase />
 
-      <section id="bands" className="bands-section mt-24! mb-24! scroll-mt-20">
+      <section id="bands" className="bands-section  scroll-mt-20">
         <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-yellow-100 font-[family-name:var(--font-caveat)]">
           Bands on the stage
         </h2>
