@@ -64,10 +64,14 @@ const features: Feature[] = [
     description:
       "Drop a lyric idea or a mix note the moment it hits — searchable, never lost in a voice memo.",
     visual: (
-      <div className="rounded-md border border-neutral-700 bg-neutral-950 p-3 text-sm">
+      <div className="rounded-md border  border-neutral-700 bg-neutral-950 p-3 text-sm">
         <p className="font-semibold text-yellow-100">Chorus idea</p>
         <p className="mt-1 line-clamp-2 text-neutral-300">
           Try stacking the harmony an octave up on the last chorus.
+        </p>
+        <p className="font-semibold text-yellow-100 mt-2">Contact studio</p>
+        <p className="mt-1 line-clamp-2 text-neutral-300">
+          Let&apos;s book a rehearsal room.
         </p>
       </div>
     ),
@@ -76,15 +80,40 @@ const features: Feature[] = [
     icon: Music,
     heading: "Audio, uploaded and ready",
     description:
-      "Drag in a rough mix or a stem — the band hears it and can comment on the exact timestamp.",
+      "Drag in a rough mix or stack your stems — the band hears it and can comment on the exact timestamp.",
     visual: (
       <div className="rounded-md border border-neutral-700 bg-neutral-950 p-3">
         <div className="flex items-center justify-between text-xs text-neutral-400">
-          <span>skumring_v3.wav</span>
-          <span>72%</span>
+          <span>Vocals_v3_chorus.wav</span>
         </div>
+
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-800">
           <div className="h-full w-[72%] rounded-full bg-amber-300" />
+        </div>
+        <div className="flex items-center justify-between text-xs text-neutral-400">
+          <span>Kick_v3.wav</span>
+        </div>
+
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-800">
+          <div className="h-full w-[72%] rounded-full bg-blue-300" />
+        </div>
+        <div className="flex items-center justify-between text-xs text-neutral-400">
+          <span>Snare_v3.wav</span>
+        </div>
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-800">
+          <div className="h-full w-[72%] rounded-full bg-blue-300" />
+        </div>
+        <div className="flex items-center justify-between text-xs text-neutral-400">
+          <span>Guitars_v3.wav</span>
+        </div>
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-800">
+          <div className="h-full w-[72%] rounded-full bg-green-300" />
+        </div>
+        <div className="flex items-center justify-between text-xs text-neutral-400">
+          <span>Bass_v3.wav</span>
+        </div>
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-800">
+          <div className="h-full w-[72%] rounded-full bg-yellow-300" />
         </div>
       </div>
     ),
@@ -100,11 +129,9 @@ export function FeatureShowcase() {
 
     const interval = setInterval(() => {
       setActiveIndex((current) => (current + 1) % features.length);
-    }, 3000);
+    }, 5000);
 
     return () => clearInterval(interval);
-    // Re-armed on activeIndex too, so a manual prev/next click restarts the
-    // 3s countdown instead of auto-advancing again a moment later.
   }, [paused, activeIndex]);
 
   const activeFeature = features[activeIndex];
@@ -121,19 +148,16 @@ export function FeatureShowcase() {
   }
 
   return (
-    <section
-      id="features"
-      className="scroll-mt-20 px-4 pb-16 text-yellow-100 md:pb-24"
-    >
+    <section id="features" className="scroll-mt-20 px-4 pb-0 text-yellow-100 ">
       <div className="mx-auto max-w-3xl">
         <h2 className="mb-8 text-center font-[family-name:var(--font-marker)] text-2xl tracking-wide text-yellow-100 md:text-4xl">
-          Everything the band needs
+          Everything the band needs in one place
         </h2>
 
         <div
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
-          className="rounded-2xl border border-neutral-700 bg-neutral-900/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.5)] md:p-8"
+          className="rounded-2xl border border-neutral-700 bg-neutral-900/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.5)] md:p-8 height-[300px] md:h-[350px]"
         >
           <div
             key={activeIndex}
@@ -153,37 +177,36 @@ export function FeatureShowcase() {
               <div className="mt-4">{activeFeature.visual}</div>
             </div>
           </div>
+        </div>
+        <div className="  relative mt-2 flex  justify-center gap-4 ">
+          <button
+            onClick={previousFeature}
+            className="text-xl text-yellow-100/70 transition hover:scale-110 hover:text-yellow-100"
+            aria-label="Previous feature"
+          >
+            ‹
+          </button>
 
-          <div className="mt-6 flex items-center justify-center gap-4">
-            <button
-              onClick={previousFeature}
-              className="text-xl text-yellow-100/70 transition hover:scale-110 hover:text-yellow-100"
-              aria-label="Previous feature"
-            >
-              ‹
-            </button>
-
-            <div aria-hidden className="flex items-center gap-2">
-              {features.map((feature, index) => (
-                <span
-                  key={feature.heading}
-                  className={`h-1.5 w-1.5 rounded-full transition ${
-                    index === activeIndex
-                      ? "bg-amber-300 shadow-[0_0_6px_rgba(252,211,77,0.8)]"
-                      : "bg-neutral-700"
-                  }`}
-                />
-              ))}
-            </div>
-
-            <button
-              onClick={nextFeature}
-              className="text-xl text-yellow-100/70 transition hover:scale-110 hover:text-yellow-100"
-              aria-label="Next feature"
-            >
-              ›
-            </button>
+          <div aria-hidden className="flex items-center gap-2">
+            {features.map((feature, index) => (
+              <span
+                key={feature.heading}
+                className={`h-1.5 w-1.5 rounded-full transition ${
+                  index === activeIndex
+                    ? "bg-amber-300 shadow-[0_0_6px_rgba(252,211,77,0.8)]"
+                    : "bg-neutral-700"
+                }`}
+              />
+            ))}
           </div>
+
+          <button
+            onClick={nextFeature}
+            className="text-xl text-yellow-100/70 transition hover:scale-110 hover:text-yellow-100"
+            aria-label="Next feature"
+          >
+            ›
+          </button>
         </div>
       </div>
     </section>
