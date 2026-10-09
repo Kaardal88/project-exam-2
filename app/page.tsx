@@ -9,18 +9,16 @@ import { useSignedInHint } from "@/components/useSignedInHint";
 import { HeroMockStage } from "@/components/landing/HeroMockStage";
 import { appName } from "@/components/Stemlock";
 import { Footer } from "@/components/Footer";
+import {
+  StagePoster,
+  type PosterActData,
+} from "@/components/landing/StagePoster";
 
-type Band = {
-  id: string;
-  slug: string;
-  band_name: string;
-  bio?: string;
-  image_url?: string | null;
-};
 
 export default function HomePage() {
-  const [featuredBands, setFeaturedBands] = useState<Band[]>([]);
+  const [featuredBands, setFeaturedBands] = useState<PosterActData[]>([]);
   const [bandCount, setBandCount] = useState(0);
+  const [bandsLoaded, setBandsLoaded] = useState(false);
   const isSignedIn = useSignedInHint();
 
   useEffect(() => {
@@ -37,6 +35,8 @@ export default function HomePage() {
         setFeaturedBands(data.bands ?? []);
         setBandCount(data.total ?? 0);
       }
+
+      setBandsLoaded(true);
     }
 
     loadBands();
@@ -124,51 +124,23 @@ export default function HomePage() {
 
       <FeatureShowcase />
 
-      <section id="bands" className="bands-section  scroll-mt-20">
-        <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-yellow-100 font-[family-name:var(--font-caveat)]">
-          Bands on the stage
-        </h2>
-
-        <div className="w-full max-w-6xl mx-auto px-4 py-8">
-          <div className="grid w-full max-w-6xl grid-cols-2 gap-3 rounded-md border border-neutral-700 bg-neutral-900/80 p-3 sm:grid-cols-3 sm:gap-4 sm:p-5 md:grid-cols-4 lg:grid-cols-4">
-            {featuredBands.map((band) => (
-              <Link
-                key={band.id}
-                href={`/band/${band.slug ?? band.id}`}
-                className="flex flex-col items-center rounded-md border border-neutral-700 p-3 text-center shadow-xl sm:p-5"
-              >
-                {band.image_url ? (
-                  <img
-                    src={band.image_url}
-                    alt={band.band_name}
-                    className="mb-2 h-16 w-16 rounded-full object-cover sm:h-20 sm:w-20 md:h-24 md:w-24"
-                  />
-                ) : (
-                  <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full border bg-slate-700 text-2xl font-bold text-yellow-100 sm:h-20 sm:w-20 md:h-24 md:w-24 md:text-3xl">
-                    {band.band_name?.charAt(0).toUpperCase()}
-                  </div>
-                )}
-
-                <h3 className="text-sm font-semibold text-yellow-100 sm:text-base">
-                  {band.band_name}
-                </h3>
-              </Link>
-            ))}
-          </div>
-          <div className="text-center mt-6">
-            <p className="mb-2 text-sm font-semibold text-neutral-400">
-              Look through{" "}
-              <span className="text-yellow-100 text-xl">{bandCount}</span> other
-              bands
-            </p>
-            <Link
-              href="/bands"
-              className="flex flex-row ml-auto min-h-10 w-fit items-center  rounded-md border border-[#4b432d]  px-4 py-2 text-sm font-semibold transition hover:bg-yellow-100 hover:text-neutral-900"
-            >
-              See all bands
-            </Link>
-          </div>
-        </div>
+      {/* The one light surface on the page: a gig poster pinned to the wall.
+          Order is the server's random draw, so the first act back headlines. */}
+      <section
+        id="bands"
+        aria-label="Bands on the stage"
+        className="mx-auto w-full max-w-3xl scroll-mt-20 px-4 py-20 sm:px-8"
+      >
+        <StagePoster
+          presenter={appName}
+          acts={featuredBands}
+          moreCount={
+            bandsLoaded
+              ? Math.max(0, bandCount - featuredBands.length)
+              : null
+          }
+          loaded={bandsLoaded}
+        />
       </section>
 
       <Footer />

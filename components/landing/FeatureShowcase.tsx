@@ -134,9 +134,6 @@ export function FeatureShowcase() {
     return () => clearInterval(interval);
   }, [paused, activeIndex]);
 
-  const activeFeature = features[activeIndex];
-  const Icon = activeFeature.icon;
-
   function nextFeature() {
     setActiveIndex((current) => (current + 1) % features.length);
   }
@@ -157,26 +154,43 @@ export function FeatureShowcase() {
         <div
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
-          className="rounded-2xl border border-neutral-700 bg-neutral-900/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.5)] md:p-8 height-[300px] md:h-[350px]"
+          className="grid rounded-2xl border border-neutral-700 bg-neutral-900/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.5)] md:p-8"
         >
-          <div
-            key={activeIndex}
-            className="animate-in fade-in slide-in-from-bottom-2 flex flex-col gap-4 duration-500 sm:flex-row sm:items-start"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-neutral-700 bg-black/40">
-              <Icon className="h-5 w-5 text-yellow-100" />
-            </div>
+          {/* Every feature is laid out in the same grid cell and only the
+              active one is visible, so the card is always as tall as the
+              tallest feature *at the current width*. A fixed height cannot
+              promise that: the text wraps differently on every phone, and the
+              card would either jump or clip. */}
+          {features.map((feature, index) => {
+            const Icon = feature.icon;
+            const isActive = index === activeIndex;
 
-            <div className="min-w-0 flex-1">
-              <h3 className="text-base font-bold text-yellow-100 md:text-lg">
-                {activeFeature.heading}
-              </h3>
-              <p className="mt-1 text-sm text-neutral-400">
-                {activeFeature.description}
-              </p>
-              <div className="mt-4">{activeFeature.visual}</div>
-            </div>
-          </div>
+            return (
+              <div
+                key={feature.heading}
+                aria-hidden={!isActive}
+                className={`flex flex-col gap-4 [grid-area:1/1] sm:flex-row sm:items-start ${
+                  isActive
+                    ? "animate-in fade-in slide-in-from-bottom-2 duration-500"
+                    : "invisible"
+                }`}
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-neutral-700 bg-black/40">
+                  <Icon className="h-5 w-5 text-yellow-100" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-bold text-yellow-100 md:text-lg">
+                    {feature.heading}
+                  </h3>
+                  <p className="mt-1 text-sm text-neutral-400">
+                    {feature.description}
+                  </p>
+                  <div className="mt-4">{feature.visual}</div>
+                </div>
+              </div>
+            );
+          })}
         </div>
         <div className="  relative mt-2 flex  justify-center gap-4 ">
           <button
